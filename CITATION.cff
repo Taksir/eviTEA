@@ -4,7 +4,7 @@ title: "EviTEA: Evidence-integrated Transposable Element Analysis"
 type: software
 version: 0.1.0.dev0
 license: GPL-3.0-or-later
-repository-code: "https://github.com/Taksir/evitea-v1"
+repository-code: "https://github.com/Taksir/eviTEA"
 authors:
   - family-names: "Majumder"
     given-names: "Md Taksir Hasan"

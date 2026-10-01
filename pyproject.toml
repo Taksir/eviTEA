@@ -17,8 +17,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Taksir/evitea-v1"
-Issues = "https://github.com/Taksir/evitea-v1/issues"
+Homepage = "https://github.com/Taksir/eviTEA"
+Issues = "https://github.com/Taksir/eviTEA/issues"
 
 [project.optional-dependencies]
 # Whole-read TE-record fragment decoder of the AnchorPE producer.  edlib ships

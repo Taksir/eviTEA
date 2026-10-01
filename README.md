@@ -46,8 +46,8 @@ python -m pip install "msbwt-modern3 @ git+https://github.com/Taksir/msbwt.git@e
 Then install EviTEA:
 
 ```bash
-git clone https://github.com/Taksir/evitea-v1.git
-cd evitea-v1
+git clone https://github.com/Taksir/eviTEA.git
+cd eviTEA
 python -m pip install .
 python -m pip install ".[anchorpe]"   # optional: edlib
 evitea version --json

@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0.dev0 (first public release, "EviTEA v1")
+## 0.1.0.dev0 (first public release, tagged v0.1)
 
 - `evitea call` runs the full pipeline on one sample: the clean repeat-aware
   incumbent caller followed by four evidence-extension layers (bilateral and
