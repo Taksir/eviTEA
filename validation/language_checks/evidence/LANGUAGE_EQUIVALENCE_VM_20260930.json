@@ -1,0 +1,274 @@
+{
+  "chain-final": {
+    "FINAL_SAFE_TERMINAL_CODEBOOK.tsv": {
+      "bytes_equal": true,
+      "rows": 685,
+      "sha256": "d631f16a0252e482"
+    },
+    "FINAL_SAFE_TERMINAL_RECORD_STATUS.tsv": {
+      "bytes_equal": true,
+      "rows": 180,
+      "sha256": "7cd8509e93e18f29"
+    },
+    "FINAL_SAFE_TERMINAL_REPAIR_LOG.tsv": {
+      "bytes_equal": true,
+      "rows": 1,
+      "sha256": "69d014a9e8bc7302"
+    },
+    "counts": {
+      "records_repaired_for_duplicate_sequence": [
+        "FBte0000415"
+      ],
+      "rows": 685,
+      "status_counts": {
+        "MULTI_INDEPENDENT_BLOCK": 174,
+        "SINGLE_INDEPENDENT_BLOCK": 3,
+        "UNSUPPORTED_TERMINAL_SAFE": 3
+      }
+    },
+    "final_sha256_ok": true
+  },
+  "chain-gapfill": {
+    "HYBRID_SAFE_TERMINAL_CODEBOOK.tsv": {
+      "bytes_equal": true,
+      "rows": 685,
+      "sha256": "a0e08d92dbaa93d1"
+    },
+    "UNDERPOWERED_MIXED_K_SOURCE_AUDIT.tsv": {
+      "bytes_equal": true,
+      "rows": 892,
+      "sha256": "bb12a192d70bb65e"
+    },
+    "UNDERPOWERED_TARGET_SUMMARY.tsv": {
+      "bytes_equal": true,
+      "rows": 6,
+      "sha256": "9994e427638f2832"
+    },
+    "counts": {
+      "hybrid_rows": 685,
+      "replacement_rows": 3,
+      "targets": 6
+    }
+  },
+  "chain-internal": {
+    "SAFE_INTERNAL21_CANDIDATE_AUDIT.tsv": {
+      "bytes_equal": true,
+      "rows": 15193,
+      "sha256": "6810d7594702e004"
+    },
+    "SAFE_INTERNAL21_FAMILY_SUMMARY.tsv": {
+      "bytes_equal": true,
+      "rows": 169,
+      "sha256": "c379938790ffd73f"
+    },
+    "SAFE_INTERNAL21_FULL_CODEBOOK.tsv": {
+      "bytes_equal": true,
+      "rows": 12280,
+      "sha256": "57f9a6a64584131c"
+    },
+    "SAFE_INTERNAL21_INTERNAL_ONLY_CODEBOOK.tsv": {
+      "bytes_equal": true,
+      "rows": 12279,
+      "sha256": "44b9896015eb1dd5"
+    },
+    "SAFE_INTERNAL21_SOURCE_AUDIT.tsv": {
+      "bytes_equal": true,
+      "rows": 15215,
+      "sha256": "4d6ed83f78ded271"
+    },
+    "SAFE_INTERNAL21_TE_RECORD_SUMMARY.tsv": {
+      "bytes_equal": true,
+      "rows": 180,
+      "sha256": "51d81740689bee70"
+    },
+    "counts": {
+      "exhaustive_source_family_safe_candidates": 14028,
+      "frozen_clean_internal21_candidates": 15193,
+      "internal_source_rows": 15215,
+      "reference_safe_internal_query_units": 12269,
+      "safe_internal_only_query_units": 12268,
+      "safe_internal_only_source_rows": 12279,
+      "safe_internal_source_rows": 12280
+    },
+    "internal_only_sha256_ok": true
+  },
+  "chain-rebuild": {
+    "REBUILT_SAFE_TERMINAL21_CODEBOOK.tsv": {
+      "bytes_equal": true,
+      "rows": 685,
+      "sha256": "64032d254e285ebc"
+    },
+    "REBUILT_SAFE_TERMINAL21_FAMILY_SUMMARY.tsv": {
+      "bytes_equal": true,
+      "rows": 169,
+      "sha256": "2f0a381019741c99"
+    },
+    "REBUILT_SAFE_TERMINAL21_TE_RECORD_SUMMARY.tsv": {
+      "bytes_equal": true,
+      "rows": 180,
+      "sha256": "fe9e4aa8aabb6556"
+    },
+    "SAFE_TERMINAL21_CANDIDATE_AUDIT.tsv": {
+      "bytes_equal": true,
+      "rows": 7038,
+      "sha256": "3419af279e1328db"
+    },
+    "SAFE_TERMINAL21_SOURCE_AUDIT.tsv": {
+      "bytes_equal": true,
+      "rows": 7130,
+      "sha256": "e11970c983a540b8"
+    },
+    "counts": {
+      "acquisition_safe_probes": 5632,
+      "clean_terminal21_canonical_probes": 7038,
+      "reference_context_safe_probes": 5826,
+      "selected_rows": 685,
+      "source_family_consistent_probes": 6668,
+      "te_records": 180
+    }
+  },
+  "final": {
+    "FINAL_SAFE_TERMINAL_CODEBOOK.tsv": {
+      "bytes_equal": true,
+      "rows": 685,
+      "sha256": "d631f16a0252e482"
+    },
+    "FINAL_SAFE_TERMINAL_RECORD_STATUS.tsv": {
+      "bytes_equal": true,
+      "rows": 180,
+      "sha256": "7cd8509e93e18f29"
+    },
+    "FINAL_SAFE_TERMINAL_REPAIR_LOG.tsv": {
+      "bytes_equal": true,
+      "rows": 1,
+      "sha256": "69d014a9e8bc7302"
+    },
+    "counts": {
+      "records_repaired_for_duplicate_sequence": [
+        "FBte0000415"
+      ],
+      "rows": 685,
+      "status_counts": {
+        "MULTI_INDEPENDENT_BLOCK": 174,
+        "SINGLE_INDEPENDENT_BLOCK": 3,
+        "UNSUPPORTED_TERMINAL_SAFE": 3
+      }
+    },
+    "final_sha256_ok": true
+  },
+  "g1a": {
+    "catalogue_equal_on_consumed_columns": true,
+    "catalogue_rows": 177128,
+    "frozen_inputs_sha256_ok": {
+      "family_map": true,
+      "g1a_zip": true,
+      "reference": true,
+      "repeatmasker": true,
+      "te_fasta": true
+    },
+    "provenance_equal_on_consumed_columns": true,
+    "provenance_rows": 178870
+  },
+  "gapfill": {
+    "HYBRID_SAFE_TERMINAL_CODEBOOK.tsv": {
+      "bytes_equal": true,
+      "rows": 685,
+      "sha256": "a0e08d92dbaa93d1"
+    },
+    "UNDERPOWERED_MIXED_K_SOURCE_AUDIT.tsv": {
+      "bytes_equal": true,
+      "rows": 892,
+      "sha256": "bb12a192d70bb65e"
+    },
+    "UNDERPOWERED_TARGET_SUMMARY.tsv": {
+      "bytes_equal": true,
+      "rows": 6,
+      "sha256": "9994e427638f2832"
+    },
+    "counts": {
+      "hybrid_rows": 685,
+      "replacement_rows": 3,
+      "targets": 6
+    }
+  },
+  "internal": {
+    "SAFE_INTERNAL21_CANDIDATE_AUDIT.tsv": {
+      "bytes_equal": true,
+      "rows": 15193,
+      "sha256": "6810d7594702e004"
+    },
+    "SAFE_INTERNAL21_FAMILY_SUMMARY.tsv": {
+      "bytes_equal": true,
+      "rows": 169,
+      "sha256": "c379938790ffd73f"
+    },
+    "SAFE_INTERNAL21_FULL_CODEBOOK.tsv": {
+      "bytes_equal": true,
+      "rows": 12280,
+      "sha256": "57f9a6a64584131c"
+    },
+    "SAFE_INTERNAL21_INTERNAL_ONLY_CODEBOOK.tsv": {
+      "bytes_equal": true,
+      "rows": 12279,
+      "sha256": "44b9896015eb1dd5"
+    },
+    "SAFE_INTERNAL21_SOURCE_AUDIT.tsv": {
+      "bytes_equal": true,
+      "rows": 15215,
+      "sha256": "4d6ed83f78ded271"
+    },
+    "SAFE_INTERNAL21_TE_RECORD_SUMMARY.tsv": {
+      "bytes_equal": true,
+      "rows": 180,
+      "sha256": "51d81740689bee70"
+    },
+    "counts": {
+      "exhaustive_source_family_safe_candidates": 14028,
+      "frozen_clean_internal21_candidates": 15193,
+      "internal_source_rows": 15215,
+      "reference_safe_internal_query_units": 12269,
+      "safe_internal_only_query_units": 12268,
+      "safe_internal_only_source_rows": 12279,
+      "safe_internal_source_rows": 12280
+    },
+    "internal_only_sha256_ok": true
+  },
+  "missing_steps": [],
+  "rebuild": {
+    "REBUILT_SAFE_TERMINAL21_CODEBOOK.tsv": {
+      "bytes_equal": true,
+      "rows": 685,
+      "sha256": "64032d254e285ebc"
+    },
+    "REBUILT_SAFE_TERMINAL21_FAMILY_SUMMARY.tsv": {
+      "bytes_equal": true,
+      "rows": 169,
+      "sha256": "2f0a381019741c99"
+    },
+    "REBUILT_SAFE_TERMINAL21_TE_RECORD_SUMMARY.tsv": {
+      "bytes_equal": true,
+      "rows": 180,
+      "sha256": "fe9e4aa8aabb6556"
+    },
+    "SAFE_TERMINAL21_CANDIDATE_AUDIT.tsv": {
+      "bytes_equal": true,
+      "rows": 7038,
+      "sha256": "3419af279e1328db"
+    },
+    "SAFE_TERMINAL21_SOURCE_AUDIT.tsv": {
+      "bytes_equal": true,
+      "rows": 7130,
+      "sha256": "e11970c983a540b8"
+    },
+    "counts": {
+      "acquisition_safe_probes": 5632,
+      "clean_terminal21_canonical_probes": 7038,
+      "reference_context_safe_probes": 5826,
+      "selected_rows": 685,
+      "source_family_consistent_probes": 6668,
+      "te_records": 180
+    }
+  },
+  "truth_opened": false,
+  "verdict": "LANGUAGE_BUILDER_EQUIVALENCE_PASS"
+}

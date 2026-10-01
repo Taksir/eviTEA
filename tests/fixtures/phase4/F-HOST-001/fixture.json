@@ -1,0 +1,13 @@
+{
+  "fixture_id": "F-HOST-001",
+  "description": "Synthetic host-state reduction from finite SAM observations.",
+  "synthetic": true,
+  "provenance": "Hand-authored contract fixture; no truth, comparator, or production data.",
+  "input": "input.json",
+  "expected": "expected.json",
+  "sha256": {"input.json": "2d5422a9bb0a50b60deddfed826963515fd6347f3a415a47238d37ed8577278b", "expected.json": "922116f0ee01ae32e9d9767bf19cb7d8a7025a48d33a06d99f3f43d6fc2102c9"},
+  "case_rows": 4,
+  "expected_pair_ids": [0, 1, 2, 3],
+  "min_mapq": 20,
+  "expected_states": ["UNIQUE_HIGH", "NONUNIQUE_OR_LOW", "UNMAPPED"]
+}

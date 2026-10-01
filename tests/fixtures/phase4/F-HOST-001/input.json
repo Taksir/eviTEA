@@ -1,0 +1,19 @@
+{
+  "fixture_id": "F-HOST-001",
+  "synthetic": true,
+  "alignments": {
+    "unique_at_threshold": [
+      {"query_name": "toy/1", "pair_id": 0, "mate": 1, "flag": 0, "reference_name": "chrToy", "position0": 10, "mapq": 20, "cigar": "21M", "sequence": "ACGTACGTACGTACGTACGTA"}
+    ],
+    "one_low_mapq": [
+      {"query_name": "toy/1", "pair_id": 1, "mate": 1, "flag": 0, "reference_name": "chrToy", "position0": 10, "mapq": 19, "cigar": "21M", "sequence": "ACGTACGTACGTACGTACGTA"}
+    ],
+    "two_reported_placements": [
+      {"query_name": "toy/1", "pair_id": 2, "mate": 1, "flag": 0, "reference_name": "chrToy", "position0": 10, "mapq": 50, "cigar": "21M", "sequence": "ACGTACGTACGTACGTACGTA"},
+      {"query_name": "toy/1", "pair_id": 2, "mate": 1, "flag": 256, "reference_name": "chrToy2", "position0": 30, "mapq": 0, "cigar": "21M", "sequence": "ACGTACGTACGTACGTACGTA"}
+    ],
+    "unmapped": [
+      {"query_name": "toy/1", "pair_id": 3, "mate": 1, "flag": 4, "reference_name": null, "position0": null, "mapq": 0, "cigar": null, "sequence": "ACGTACGTACGTACGTACGTA"}
+    ]
+  }
+}

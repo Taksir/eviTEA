@@ -1,0 +1,6 @@
+{
+  "unique_at_threshold": "UNIQUE_HIGH",
+  "one_low_mapq": "NONUNIQUE_OR_LOW",
+  "two_reported_placements": "NONUNIQUE_OR_LOW",
+  "unmapped": "UNMAPPED"
+}

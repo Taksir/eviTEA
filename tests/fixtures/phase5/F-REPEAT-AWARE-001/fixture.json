@@ -1,0 +1,13 @@
+{
+  "fixture_id": "F-REPEAT-AWARE-001",
+  "description": "Synthetic repeat-aware recurrence, divergence, indel, and bilateral aggregation contract cases.",
+  "synthetic": true,
+  "provenance": "Hand-authored from route_b_v2_r9e_repeat_aware_divergence.py and its R8E aggregation helpers; no truth, comparator, score, or production data.",
+  "input": "input.json",
+  "expected": "expected.json",
+  "case_count": 9,
+  "sha256": {
+    "input.json": "a89881859f1e5ff8e8a82ba874cf2ce740c7abbc0c53372faa70601a81a08fce",
+    "expected.json": "5791d6d14711921469fd82357db0f8983474cfd8e3d5859d881c8c6f69bf71af"
+  }
+}

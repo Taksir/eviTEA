@@ -1,0 +1,17 @@
+{
+  "fixture_id": "F-REF-001",
+  "synthetic": true,
+  "required_query_spans0": [[0, 5], [7, 10]],
+  "pair0_alternatives": [
+    {"alternative_id": "alt-first-partial", "placement_rank": 1, "chrom": "chrResidentToy", "te_alignment_span0": [100, 105], "cigar": "5M", "is_local_proper": true},
+    {"alternative_id": "alt-second-complete", "placement_rank": 2, "chrom": "chrToy", "te_alignment_span0": [200, 210], "cigar": "10M", "is_local_proper": true},
+    {"alternative_id": "alt-third-complete", "placement_rank": 3, "chrom": "chrToy2", "te_alignment_span0": [300, 310], "cigar": "10M", "is_local_proper": true}
+  ],
+  "pair1_alternatives": [
+    {"alternative_id": "alt-only-first-occurrence", "placement_rank": 1, "chrom": "chrToy", "te_alignment_span0": [400, 405], "cigar": "5M", "is_local_proper": true}
+  ],
+  "pair2_alternatives": [
+    {"alternative_id": "alt-censored-partial", "placement_rank": 1, "chrom": "chrToy", "te_alignment_span0": [500, 505], "cigar": "5M", "is_local_proper": true, "censor_state": "REFERENCE_RESOURCE_CENSORED"}
+  ],
+  "cigar_semantics": {"cigar": "2S3M2I2=1X", "explained_query_spans0": [[2, 5], [7, 10]]}
+}

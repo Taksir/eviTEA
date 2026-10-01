@@ -1,0 +1,266 @@
+"""Typed engineering configuration with immutable scientific constants."""
+
+from __future__ import annotations
+
+import os
+import tomllib
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from .constants import (
+    ARCHITECTURE_ID,
+    EVENT_EQUIV_DISTANCE,
+    MIN_FOLDS,
+    MIN_PAIRS,
+    N_FOLDS,
+    Q99,
+)
+from .contracts import stable_to_primitive
+from .errors import InputContractError
+
+_LOG_LEVELS = frozenset({"ERROR", "WARNING", "INFO", "DEBUG"})
+_SCIENCE_KEYS = frozenset(
+    {
+        "q99",
+        "min_pairs",
+        "min_folds",
+        "n_folds",
+        "equivalence_distance",
+        "edit_threshold",
+        "family_alias",
+        "truth",
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ScienceProfile:
+    architecture_id: str = ARCHITECTURE_ID
+    q99: int = Q99
+    min_pairs: int = MIN_PAIRS
+    min_folds: int = MIN_FOLDS
+    n_folds: int = N_FOLDS
+    equivalence_distance: int = EVENT_EQUIV_DISTANCE
+
+
+@dataclass(frozen=True, slots=True)
+class InputConfig:
+    sample_id: str | None = None
+    read1: Path | None = None
+    read2: Path | None = None
+    sample_assets: Path | None = None
+    msbwt_index: Path | None = None
+    profile: str = "production"
+
+    def __post_init__(self) -> None:
+        raw_mode = self.read1 is not None or self.read2 is not None
+        prepared_mode = self.sample_assets is not None
+        index_mode = self.msbwt_index is not None
+        if raw_mode and (self.read1 is None or self.read2 is None):
+            raise InputContractError("raw sample mode requires both read1 and read2")
+        if raw_mode + prepared_mode + index_mode > 1:
+            raise InputContractError(
+                "choose paired reads, prepared sample assets, or an msBWT index, not several"
+            )
+        if index_mode and not self.sample_id:
+            raise InputContractError("an msBWT index input requires an explicit sample_id")
+        if not isinstance(self.profile, str) or not self.profile:
+            raise InputContractError("profile must be non-empty text")
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedAssetConfig:
+    reference_assets: Path | None = None
+    te_assets: Path | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeConfig:
+    threads: int = 0
+    work_dir: Path | None = None
+    exact_query_backend: str = "msbwt"
+    resume: bool = False
+    keep_intermediates: bool = False
+    bowtie2: Path | None = None
+    bowtie2_build: Path | None = None
+    edlib_python: Path | None = None
+    workers: int = 0
+
+    def __post_init__(self) -> None:
+        for name in ("threads", "workers"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise InputContractError(f"{name} must be an integer")
+            if value < 0:
+                raise InputContractError(f"{name} must be non-negative")
+        if self.exact_query_backend != "msbwt":
+            raise InputContractError("the frozen profile supports only msbwt")
+        if not isinstance(self.resume, bool):
+            raise InputContractError("resume must be a boolean")
+        if not isinstance(self.keep_intermediates, bool):
+            raise InputContractError("keep_intermediates must be a boolean")
+
+    @property
+    def resolved_threads(self) -> int:
+        return self.threads or max(1, os.cpu_count() or 1)
+
+    @property
+    def resolved_workers(self) -> int:
+        """Locus-batch worker processes (default: one fewer than the CPUs)."""
+
+        return self.workers or max(1, (os.cpu_count() or 2) - 1)
+
+
+@dataclass(frozen=True, slots=True)
+class OutputConfig:
+    directory: Path | None = None
+    log_level: str = "INFO"
+
+    def __post_init__(self) -> None:
+        if self.log_level not in _LOG_LEVELS:
+            raise InputContractError(
+                "log_level must be ERROR, WARNING, INFO, or DEBUG"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class EviTEAConfig:
+    inputs: InputConfig = InputConfig()
+    assets: PreparedAssetConfig = PreparedAssetConfig()
+    runtime: RuntimeConfig = RuntimeConfig()
+    output: OutputConfig = OutputConfig()
+    science: ScienceProfile = ScienceProfile()
+
+    def normalized(self) -> dict[str, Any]:
+        return stable_to_primitive(self)
+
+
+_SECTION_KEYS = {
+    "inputs": frozenset(
+        {
+            "sample_id",
+            "read1",
+            "read2",
+            "sample_assets",
+            "msbwt_index",
+            "profile",
+            "reference_assets",
+            "te_assets",
+        }
+    ),
+    "runtime": frozenset(
+        {
+            "threads",
+            "work_dir",
+            "exact_query_backend",
+            "resume",
+            "keep_intermediates",
+            "bowtie2",
+            "bowtie2_build",
+            "edlib_python",
+            "workers",
+        }
+    ),
+    "output": frozenset({"directory", "log_level"}),
+}
+
+
+def _optional_path(value: Any, field: str, base_dir: Path) -> Path | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise InputContractError(f"{field} must be non-empty path text")
+    path = Path(value).expanduser()
+    return path if path.is_absolute() else (base_dir / path).resolve()
+
+
+def _validate_document(document: Any) -> dict[str, dict[str, Any]]:
+    if not isinstance(document, dict):
+        raise InputContractError("configuration root must be a TOML table")
+    unknown_sections = set(document) - set(_SECTION_KEYS)
+    if unknown_sections:
+        raise InputContractError(
+            f"unknown configuration section(s): {sorted(unknown_sections)}"
+        )
+    for section, values in document.items():
+        if not isinstance(values, dict):
+            raise InputContractError(f"configuration section {section} must be a table")
+        forbidden = set(values) & _SCIENCE_KEYS
+        if forbidden:
+            raise InputContractError(
+                f"frozen scientific setting is not configurable: {sorted(forbidden)}"
+            )
+        unknown = set(values) - set(_SECTION_KEYS[section])
+        if unknown:
+            raise InputContractError(
+                f"unknown {section} configuration key(s): {sorted(unknown)}"
+            )
+    return document
+
+
+def load_config(path: str | Path) -> EviTEAConfig:
+    """Load TOML; relative paths resolve against the TOML file's directory."""
+
+    config_path = Path(path).expanduser().resolve()
+    try:
+        with config_path.open("rb") as handle:
+            document = _validate_document(tomllib.load(handle))
+    except OSError as exc:
+        raise InputContractError(f"cannot read configuration: {config_path}") from exc
+    inputs = document.get("inputs", {})
+    runtime = document.get("runtime", {})
+    output = document.get("output", {})
+    base = config_path.parent
+    return EviTEAConfig(
+        inputs=InputConfig(
+            sample_id=inputs.get("sample_id"),
+            read1=_optional_path(inputs.get("read1"), "read1", base),
+            read2=_optional_path(inputs.get("read2"), "read2", base),
+            sample_assets=_optional_path(
+                inputs.get("sample_assets"), "sample_assets", base
+            ),
+            msbwt_index=_optional_path(inputs.get("msbwt_index"), "msbwt_index", base),
+            profile=inputs.get("profile", "production"),
+        ),
+        assets=PreparedAssetConfig(
+            reference_assets=_optional_path(
+                inputs.get("reference_assets"), "reference_assets", base
+            ),
+            te_assets=_optional_path(inputs.get("te_assets"), "te_assets", base),
+        ),
+        runtime=RuntimeConfig(
+            threads=runtime.get("threads", 0),
+            work_dir=_optional_path(runtime.get("work_dir"), "work_dir", base),
+            exact_query_backend=runtime.get("exact_query_backend", "msbwt"),
+            resume=runtime.get("resume", False),
+            keep_intermediates=runtime.get("keep_intermediates", False),
+            bowtie2=_optional_path(runtime.get("bowtie2"), "bowtie2", base),
+            bowtie2_build=_optional_path(runtime.get("bowtie2_build"), "bowtie2_build", base),
+            edlib_python=_optional_path(runtime.get("edlib_python"), "edlib_python", base),
+            workers=runtime.get("workers", 0),
+        ),
+        output=OutputConfig(
+            directory=_optional_path(output.get("directory"), "directory", base),
+            log_level=output.get("log_level", "INFO"),
+        ),
+    )
+
+
+def merge_config(
+    base: EviTEAConfig,
+    *,
+    inputs: InputConfig | None = None,
+    assets: PreparedAssetConfig | None = None,
+    runtime: RuntimeConfig | None = None,
+    output: OutputConfig | None = None,
+) -> EviTEAConfig:
+    """Apply legal explicit overrides without exposing science settings."""
+
+    return EviTEAConfig(
+        inputs=inputs or base.inputs,
+        assets=assets or base.assets,
+        runtime=runtime or base.runtime,
+        output=output or base.output,
+        science=base.science,
+    )

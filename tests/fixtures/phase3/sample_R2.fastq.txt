@@ -1,0 +1,8 @@
+@toy-pair-0/2
+TGCATGCA
++
+IIIIIIII
+@toy-pair-1/2
+AACCGGTT
++
+IIIIIIII

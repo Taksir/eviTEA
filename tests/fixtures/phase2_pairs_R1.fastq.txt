@@ -1,0 +1,24 @@
+@pair0/1
+acgt
++
+IIII
+@repeat/1
+TGCA
++
+IIII
+@casava 1:N:0:1
+ACGT
++
+IIII
+@pair3/1
+GATT
++
+IIII
+@pair4 1:N:0:2
+CCAA
++
+IIII
+@repeat
+TTAA
++
+IIII

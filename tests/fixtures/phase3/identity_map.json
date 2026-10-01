@@ -1,0 +1,9 @@
+{
+  "schema_version": "evitea.read-identity-map.v1",
+  "identities": [
+    {"backend_read_id": 10, "pair_id": 0, "mate": 1},
+    {"backend_read_id": 11, "pair_id": 0, "mate": 2},
+    {"backend_read_id": 20, "pair_id": 1, "mate": 1},
+    {"backend_read_id": 21, "pair_id": 1, "mate": 2}
+  ]
+}

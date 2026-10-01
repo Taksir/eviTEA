@@ -1,0 +1,7 @@
+{
+  "profile_id": "bowtie2-2.5.5-candidate-unapproved",
+  "backend": "bowtie2",
+  "version": "2.5.5",
+  "options": {"k": 2},
+  "approved": false
+}

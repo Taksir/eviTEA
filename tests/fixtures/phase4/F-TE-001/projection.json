@@ -1,0 +1,12 @@
+{
+  "probe_sequence": "ACGTTGCAAGTCGATCGTACG",
+  "sample_sequences": [
+    {"pair_id": 0, "mate": 1, "sequence": "TTACGTTGCAAGTCGATCGTACGGGGACGTTGCAAGTCGATCGTACGCC"},
+    {"pair_id": 0, "mate": 2, "sequence": "ACGTACGATCGACTTGCAACGTCC"}
+  ],
+  "expected_hits": [
+    {"pair_id": 0, "mate": 1, "query_span0": [2, 23], "hit_orientation": "FORWARD"},
+    {"pair_id": 0, "mate": 1, "query_span0": [26, 47], "hit_orientation": "FORWARD"},
+    {"pair_id": 0, "mate": 2, "query_span0": [1, 22], "hit_orientation": "REVERSE"}
+  ]
+}

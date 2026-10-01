@@ -1,0 +1,14 @@
+{
+  "fixture_id": "F-REF-001",
+  "description": "Synthetic finite reference alternatives and query-coordinate explanations.",
+  "synthetic": true,
+  "provenance": "Hand-authored contract fixture; no truth, comparator, or production data.",
+  "input": "input.json",
+  "expected": "expected.json",
+  "sha256": {"input.json": "426a3888841569bfa76c91bb0e6e508fea21183d4c9b934c768e13654acb14e3", "expected.json": "eda56fa82b1a2891e596295295558fb4112648b8bff19fa6137331180c4fb0f1"},
+  "alternative_rows": 5,
+  "expected_pair_ids": [0, 1, 2],
+  "relevant_safe_occurrence_spans": 2,
+  "expected_explained_query_spans0": [[2, 5], [7, 10]],
+  "expected_states": ["EVIDENCE_COMPLETE", "REFERENCE_UNEXPLAINED", "INDETERMINATE_CENSORED"]
+}

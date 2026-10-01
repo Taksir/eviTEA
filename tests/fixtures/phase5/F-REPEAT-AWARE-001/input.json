@@ -1,0 +1,96 @@
+{
+  "synthetic": true,
+  "cigar_regression": {
+    "query": "ATGGCGTA",
+    "reference": "AACCGGTT",
+    "reference_start0": 1,
+    "cigar": "2M2I3M1D1M"
+  },
+  "locus": {
+    "sample_id": "synthetic-sample",
+    "locus_id": "synthetic-locus",
+    "legacy_event_id": "synthetic-event",
+    "family": "FamilyA",
+    "chrom": "chrSynthetic",
+    "interval0": [101, 107],
+    "left_coord0": 101,
+    "right_coord0": 107
+  },
+  "cases": {
+    "duplicate_pair_support": {
+      "te_sequence": "AAAAAAAAAA",
+      "groups": [
+        {"id": "target", "pair": 1, "side": "LEFT", "length": 35, "costs": {"FamilyA": 4, "FamilyB": 5}, "record": "te1", "nm": 4, "ops": [["SUB", 0, "A", "C"], ["SUB", 1, "A", "C"], ["SUB", 2, "A", "C"], ["SUB", 3, "A", "C"]]},
+        {"id": "train-20a", "pair": 20, "side": "LEFT", "length": 35, "costs": {"FamilyA": 4, "FamilyB": 5}, "record": "te1", "nm": 4, "ops": [["SUB", 0, "A", "C"], ["SUB", 1, "A", "C"], ["SUB", 2, "A", "C"], ["SUB", 3, "A", "C"]]},
+        {"id": "train-20b", "pair": 20, "side": "LEFT", "length": 35, "costs": {"FamilyA": 4, "FamilyB": 5}, "record": "te1", "nm": 4, "ops": [["SUB", 0, "A", "C"], ["SUB", 1, "A", "C"], ["SUB", 2, "A", "C"], ["SUB", 3, "A", "C"]]}
+      ]
+    },
+    "distinct_pair_support": {
+      "te_sequence": "AAAAAAAAAA",
+      "groups": [
+        {"id": "target", "pair": 1, "side": "LEFT", "length": 35, "costs": {"FamilyA": 4, "FamilyB": 5}, "record": "te1", "nm": 4, "ops": [["SUB", 0, "A", "C"], ["SUB", 1, "A", "C"], ["SUB", 2, "A", "C"], ["SUB", 3, "A", "C"]]},
+        {"id": "train-20", "pair": 20, "side": "LEFT", "length": 35, "costs": {"FamilyA": 4, "FamilyB": 5}, "record": "te1", "nm": 4, "ops": [["SUB", 0, "A", "C"], ["SUB", 1, "A", "C"], ["SUB", 2, "A", "C"], ["SUB", 3, "A", "C"]]},
+        {"id": "train-21", "pair": 21, "side": "LEFT", "length": 35, "costs": {"FamilyA": 4, "FamilyB": 5}, "record": "te1", "nm": 4, "ops": [["SUB", 0, "A", "C"], ["SUB", 1, "A", "C"], ["SUB", 2, "A", "C"], ["SUB", 3, "A", "C"]]}
+      ]
+    },
+    "best_family_tie": {
+      "te_sequence": "AAAAAAAAAA",
+      "groups": [
+        {"id": "target", "pair": 1, "side": "LEFT", "length": 10, "costs": {"FamilyA": 1, "FamilyB": 1}, "record": "te1", "nm": 1, "ops": [["SUB", 1, "A", "C"]]},
+        {"id": "train-20", "pair": 20, "side": "LEFT", "length": 10, "costs": {"FamilyA": 1, "FamilyB": 2}, "record": "te1", "nm": 1, "ops": [["SUB", 1, "A", "C"]]},
+        {"id": "train-21", "pair": 21, "side": "LEFT", "length": 10, "costs": {"FamilyA": 1, "FamilyB": 2}, "record": "te1", "nm": 1, "ops": [["SUB", 1, "A", "C"]]}
+      ]
+    },
+    "exact_allele_support_tie": {
+      "te_sequence": "AAAAAAAAAA",
+      "groups": [
+        {"id": "target", "pair": 1, "side": "LEFT", "length": 10, "costs": {"FamilyA": 1, "FamilyB": 2}, "record": "te1", "nm": 1, "ops": [["SUB", 1, "A", "C"]]},
+        {"id": "c-20", "pair": 20, "side": "LEFT", "length": 10, "costs": {"FamilyA": 1, "FamilyB": 2}, "record": "te1", "nm": 1, "ops": [["SUB", 1, "A", "C"]]},
+        {"id": "c-21", "pair": 21, "side": "LEFT", "length": 10, "costs": {"FamilyA": 1, "FamilyB": 2}, "record": "te1", "nm": 1, "ops": [["SUB", 1, "A", "C"]]},
+        {"id": "g-22", "pair": 22, "side": "LEFT", "length": 10, "costs": {"FamilyA": 1, "FamilyB": 2}, "record": "te1", "nm": 1, "ops": [["SUB", 1, "A", "G"]]},
+        {"id": "g-23", "pair": 23, "side": "LEFT", "length": 10, "costs": {"FamilyA": 1, "FamilyB": 2}, "record": "te1", "nm": 1, "ops": [["SUB", 1, "A", "G"]]}
+      ]
+    },
+    "repeat_unanchored_indel": {
+      "te_sequence": "AAAAAA",
+      "groups": [
+        {"id": "target", "pair": 1, "side": "LEFT", "length": 10, "costs": {"FamilyA": 1, "FamilyB": 2}, "record": "te1", "nm": 1, "ops": [["INS", 3, "", "A"]]},
+        {"id": "train-20", "pair": 20, "side": "LEFT", "length": 10, "costs": {"FamilyA": 1, "FamilyB": 2}, "record": "te1", "nm": 1, "ops": [["INS", 3, "", "A"]]},
+        {"id": "train-21", "pair": 21, "side": "LEFT", "length": 10, "costs": {"FamilyA": 1, "FamilyB": 2}, "record": "te1", "nm": 1, "ops": [["INS", 3, "", "A"]]}
+      ]
+    },
+    "repeat_linked_substitution": {
+      "te_sequence": "AAAAAA",
+      "groups": [
+        {"id": "target", "pair": 1, "side": "LEFT", "length": 20, "costs": {"FamilyA": 2, "FamilyB": 3}, "record": "te1", "nm": 2, "ops": [["INS", 3, "", "A"], ["SUB", 1, "A", "C"]]},
+        {"id": "train-20", "pair": 20, "side": "LEFT", "length": 20, "costs": {"FamilyA": 2, "FamilyB": 3}, "record": "te1", "nm": 2, "ops": [["INS", 3, "", "A"], ["SUB", 1, "A", "C"]]},
+        {"id": "train-21", "pair": 21, "side": "LEFT", "length": 20, "costs": {"FamilyA": 2, "FamilyB": 3}, "record": "te1", "nm": 2, "ops": [["INS", 3, "", "A"], ["SUB", 1, "A", "C"]]}
+      ]
+    },
+    "unique_indel_placement": {
+      "te_sequence": "ACGTACGT",
+      "groups": [
+        {"id": "target", "pair": 1, "side": "LEFT", "length": 10, "costs": {"FamilyA": 1, "FamilyB": 2}, "record": "te1", "nm": 1, "ops": [["INS", 3, "", "A"]]},
+        {"id": "train-20", "pair": 20, "side": "LEFT", "length": 10, "costs": {"FamilyA": 1, "FamilyB": 2}, "record": "te1", "nm": 1, "ops": [["INS", 3, "", "A"]]},
+        {"id": "train-21", "pair": 21, "side": "LEFT", "length": 10, "costs": {"FamilyA": 1, "FamilyB": 2}, "record": "te1", "nm": 1, "ops": [["INS", 3, "", "A"]]}
+      ]
+    },
+    "bilateral_event": {
+      "te_sequence": "AAAAAAAAAA",
+      "groups": [
+        {"id": "left-1", "pair": 1, "side": "LEFT", "length": 35, "costs": {"FamilyA": 0, "FamilyB": 2}},
+        {"id": "left-2", "pair": 2, "side": "LEFT", "length": 35, "costs": {"FamilyA": 0, "FamilyB": 2}},
+        {"id": "right-3", "pair": 3, "side": "RIGHT", "length": 35, "costs": {"FamilyA": 0, "FamilyB": 2}},
+        {"id": "right-4", "pair": 4, "side": "RIGHT", "length": 35, "costs": {"FamilyA": 0, "FamilyB": 2}}
+      ]
+    },
+    "one_right_event": {
+      "te_sequence": "AAAAAAAAAA",
+      "groups": [
+        {"id": "left-1", "pair": 1, "side": "LEFT", "length": 35, "costs": {"FamilyA": 0, "FamilyB": 2}},
+        {"id": "left-2", "pair": 2, "side": "LEFT", "length": 35, "costs": {"FamilyA": 0, "FamilyB": 2}},
+        {"id": "right-3", "pair": 3, "side": "RIGHT", "length": 35, "costs": {"FamilyA": 0, "FamilyB": 2}}
+      ]
+    }
+  }
+}

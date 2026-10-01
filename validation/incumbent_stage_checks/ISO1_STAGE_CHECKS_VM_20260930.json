@@ -1,0 +1,86 @@
+{
+  "candidate_loci": {
+    "equal": true,
+    "frozen": 9064,
+    "loci": 9064,
+    "meta": {
+      "final_candidate_pairs": 127075,
+      "localized_candidate_pairs": 119703,
+      "missing_family": 59,
+      "missing_hitmask": 74932,
+      "unlocalized_or_missing_host": 7313,
+      "working_candidate_pairs": 116230
+    }
+  },
+  "fcrc1": {
+    "all_events_bytes_equal": true,
+    "calls": 105,
+    "calls_bytes_equal": true,
+    "events": 255
+  },
+  "g1a": {
+    "catalogue_equal": true,
+    "intervals_equal": true,
+    "provenance_equal": true,
+    "queries": 177128
+  },
+  "g1b": {
+    "pairs": 153405,
+    "pairs_equal": true,
+    "panel": 13980,
+    "panel_equal": true
+  },
+  "g1c": {
+    "h1": 1181,
+    "h1_equal": true,
+    "short": 678502,
+    "short_equal": true
+  },
+  "g1d": {
+    "actions": 13903,
+    "actions_equal": true,
+    "groups_equal": true,
+    "sequences_equal": true
+  },
+  "g1e": {
+    "groups_equal": true,
+    "pairs": 994474,
+    "pairs_equal": true,
+    "read_counts_equal": true,
+    "sequences_equal": true
+  },
+  "g1f_g1g": {
+    "families_equal": true,
+    "first_diffs": [],
+    "mapping_diffs": 0,
+    "mapping_equal": true,
+    "mappings": 514805,
+    "working": 116230,
+    "working_equal": true
+  },
+  "g1hr": {
+    "first_diffs": [],
+    "mapping_diffs": 0,
+    "mapping_equal": true,
+    "mappings": 158559,
+    "repaired": 127075,
+    "repaired_equal": true
+  },
+  "g1hr_plan": {
+    "anchors": 521,
+    "anchors_equal": true,
+    "chunks": 3,
+    "evidence": 365738,
+    "evidence_equal": true,
+    "requests": 158559
+  },
+  "r4": {
+    "calls": 57,
+    "combined_bytes_equal": true,
+    "ledger": 8966
+  },
+  "r6_route": {
+    "routed_pairs": 295727,
+    "targets": 3032
+  }
+}

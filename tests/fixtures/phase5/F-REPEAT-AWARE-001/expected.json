@@ -1,0 +1,23 @@
+{
+  "cigar_operations": [
+    ["SUB", 2, "C", "T"],
+    ["INS", 3, "", "GG"],
+    ["SUB", 5, "G", "T"],
+    ["DEL", 6, "T", ""],
+    ["SUB", 7, "T", "A"]
+  ],
+  "rate_boundary": {"length": 35, "pass_nm": 3, "fail_nm": 4},
+  "decisions": {
+    "duplicate_pair_support": {"status": "NO_RECURRENT_VARIANT_IN_HELDOUT", "adjusted_nm": 4, "crossvalidated_pass": false, "training_pair_ids": []},
+    "distinct_pair_support": {"status": "PASS_REPEAT_AWARE_COHERENT_DIVERGENCE", "adjusted_nm": 0, "crossvalidated_pass": true, "training_pair_ids": [20, 21]},
+    "best_family_tie": {"status": "NOT_ELIGIBLE_UNIQUE_BEST_RATE_ONLY_FAILURE", "eligible_rate_only_failure": false, "crossvalidated_pass": false},
+    "exact_allele_support_tie": {"status": "NO_RECURRENT_VARIANT_IN_HELDOUT", "adjusted_nm": 1, "crossvalidated_pass": false},
+    "repeat_unanchored_indel": {"status": "ALL_RECURRENT_CREDIT_REMOVED_BY_INDEL_ANCHOR_GATE", "adjusted_nm": 1, "credited_variant_labels": [], "crossvalidated_pass": false},
+    "repeat_linked_substitution": {"status": "PASS_REPEAT_AWARE_COHERENT_DIVERGENCE", "adjusted_nm": 0, "crossvalidated_pass": true},
+    "unique_indel_placement": {"status": "PASS_REPEAT_AWARE_COHERENT_DIVERGENCE", "adjusted_nm": 0, "crossvalidated_pass": true}
+  },
+  "events": {
+    "bilateral_event": {"emitted": true, "interval0": [101, 107], "left_support_pairs": 2, "right_support_pairs": 2},
+    "one_right_event": {"emitted": false}
+  }
+}

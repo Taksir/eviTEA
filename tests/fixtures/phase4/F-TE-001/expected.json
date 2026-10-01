@@ -1,0 +1,9 @@
+{
+  "0": {"family_state": "RESOLVED_SINGLETON", "eligibility_state": "ELIGIBLE", "resolved_family": "FamilyA", "te_positive_mate": 1, "families_observed": ["FamilyA"], "independent_block_ids": ["TE_A:block0", "TE_A:block1"], "contributing_te_record_ids": ["TE_A"]},
+  "1": {"family_state": "RESOLVED_SINGLETON", "eligibility_state": "INSUFFICIENT_INDEPENDENT_BLOCKS", "resolved_family": "FamilyA", "te_positive_mate": 1, "families_observed": ["FamilyA"], "independent_block_ids": ["TE_A:block0"], "contributing_te_record_ids": ["TE_A"]},
+  "2": {"family_state": "RESOLVED_SINGLETON", "eligibility_state": "BOTH_MATES_TE_POSITIVE", "resolved_family": "FamilyA", "te_positive_mate": null, "families_observed": ["FamilyA"], "independent_block_ids": ["TE_A:block0", "TE_A:block1"], "contributing_te_record_ids": ["TE_A"]},
+  "3": {"family_state": "FAMILY_CONFLICT", "eligibility_state": "FAMILY_CONFLICT", "resolved_family": null, "te_positive_mate": null, "families_observed": ["FamilyA", "FamilyB"]},
+  "4": {"eligibility_state": "UNSUPPORTED_SAFE_TE_RECORD"},
+  "5": {"family_state": "NO_SAFE_EVIDENCE", "eligibility_state": "NO_SAFE_EVIDENCE", "resolved_family": null, "te_positive_mate": null, "families_observed": []},
+  "6": {"family_state": "RESOLVED_SINGLETON", "eligibility_state": "INSUFFICIENT_INDEPENDENT_BLOCKS", "resolved_family": "FamilyA", "te_positive_mate": 1, "families_observed": ["FamilyA"], "independent_block_ids": ["TE_A:block0"], "contributing_te_record_ids": ["TE_A"]}
+}

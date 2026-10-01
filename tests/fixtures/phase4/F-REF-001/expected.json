@@ -1,0 +1,5 @@
+{
+  "pair0": {"code": "EVIDENCE_COMPLETE", "finite_alternative_ids": ["alt-first-partial", "alt-second-complete", "alt-third-complete"], "evidence_complete_alternative_ids": ["alt-second-complete", "alt-third-complete"]},
+  "pair1": {"code": "REFERENCE_UNEXPLAINED", "unexplained_query_spans0": [[7, 10]]},
+  "pair2": {"code": "INDETERMINATE_CENSORED", "censor_state": "REFERENCE_RESOURCE_CENSORED"}
+}

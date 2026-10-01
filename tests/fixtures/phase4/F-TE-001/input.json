@@ -1,0 +1,42 @@
+{
+  "fixture_id": "F-TE-001",
+  "synthetic": true,
+  "candidates": [
+    {"candidate_id": "a0", "sequence": "ACGTTGCAAGTCGATCGTACG", "family": "FamilyA", "te_record_id": "TE_A", "source_span0": [0, 21], "probe_source_strand": "+", "independent_block_id": "TE_A:block0", "compatible_families": ["FamilyA"], "reference_occurrences": 0},
+    {"candidate_id": "a1", "sequence": "CGTACGTACGTACGTACGTAC", "family": "FamilyA", "te_record_id": "TE_A", "source_span0": [48, 69], "probe_source_strand": "+", "independent_block_id": "TE_A:block1", "compatible_families": ["FamilyA"], "reference_occurrences": 0},
+    {"candidate_id": "a_overlap", "sequence": "GTACGTACGTACGTACGTACG", "family": "FamilyA", "te_record_id": "TE_A", "source_span0": [10, 31], "probe_source_strand": "+", "independent_block_id": "TE_A:block_overlap", "compatible_families": ["FamilyA"], "reference_occurrences": 0},
+    {"candidate_id": "a_ambiguous", "sequence": "GATCGATCGATCGATCGATCG", "family": "FamilyA", "te_record_id": "TE_AMBIG", "source_span0": [0, 21], "probe_source_strand": "+", "independent_block_id": "TE_AMBIG:block0", "compatible_families": ["FamilyA", "FamilyB"], "reference_occurrences": 0},
+    {"candidate_id": "a_reference_hit", "sequence": "AACCGGTTAACCGGTTAACCG", "family": "FamilyA", "te_record_id": "TE_REF", "source_span0": [0, 21], "probe_source_strand": "+", "independent_block_id": "TE_REF:block0", "compatible_families": ["FamilyA"], "reference_occurrences": 1},
+    {"candidate_id": "a_duplicate", "sequence": "CGTACGTACGTACGTACGTAC", "family": "FamilyA", "te_record_id": "TE_B", "source_span0": [0, 21], "probe_source_strand": "+", "independent_block_id": "TE_B:block0", "compatible_families": ["FamilyA"], "reference_occurrences": 0},
+    {"candidate_id": "c0", "sequence": "TTGCAATTGCAATTGCAATTG", "family": "FamilyC", "te_record_id": "TE_C", "source_span0": [0, 21], "probe_source_strand": "+", "independent_block_id": "TE_C:block0", "compatible_families": ["FamilyC"], "reference_occurrences": 0}
+  ],
+  "codebook": [
+    {"probe_id": "a0", "sequence": "ACGTTGCAAGTCGATCGTACG", "family": "FamilyA", "te_record_id": "TE_A", "source_span0": [0, 21], "probe_source_strand": "+", "independent_block_id": "TE_A:block0", "record_safe_status": "MULTI_INDEPENDENT_BLOCK"},
+    {"probe_id": "a1", "sequence": "CGTACGTACGTACGTACGTAC", "family": "FamilyA", "te_record_id": "TE_A", "source_span0": [48, 69], "probe_source_strand": "+", "independent_block_id": "TE_A:block1", "record_safe_status": "MULTI_INDEPENDENT_BLOCK"},
+    {"probe_id": "b0", "sequence": "TTGCAATTGCAATTGCAATTG", "family": "FamilyB", "te_record_id": "TE_B", "source_span0": [0, 21], "probe_source_strand": "+", "independent_block_id": "TE_B:block0", "record_safe_status": "MULTI_INDEPENDENT_BLOCK"},
+    {"probe_id": "b1", "sequence": "TGCAATTGCAATTGCAATTGC", "family": "FamilyB", "te_record_id": "TE_B", "source_span0": [48, 69], "probe_source_strand": "+", "independent_block_id": "TE_B:block1", "record_safe_status": "MULTI_INDEPENDENT_BLOCK"},
+    {"probe_id": "u0", "sequence": "GATCGATCGATCGATCGATCG", "family": "FamilyU", "te_record_id": "TE_U", "source_span0": [0, 21], "probe_source_strand": "+", "independent_block_id": "TE_U:block0", "record_safe_status": "UNSUPPORTED_TERMINAL_SAFE"}
+  ],
+  "hits": [
+    {"pair_id": 0, "mate_no": 1, "probe_id": "a0", "query_span0": [0, 21], "hit_orientation": "FORWARD"},
+    {"pair_id": 0, "mate_no": 1, "probe_id": "a0", "query_span0": [0, 21], "hit_orientation": "FORWARD"},
+    {"pair_id": 0, "mate_no": 1, "probe_id": "a0", "query_span0": [0, 21], "hit_orientation": "FORWARD"},
+    {"pair_id": 0, "mate_no": 1, "probe_id": "a1", "query_span0": [21, 42], "hit_orientation": "FORWARD"},
+    {"pair_id": 1, "mate_no": 1, "probe_id": "a0", "query_span0": [0, 21], "hit_orientation": "FORWARD"},
+    {"pair_id": 2, "mate_no": 1, "probe_id": "a0", "query_span0": [0, 21], "hit_orientation": "FORWARD"},
+    {"pair_id": 2, "mate_no": 1, "probe_id": "a1", "query_span0": [21, 42], "hit_orientation": "FORWARD"},
+    {"pair_id": 2, "mate_no": 2, "probe_id": "a0", "query_span0": [0, 21], "hit_orientation": "FORWARD"},
+    {"pair_id": 2, "mate_no": 2, "probe_id": "a1", "query_span0": [21, 42], "hit_orientation": "FORWARD"},
+    {"pair_id": 3, "mate_no": 1, "probe_id": "a0", "query_span0": [0, 21], "hit_orientation": "FORWARD"},
+    {"pair_id": 3, "mate_no": 1, "probe_id": "a1", "query_span0": [21, 42], "hit_orientation": "FORWARD"},
+    {"pair_id": 3, "mate_no": 1, "probe_id": "b0", "query_span0": [0, 21], "hit_orientation": "FORWARD"},
+    {"pair_id": 3, "mate_no": 1, "probe_id": "b1", "query_span0": [21, 42], "hit_orientation": "FORWARD"},
+    {"pair_id": 4, "mate_no": 1, "probe_id": "u0", "query_span0": [0, 21], "hit_orientation": "FORWARD"},
+    {"pair_id": 4, "mate_no": 1, "probe_id": "u0", "query_span0": [0, 21], "hit_orientation": "FORWARD"},
+    {"pair_id": 6, "mate_no": 1, "probe_id": "a0", "query_span0": [0, 21], "hit_orientation": "FORWARD"},
+    {"pair_id": 6, "mate_no": 1, "probe_id": "a0", "query_span0": [0, 21], "hit_orientation": "FORWARD"},
+    {"pair_id": 6, "mate_no": 1, "probe_id": "a0", "query_span0": [0, 21], "hit_orientation": "FORWARD"},
+    {"pair_id": 6, "mate_no": 1, "probe_id": "a0", "query_span0": [0, 21], "hit_orientation": "FORWARD"}
+  ],
+  "pair_ids": [0, 1, 2, 3, 4, 5, 6]
+}

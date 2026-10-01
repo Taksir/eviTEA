@@ -1,0 +1,23 @@
+[inputs]
+sample_id = "example-sample"
+read1 = "data/example_R1.fastq.gz"
+read2 = "data/example_R2.fastq.gz"
+reference_assets = "prepared/reference"
+te_assets = "prepared/te"
+# "production" (default; Bowtie2 host names P{pid}).  AKA017 / ISO1 are
+# reproduction-only profiles for the frozen development samples.
+profile = "production"
+
+[runtime]
+threads = 0
+exact_query_backend = "msbwt"
+resume = false
+keep_intermediates = false
+bowtie2 = "bowtie2"
+# bowtie2_build = "bowtie2-build"   # default: next to bowtie2, else PATH
+# edlib_python = "/path/to/python"  # only if this Python lacks edlib
+workers = 0
+
+[output]
+directory = "output/example-sample"
+log_level = "INFO"

@@ -1,0 +1,14 @@
+{
+  "fixture_id": "F-TE-001",
+  "description": "Synthetic safe-probe hit multiplicity and family-state contract cases.",
+  "synthetic": true,
+  "provenance": "Hand-authored contract fixture; no truth, comparator, or production data.",
+  "input": "input.json",
+  "expected": "expected.json",
+  "projection": "projection.json",
+  "sha256": {"input.json": "ecbdafa3e8dd60c59f074410ca23ffb4906601c988451b2ba4b284d721c36d1d", "expected.json": "98d3ba44ff8a95df8d2c3b823420909ecf652de79293932eec412d1de79c1445", "projection.json": "1be474fda857de687819c72699c63594b178dbd6f48db6b5d19f3689684ebdd3"},
+  "pair_rows": 7,
+  "expected_pair_ids": [0, 1, 2, 3, 4, 5, 6],
+  "expected_states": ["ELIGIBLE", "INSUFFICIENT_INDEPENDENT_BLOCKS", "BOTH_MATES_TE_POSITIVE", "FAMILY_CONFLICT", "UNSUPPORTED_SAFE_TE_RECORD", "NO_SAFE_EVIDENCE"],
+  "support_unit": "distinct selected independent blocks within one physical pair; duplicate hit rows do not increase support"
+}

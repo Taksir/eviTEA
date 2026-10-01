@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "checks": [
+    {
+      "layer": "R9E",
+      "dataset": "AKA017",
+      "route_root": "route_b_v2",
+      "file": "reports/AKA017_TRUTH_SCORING_20260917/R9E_COMBINED_CALLS.frozen.tsv",
+      "data_rows": 792,
+      "sha256": "1d1110f939996223379edf74847d626d4bc397a5cac32ad16d5d985dca051757"
+    },
+    {
+      "layer": "R9E",
+      "dataset": "ISO1",
+      "route_root": "route_b_v2",
+      "file": "reports/DUAL_STRAIN_FORENSIC_20260917/ISO1_R9E_COMBINED_CALLS.frozen.tsv",
+      "data_rows": 192,
+      "sha256": "b3e48681568d616142fe534995d3eeb9e5163907992e9d0893919aea42e6ebc5"
+    },
+    {
+      "layer": "bilateral",
+      "dataset": "AKA017",
+      "route_root": "route_b_v3",
+      "file": "reports/V3_ANCHOR_PE_PRODUCTION_SHADOW_FREEZE_20260920/ANCHOR_PE_PRODUCTION_SHADOW_CALLS.tsv",
+      "data_rows": 801,
+      "sha256": "ac352333be3912e54bfe8cbd6aaf9664231e34ba023d90c0a519d51c6a32a0f3"
+    },
+    {
+      "layer": "bilateral",
+      "dataset": "ISO1",
+      "route_root": "route_b_v3",
+      "file": "reports/V3_ANCHOR_PE_ISO1_TRANSFER_20260920/ISO1_ANCHOR_PE_SHADOW_CALLS.tsv",
+      "data_rows": 192,
+      "sha256": "b3e48681568d616142fe534995d3eeb9e5163907992e9d0893919aea42e6ebc5"
+    },
+    {
+      "layer": "asymmetric",
+      "dataset": "AKA017",
+      "route_root": "route_b_v3",
+      "file": "reports/V3_DUAL_DATASET_ASYMMETRIC_PRODUCTION_SHADOW_FREEZE_20260920/AKA017_ASYMMETRIC_ANCHOR_PE_SHADOW_CALLS.tsv",
+      "data_rows": 820,
+      "sha256": "8c12a5619d56dc603dc49c9a0b80b716056959fc39a12137d9c1b66bd883858a"
+    },
+    {
+      "layer": "asymmetric",
+      "dataset": "ISO1",
+      "route_root": "route_b_v3",
+      "file": "reports/V3_DUAL_DATASET_ASYMMETRIC_PRODUCTION_SHADOW_FREEZE_20260920/ISO1_ASYMMETRIC_ANCHOR_PE_SHADOW_CALLS.tsv",
+      "data_rows": 193,
+      "sha256": "31e15da3929500226351e4da86ca8afe1edc4faa2ef6b8fd5925c8aa349f0378"
+    },
+    {
+      "layer": "full-memory",
+      "dataset": "AKA017",
+      "route_root": "route_b_v3",
+      "file": "reports/V3_FULL_MEMORY_ANCHORPE_PRODUCTION_SHADOW_FREEZE_20260922/results/AKA017_FULL_MEMORY_ANCHOR_PE_SHADOW_CALLS.tsv",
+      "data_rows": 835,
+      "sha256": "5efade8fdb64a41028419037a022a17a3380173cf87a1f7ac111c750f968b7c0"
+    },
+    {
+      "layer": "full-memory",
+      "dataset": "ISO1",
+      "route_root": "route_b_v3",
+      "file": "reports/V3_FULL_MEMORY_ANCHORPE_PRODUCTION_SHADOW_FREEZE_20260922/results/ISO1_FULL_MEMORY_ANCHOR_PE_SHADOW_CALLS.tsv",
+      "data_rows": 194,
+      "sha256": "9e538d744a6ea9c6cd2cd391740c742b75ef7ab1b4bd7a30a22f2736cc6092b0"
+    },
+    {
+      "layer": "final INTERNAL21",
+      "dataset": "AKA017",
+      "route_root": "route_b_v3",
+      "file": "reports/V3_INTERNAL21_STRICT_A_INTEGRATION_SHADOW_FREEZE_20260923/AKA017_INTERNAL21_STRICT_A_INTEGRATION_SHADOW_CALLS.tsv",
+      "data_rows": 838,
+      "sha256": "6432c8e12db75f922c6fe44ff721b35be272c1eed34193364bbc4dc51160f701"
+    },
+    {
+      "layer": "final INTERNAL21",
+      "dataset": "ISO1",
+      "route_root": "route_b_v3",
+      "file": "reports/V3_INTERNAL21_STRICT_A_INTEGRATION_SHADOW_FREEZE_20260923/ISO1_INTERNAL21_STRICT_A_INTEGRATION_SHADOW_CALLS.tsv",
+      "data_rows": 194,
+      "sha256": "9e538d744a6ea9c6cd2cd391740c742b75ef7ab1b4bd7a30a22f2736cc6092b0"
+    }
+  ]
+}
