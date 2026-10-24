@@ -158,6 +158,25 @@ def _add_breakpoint_extras(parser: argparse.ArgumentParser, *, use_defaults: boo
     )
 
 
+def _add_depth_cap(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--depth-cap",
+        default="none",
+        metavar="N|none",
+        help="absolute upper bound of the local-depth window of the breakpoint walk and the library-free layer "
+        "(default none: only the lower bound of 10 reads applies; --depth-cap 100 keeps the previous window)",
+    )
+
+
+def _apply_depth_cap(args: argparse.Namespace) -> None:
+    from . import depth_window
+
+    try:
+        depth_window.set_depth_cap(args.depth_cap)
+    except ValueError as exc:
+        raise InputContractError(str(exc)) from exc
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="evitea")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -251,6 +270,7 @@ def build_parser() -> argparse.ArgumentParser:
         "partner read is out of place (off by default)",
     )
     _add_breakpoint_extras(call)
+    _add_depth_cap(call)
     call.add_argument(
         "--max-rescue-interval-mass",
         type=int,
@@ -271,6 +291,7 @@ def build_parser() -> argparse.ArgumentParser:
     refine.add_argument("--output", type=Path, required=True)
     refine.add_argument("--work-dir", type=Path)
     _add_breakpoint_extras(refine, use_defaults=True)
+    _add_depth_cap(refine)
 
     lf = commands.add_parser(
         "library-free",
@@ -290,6 +311,24 @@ def build_parser() -> argparse.ArgumentParser:
                     help="also drop family calls whose family members are <= 98.31%% identical (rule c)")
     lf.add_argument("--detection-dir", type=Path,
                     help="reuse library_free_places.tsv and library_free_segments.fa from an earlier detection")
+    _add_depth_cap(lf)
+    from .library_free.options import add_arguments as _add_lf_options
+
+    _add_lf_options(lf)
+
+    from .family_records import run as _fr
+
+    fr_build = commands.add_parser(
+        "build-family-records",
+        help="library records from the library-free families that the library lacks, with their reference copies and end-word "
+        "codebooks (Linux/WSL; needs mappy)",
+    )
+    _fr.add_arguments_build(fr_build)
+    fr_add = commands.add_parser(
+        "add-record-calls",
+        help="add the calls of the library run on the record assets to the existing call set",
+    )
+    _fr.add_arguments_add(fr_add)
 
     tiers = commands.add_parser(
         "call-tiers",
@@ -639,6 +678,7 @@ def _breakpoint_refiner(
 def _refine_breakpoints(args: argparse.Namespace) -> None:
     """Refine an existing run: calls.native.tsv (unchanged copy), calls.tsv, calls.bed, breakpoints.tsv."""
 
+    _apply_depth_cap(args)
     from .breakpoints.annotate import call_annotations_tsv_bytes
     from .breakpoints.refine import (
         RefinementResult,
@@ -698,6 +738,7 @@ def _refine_breakpoints(args: argparse.Namespace) -> None:
         "source_run": str(run_dir),
         "native_callset_sha256": state.native_sha256,
         "aligner": f"mappy {refiner.aligner_version}",
+        "depth_cap": args.depth_cap,
         "seconds": round(time.time() - started, 1),
         **refinement_summary(rows),
         **({"pinned_calls": len(result.pins)} if result.pins is not None else {}),
@@ -707,9 +748,47 @@ def _refine_breakpoints(args: argparse.Namespace) -> None:
     write_run_summary(output / "refinement_summary.json", record)
 
 
+def _build_family_records(args: argparse.Namespace) -> None:
+    from .family_records.run import build_family_records
+
+    if args.reference_fasta is not None:
+        reference_fasta = _resolved_cli_path(args.reference_fasta)
+    else:
+        reference_fasta = load_prepared_reference(_resolved_cli_path(args.reference_assets)).reference_fasta_path
+    started = time.time()
+    build_family_records(
+        family_calls=[_resolved_cli_path(p) for p in args.family_calls],
+        segments=_resolved_cli_path(args.segments),
+        second_segments=_resolved_cli_path(args.second_segments),
+        reference_fasta=reference_fasta,
+        output=_resolved_cli_path(args.output),
+        flag_rule=args.flag_rule,
+        record_guard=args.record_guard == "on",
+        repeat_annotation=_resolved_cli_path(args.repeat_annotation),
+        te_share=args.te_share,
+        copy_report=args.copy_report == "on",
+        progress=lambda m: print(f"[evitea {time.time() - started:9.1f}s] {m}", file=sys.stderr, flush=True),
+    )
+
+
+def _add_record_calls(args: argparse.Namespace) -> None:
+    from .family_records.run import add_record_calls
+
+    root = _resolved_cli_path(args.records)
+    report = add_record_calls(
+        calls=_resolved_cli_path(args.calls),
+        base_calls=_resolved_cli_path(args.base_calls),
+        annotation=root / "annotation.bed",
+        family_map=root / "family_map.tsv",
+        output=_resolved_cli_path(args.output),
+    )
+    print(json.dumps(report, sort_keys=True))
+
+
 def _library_free(args: argparse.Namespace) -> None:
     """Detector v2 (+ rule c) on an existing run: places, family calls, added calls, combined calls."""
 
+    _apply_depth_cap(args)
     from .library_free.runtime import run_library_free
 
     reference = load_prepared_reference(_resolved_cli_path(args.reference_assets))
@@ -720,6 +799,12 @@ def _library_free(args: argparse.Namespace) -> None:
     if msbwt_index is None and args.detection_dir is None:
         raise InputContractError("library-free detection needs --msbwt-index or --sample-assets (or --detection-dir)")
     started = time.time()
+    from .library_free.options import from_args as _lf_options
+
+    try:
+        options = _lf_options(args)
+    except ValueError as exc:
+        raise InputContractError(str(exc)) from exc
 
     def progress(message: str) -> None:
         print(f"[evitea {time.time() - started:9.1f}s] {message}", file=sys.stderr, flush=True)
@@ -736,6 +821,8 @@ def _library_free(args: argparse.Namespace) -> None:
         command_line=args.command_line,
         source_identity=_source_identity(),
         progress=progress,
+        options=options,
+        repeat_annotation=_resolved_cli_path(Path(args.repeat_annotation)) if args.repeat_annotation else None,
     )
 
 
@@ -839,6 +926,7 @@ def _call(
     sample_builder: RawSampleBuilder | None = None,
 ) -> RunResult:
     config = _call_config(args)
+    _apply_depth_cap(args)
     if call_engine is None:
         call_engine = _default_engine_with_progress(config)
     assets = prepare_assets(config)
@@ -972,6 +1060,10 @@ def main(
             _refine_breakpoints(args)
         elif args.command == "library-free":
             _library_free(args)
+        elif args.command == "build-family-records":
+            _build_family_records(args)
+        elif args.command == "add-record-calls":
+            _add_record_calls(args)
         elif args.command == "call-tiers":
             _call_tiers(args)
         elif args.command == "filter-resident-copies":

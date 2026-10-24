@@ -25,7 +25,9 @@ K = 31
 W = 20
 PRE = 20  # the walk starts W + PRE bases before the window
 REF_OK, LOW, SUPP, HETMAX = 0.15, 0.65, 0.15, 0.85  # branch support (x D); reference-fraction cut-offs
-D_MIN, D_MAX = 10, 100
+from ..depth_window import D_MIN, upper_bound as _upper_bound  # noqa: E402
+
+D_MAX = _upper_bound()  # no absolute upper bound unless --depth-cap / EVITEA_DEPTH_CAP sets one
 _COMPLEMENT = str.maketrans("ACGT", "TGCA")
 
 

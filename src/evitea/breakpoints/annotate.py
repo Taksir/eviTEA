@@ -10,8 +10,9 @@ a call; the call files are byte-identical with the annotations on or off.
   sides is reported; ``HOMOZYGOUS`` when it is at most 0.15 (the walker's own
   ``SUPP`` cut-off for a supported divergence), else ``HETEROZYGOUS`` (a TE
   side has at most 0.85 by construction).  A side is only informative at a
-  flank depth of 10 to 100 reads (``walker.D_MIN`` / ``D_MAX``), which is the
-  depth floor; with no TE side the label is empty.
+  flank depth of at least 10 reads (``walker.D_MIN``; ``walker.D_MAX`` is
+  unbounded unless ``--depth-cap`` sets a bound), which is the depth floor; with
+  no TE side the label is empty.
 * **TSD**: for a two-sided TE junction the target-site duplication is the
   reference between the right walk's first non-reference base and the left
   walk's (``fw[R.pos + 1 : L.pos]``, length ``L.pos - R.pos - 1``).  Empty and

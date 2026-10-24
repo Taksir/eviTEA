@@ -11,6 +11,8 @@ delta = bL - bR; a target-site duplication of t letters gives delta = t (TSD = r
 import warnings
 import numpy as np
 
+from .. import depth_window as _dw
+
 # ---- parameters (memo section 4; "fixed" unless marked synthetic) ----
 K = 31                  # word length (S1, walk)
 STRIDE = 10             # S1 sampling stride (fixed; stride <= 15 hits a homozygous insertion >= 2 times)
@@ -21,7 +23,8 @@ MIN_LOW = 1             # S1 a candidate needs >= 1 low sampled word: an inserti
                         # reference words, so stride 10 sees >= 1 of them for t <= 20 and >= 2 only for t <= 10 (F-031)
 RUN_GAP = 2 * STRIDE    # S1 low words <= 20 bp apart join one run (added 2b-i, see prereg section 3)
 REF_OK = 0.15           # walk branch support, x D (oracle_r2_walk)
-D_MIN, D_MAX = 10, 100  # S4 abstain outside this depth (fixed)
+D_MIN = _dw.D_MIN        # no place below this depth (fixed)
+D_MAX = _dw.upper_bound()  # no place above this depth: none unless --depth-cap / EVITEA_DEPTH_CAP sets one
 INDEL_MAX = 50          # S2 small indel limit (fixed)
 EXT_MAX = 600           # S3 extension length per side (fixed)
 STOP_FRAC, STOP_MIN = 0.10, 3   # S3 extension stops when best letter < max(3, 0.10 x support at break) (G4c rule)
