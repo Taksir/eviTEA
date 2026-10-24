@@ -1,0 +1,42 @@
+#!/bin/bash
+# One library-free run. Writes only under $EVITEA_OUT/runs/<DS>_<TAG>_<jobid>/ (and a work folder under $EVITEA_OUT/work/).
+# Set before sbatch:
+#   DS      sample name in samples.tsv          TAG    short label of the run
+#   OPTS    library-free switches, quoted (default: all on)
+#   CONTIGS comma-separated contigs (default: the sample's entry in samples.tsv)
+#   WORK    existing work folder to reuse saved scan pieces (default a new one named <DS>_<TAG>)
+#   REGROUP=1   set EVITEA_PIECES_READONLY: the run stops instead of scanning again when switches, code or inputs differ from the saved pieces
+#   DET     a --detection-dir (rebuild family calls from saved tables)
+#   RUNDIR  another library run for --run-dir (for example a run with some families removed from the library)
+#   DEPTHCAP value of --depth-cap (default none; 100 is the previous version's window)
+#   PREVIOUS=1  run the previous version's code (PREVIOUS_SRC) instead; OPTS and DEPTHCAP must then be empty
+#SBATCH --job-name=evitea_detect
+#SBATCH --partition=small
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=16g
+#SBATCH --time=12:00:00
+#SBATCH --output=logs/%x-%j.out
+set -euo pipefail
+. "$EVITEA_CODE/tools/slurm/env.sh"
+: "${DS:?}" "${TAG:?}"
+if [ -n "${PREVIOUS:-}" ]; then
+  [ -z "${OPTS:-}${DEPTHCAP:-}" ] || { echo "PREVIOUS=1 takes no OPTS or DEPTHCAP"; exit 2; }
+  export APPTAINERENV_PYTHONPATH=$PREVIOUS_SRC${MSBWT_PATH:+:$MSBWT_PATH}
+fi
+OUT=$EVITEA_OUT/runs/${DS}_${TAG}_${SLURM_JOB_ID}
+[ -e "$OUT" ] && { echo "REFUSING $OUT exists"; exit 2; }
+WORKDIR=${WORK:-$EVITEA_OUT/work/${DS}_${TAG}}
+[ -n "${REGROUP:-}" ] && export APPTAINERENV_EVITEA_PIECES_READONLY=1
+RUN=${RUNDIR:-$RUN}
+echo "host $(hostname) $(date -u +%FT%TZ) id=${SLURM_JOB_ID:-} DS=$DS TAG=$TAG OPTS=${OPTS:-} work=$WORKDIR"
+mkdir -p "$OUT" "$EVITEA_OUT/work"
+START=$(date +%s)
+sha256sum "$IDX/about.npy" "$REFFA"
+EXTRA=""
+[ -n "${DET:-}" ] && EXTRA="$EXTRA --detection-dir $DET"
+[ -n "${DEPTHCAP:-}" ] && EXTRA="$EXTRA --depth-cap $DEPTHCAP"
+$PY -m evitea library-free --run-dir "$RUN" --msbwt-index "$IDX" --reference-assets "$ASSETS" --output "$OUT/library_free" \
+    --work-dir "$WORKDIR" --contigs "$CONTIGS" $FAMILY_IDENTITY_FILTER ${OPTS:-} $EXTRA
+echo "wall_seconds $(( $(date +%s) - START ))"
+( cd "$OUT" && find . -type f -print0 | sort -z | xargs -0 sha256sum > "$OUT/OUTPUT_SHA256.txt" )
+echo "done $(date -u +%FT%TZ)"
