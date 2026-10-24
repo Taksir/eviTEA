@@ -2,7 +2,7 @@
 
 Every rule added to the library-free layer since the previous release is a switch. With every switch off
 (`library-free --previous-behaviour --depth-cap 100`; the previous release has the upper depth bound 100) the layer writes the
-previous release's files byte for byte; `tests/test_runtime.py` checks this on a synthetic sample.
+previous release's files byte for byte; `tools/library_free_tests/test_runtime.py` checks this on a synthetic sample.
 
 ## Switches
 
@@ -83,6 +83,6 @@ evitea add-record-calls --calls <run>/calls.native.tsv --base-calls <existing>/c
 - `RefWords` (walk-out) and `word_copies` (records) hold the reference in Python objects; they are sized for the fly genome. A
   mouse-size reference needs a memory-lean version before use.
 
-## Tests (`tests/`, run with `PYTHONPATH=src`)
+## Tests (`tools/library_free_tests/`, run with `PYTHONPATH=src`)
 
-`test_depth_window`, `test_depth_tool`, `test_assemble`, `test_records`, `test_runtime`; `tests/run_all.sh` runs them all.
+`test_depth_window`, `test_depth_tool`, `test_assemble`, `test_records`, `test_runtime`; `tools/library_free_tests/run_all.sh` runs them all.
