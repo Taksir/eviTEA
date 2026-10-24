@@ -22,6 +22,7 @@ from .config import (
     InputConfig,
     OutputConfig,
     PreparedAssetConfig,
+    RefinementConfig,
     RuntimeConfig,
     load_config,
     merge_config,
@@ -48,7 +49,10 @@ from .inputs import (
     validate_te_fasta,
 )
 from .pipeline import (
+    ANNOTATIONS_OUTPUT,
+    BREAKPOINTS_OUTPUT,
     CANONICAL_OUTPUTS,
+    PreparedAssets,
     RawSampleBuilder,
     RunResult,
     derive_sample_id,
@@ -136,6 +140,24 @@ def _add_engineering_options(
     )
 
 
+def _add_breakpoint_extras(parser: argparse.ArgumentParser, *, use_defaults: bool = False) -> None:
+    default = False if use_defaults else None
+    parser.add_argument(
+        "--pin-one-sided",
+        action="store_true",
+        default=default,
+        help="with breakpoint refinement: report the one-sided TE junction of a call left wide "
+        "(breakpoints.tsv pin_side / pin_pos; the call itself is unchanged)",
+    )
+    parser.add_argument(
+        "--call-annotations",
+        action="store_true",
+        default=default,
+        help="with breakpoint refinement: write call_annotations.tsv (zygosity label and TSD letters; "
+        "output only)",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="evitea")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -215,7 +237,81 @@ def build_parser() -> argparse.ArgumentParser:
         help="interpreter with edlib for the fragment decoder, used only if this one lacks it",
     )
     call.add_argument("--workers", type=int, help="locus-batch worker processes")
+    call.add_argument(
+        "--refine-breakpoints",
+        action="store_true",
+        default=None,
+        help="narrow wide calls to the TE junction found in the reads (off by default; needs mappy)",
+    )
+    call.add_argument(
+        "--complete-routing",
+        action="store_true",
+        default=None,
+        help="first stage: route reads through every rare-enough TE word, keeping only extra pairs whose "
+        "partner read is out of place (off by default)",
+    )
+    _add_breakpoint_extras(call)
+    call.add_argument(
+        "--max-rescue-interval-mass",
+        type=int,
+        help="recall-repair resource limit in msBWT interval rows (default 1500000)",
+    )
     _add_engineering_options(call, use_defaults=False)
+
+    refine = commands.add_parser(
+        "refine-breakpoints",
+        help="apply breakpoint refinement to an existing call output directory",
+    )
+    refine.add_argument("--run-dir", type=Path, required=True, help="completed `evitea call` output")
+    refine_sample = refine.add_mutually_exclusive_group(required=True)
+    refine_sample.add_argument("--msbwt-index", type=Path)
+    refine_sample.add_argument("--sample-assets", type=Path)
+    refine.add_argument("--reference-assets", type=Path, required=True)
+    refine.add_argument("--te-assets", type=Path, required=True)
+    refine.add_argument("--output", type=Path, required=True)
+    refine.add_argument("--work-dir", type=Path)
+    _add_breakpoint_extras(refine, use_defaults=True)
+
+    lf = commands.add_parser(
+        "library-free",
+        help="library-free detector (detector v2) on an existing call output: family calls with no EviTEA call "
+        "within 500 bp are added (Linux/WSL; needs mappy and parasail)",
+    )
+    lf.add_argument("--run-dir", type=Path, required=True, help="completed `evitea call` output")
+    lf_sample = lf.add_mutually_exclusive_group()
+    lf_sample.add_argument("--msbwt-index", type=Path)
+    lf_sample.add_argument("--sample-assets", type=Path)
+    lf.add_argument("--reference-assets", type=Path, required=True)
+    lf.add_argument("--output", type=Path, required=True)
+    lf.add_argument("--work-dir", type=Path)
+    lf.add_argument("--contigs", help="comma-separated contigs to scan, in this order (default: contigs >= 1 Mb, "
+                    "reference order)")
+    lf.add_argument("--rule-c", action="store_true",
+                    help="also drop family calls whose family members are <= 98.31%% identical (rule c)")
+    lf.add_argument("--detection-dir", type=Path,
+                    help="reuse library_free_places.tsv and library_free_segments.fa from an earlier detection")
+
+    tiers = commands.add_parser(
+        "call-tiers",
+        help="confidence tier of every call of a finished run (and of its library-free calls); output only",
+    )
+    tiers.add_argument("--run-dir", type=Path, required=True, help="completed `evitea call` output")
+    tiers.add_argument("--library-free-dir", type=Path, help="completed `evitea library-free` output: tier its added calls too")
+    tiers.add_argument("--reference-assets", type=Path, required=True)
+    tiers.add_argument("--te-assets", type=Path, required=True)
+    tiers.add_argument("--output", type=Path, required=True)
+
+    resident = commands.add_parser(
+        "filter-resident-copies",
+        help="ablation post-filter (I-165): drop core calls that touch or overlap a reference copy of their own TE "
+        "family; reads a finished call table, never run by `call` or `library-free`",
+    )
+    resident.add_argument("--calls", type=Path, required=True, help="calls.native.tsv or calls.combined.tsv")
+    resident.add_argument("--reference-te-copies", type=Path, required=True, help="RepeatMasker .out of the reference")
+    resident.add_argument("--te-assets", type=Path, required=True, help="prepared TE assets (the FBte id to family map)")
+    resident.add_argument("--output", type=Path, required=True)
+    resident.add_argument("--allow-unlisted-copies", action="store_true",
+                          help="accept a copy table whose sha256 is not listed in the tool")
 
     validate = commands.add_parser("validate")
     targets = validate.add_subparsers(dest="validation_target", required=True)
@@ -349,7 +445,7 @@ def _validate_run(output: Path) -> None:
     if not isinstance(output_hashes, dict):
         raise AssetCompatibilityError("run output hashes are malformed")
     required = set(CANONICAL_OUTPUTS) - {"run_manifest.json"}
-    if set(output_hashes) != required:
+    if set(output_hashes) - {BREAKPOINTS_OUTPUT, ANNOTATIONS_OUTPUT} != required:
         raise AssetCompatibilityError(
             "run manifest must bind every canonical non-manifest output"
         )
@@ -471,12 +567,270 @@ def _call_config(args: argparse.Namespace) -> EviTEAConfig:
             bowtie2_build=_resolved_cli_path(args.bowtie2_build) or base.runtime.bowtie2_build,
             edlib_python=_resolved_cli_path(args.edlib_python) or base.runtime.edlib_python,
             workers=args.workers if args.workers is not None else base.runtime.workers,
+            max_rescue_interval_mass=(
+                args.max_rescue_interval_mass
+                if getattr(args, "max_rescue_interval_mass", None) is not None
+                else base.runtime.max_rescue_interval_mass
+            ),
         ),
         output=OutputConfig(
             _resolved_cli_path(args.output) or base.output.directory,
             args.log_level or base.output.log_level,
         ),
+        refinement=RefinementConfig(
+            breakpoints=(
+                args.refine_breakpoints
+                if args.refine_breakpoints is not None
+                else base.refinement.breakpoints
+            ),
+            complete_routing=(
+                args.complete_routing
+                if getattr(args, "complete_routing", None) is not None
+                else base.refinement.complete_routing
+            ),
+            pin_one_sided=(
+                args.pin_one_sided
+                if getattr(args, "pin_one_sided", None) is not None
+                else base.refinement.pin_one_sided
+            ),
+            call_annotations=(
+                args.call_annotations
+                if getattr(args, "call_annotations", None) is not None
+                else base.refinement.call_annotations
+            ),
+        ),
     )
+
+
+def _breakpoint_refiner(
+    *,
+    msbwt_index: Path | None,
+    assets: PreparedAssets,
+    work_dir: Path,
+    progress: Callable[[str], None] | None = None,
+    pin_one_sided: bool = False,
+    call_annotations: bool = False,
+):
+    """The real breakpoint refiner (imported only when the switch is on)."""
+
+    from .breakpoints.runtime import BreakpointRefiner
+
+    if msbwt_index is None:
+        if assets.sample is None:
+            raise InputContractError(
+                "breakpoint refinement needs --msbwt-index or --sample-assets "
+                "(run prepare-sample first for raw reads)"
+            )
+        profile = assets.sample.backend_profile
+        msbwt_index = assets.sample.root / str(profile.get("index_directory", "index"))
+    return BreakpointRefiner(
+        msbwt_index=Path(msbwt_index),
+        reference_fasta=assets.reference.reference_fasta_path,
+        repeat_annotation=assets.reference.repeat_annotation_path,
+        te_fasta=assets.te.source_path("te_library"),
+        family_map=assets.te.source_path("family_map"),
+        work_dir=work_dir,
+        progress=progress,
+        pin_one_sided=pin_one_sided,
+        call_annotations=call_annotations,
+    )
+
+
+def _refine_breakpoints(args: argparse.Namespace) -> None:
+    """Refine an existing run: calls.native.tsv (unchanged copy), calls.tsv, calls.bed, breakpoints.tsv."""
+
+    from .breakpoints.annotate import call_annotations_tsv_bytes
+    from .breakpoints.refine import (
+        RefinementResult,
+        breakpoints_tsv_bytes,
+        refined_coordinates,
+        refinement_summary,
+    )
+    from .pipeline import ANNOTATIONS_OUTPUT
+    from .callset import CallsetState, calls_bed_bytes, calls_tsv_bytes
+    from .outputs import write_bytes, write_run_summary
+    from .pipeline import prepare_output_directory
+
+    run_dir = _resolved_cli_path(args.run_dir)
+    native = (run_dir / "calls.native.tsv").read_bytes()
+    try:
+        summary = json.loads((run_dir / "run_summary.json").read_text(encoding="utf-8"))
+        sample_id = summary["sample_id"]
+    except (OSError, json.JSONDecodeError, KeyError) as exc:
+        raise InputContractError(f"run directory has no readable run_summary.json: {run_dir}") from exc
+    config = EviTEAConfig(
+        inputs=InputConfig(sample_assets=_resolved_cli_path(args.sample_assets)),
+        assets=PreparedAssetConfig(
+            _resolved_cli_path(args.reference_assets), _resolved_cli_path(args.te_assets)
+        ),
+    )
+    assets = prepare_assets(config)
+    output = prepare_output_directory(_resolved_cli_path(args.output), resume=False)
+    started = time.time()
+
+    def progress(message: str) -> None:
+        print(f"[evitea {time.time() - started:9.1f}s] {message}", file=sys.stderr, flush=True)
+
+    refiner = _breakpoint_refiner(
+        msbwt_index=_resolved_cli_path(args.msbwt_index),
+        assets=assets,
+        work_dir=_resolved_cli_path(args.work_dir) or (output / ".evitea-work"),
+        progress=progress,
+        pin_one_sided=args.pin_one_sided,
+        call_annotations=args.call_annotations,
+    )
+    state = CallsetState(sample_id=sample_id, native=native)
+    result = RefinementResult.of(refiner(state))
+    rows = result.rows
+    refined = refined_coordinates(rows)
+    write_bytes(output / "calls.native.tsv", native)
+    write_bytes(output / "calls.tsv", calls_tsv_bytes(state, refined))
+    write_bytes(
+        output / "calls.bed", calls_bed_bytes(state, dict(assets.reference.contigs), refined)
+    )
+    write_bytes(output / BREAKPOINTS_OUTPUT, breakpoints_tsv_bytes(rows, pins=result.pins))
+    written = ["calls.native.tsv", "calls.tsv", "calls.bed", BREAKPOINTS_OUTPUT]
+    if result.annotations is not None:
+        write_bytes(output / ANNOTATIONS_OUTPUT, call_annotations_tsv_bytes(result.annotations))
+        written.append(ANNOTATIONS_OUTPUT)
+    record = {
+        "sample_id": sample_id,
+        "source_run": str(run_dir),
+        "native_callset_sha256": state.native_sha256,
+        "aligner": f"mappy {refiner.aligner_version}",
+        "seconds": round(time.time() - started, 1),
+        **refinement_summary(rows),
+        **({"pinned_calls": len(result.pins)} if result.pins is not None else {}),
+        **({"annotated_calls": len(result.annotations)} if result.annotations is not None else {}),
+        "output_hashes": {name: hash_file(output / name) for name in written},
+    }
+    write_run_summary(output / "refinement_summary.json", record)
+
+
+def _library_free(args: argparse.Namespace) -> None:
+    """Detector v2 (+ rule c) on an existing run: places, family calls, added calls, combined calls."""
+
+    from .library_free.runtime import run_library_free
+
+    reference = load_prepared_reference(_resolved_cli_path(args.reference_assets))
+    msbwt_index = _resolved_cli_path(args.msbwt_index)
+    if msbwt_index is None and args.sample_assets is not None:
+        sample = load_prepared_sample(_resolved_cli_path(args.sample_assets))
+        msbwt_index = sample.root / str(sample.backend_profile.get("index_directory", "index"))
+    if msbwt_index is None and args.detection_dir is None:
+        raise InputContractError("library-free detection needs --msbwt-index or --sample-assets (or --detection-dir)")
+    started = time.time()
+
+    def progress(message: str) -> None:
+        print(f"[evitea {time.time() - started:9.1f}s] {message}", file=sys.stderr, flush=True)
+
+    run_library_free(
+        run_dir=_resolved_cli_path(args.run_dir),
+        reference=reference,
+        msbwt_index=msbwt_index,
+        output=_resolved_cli_path(args.output),
+        work_dir=_resolved_cli_path(args.work_dir),
+        contigs=tuple(c for c in (args.contigs or "").split(",") if c) or None,
+        rule_c=args.rule_c,
+        detection_dir=_resolved_cli_path(args.detection_dir),
+        command_line=args.command_line,
+        source_identity=_source_identity(),
+        progress=progress,
+    )
+
+
+def _tier_resident_paths(args: argparse.Namespace) -> tuple[Path, Path]:
+    """(repeat annotation, TE family map) of the prepared assets."""
+
+    reference = load_prepared_reference(_resolved_cli_path(args.reference_assets))
+    te = load_prepared_te_assets(_resolved_cli_path(args.te_assets))
+    return reference.repeat_annotation_path, te.source_path("family_map")
+
+
+def _call_tiers(args: argparse.Namespace) -> None:
+    """call_tiers.tsv: one confidence tier per call of the combined call table; the run files are only read."""
+
+    from collections import Counter
+
+    from .outputs import write_bytes, write_run_summary
+    from .pipeline import prepare_output_directory
+    from .tiers import MIN_SUPPORT, NEAR_BP, STRICT_TIERS, call_tiers_tsv_bytes, load_resident_index, tier_rows
+
+    run_dir = _resolved_cli_path(args.run_dir)
+    native_path = run_dir / "calls.native.tsv"
+    added_path = _resolved_cli_path(args.library_free_dir) / "calls.library_free.tsv" if args.library_free_dir else None
+    if not native_path.is_file():
+        raise InputContractError(f"run directory has no calls.native.tsv: {run_dir}")
+    if added_path is not None and not added_path.is_file():
+        raise InputContractError(f"library-free directory has no calls.library_free.tsv: {added_path.parent}")
+    annotation, family_map = _tier_resident_paths(args)
+    output = prepare_output_directory(_resolved_cli_path(args.output), resume=False)
+    rows = tier_rows(native_path.read_bytes(), added_path.read_bytes() if added_path else None,
+                     load_resident_index(annotation, family_map))
+    write_bytes(output / "call_tiers.tsv", call_tiers_tsv_bytes(rows))
+    inputs = {"calls.native.tsv": native_path, **({"calls.library_free.tsv": added_path} if added_path else {}),
+              "repeat_annotation": annotation, "family_map": family_map}
+    write_run_summary(output / "call_tiers_summary.json", {
+        "source_run": str(run_dir),
+        "library_free_dir": str(added_path.parent) if added_path else None,
+        "calls": len(rows),
+        "tiers": {str(tier): n for tier, n in sorted(Counter(r.tier for r in rows).items())},
+        "parameters": {"min_support": MIN_SUPPORT, "near_bp": NEAR_BP, "strict_tiers": list(STRICT_TIERS)},
+        "input_hashes": {name: hash_file(path) for name, path in inputs.items()},
+        "output_hashes": {"call_tiers.tsv": hash_file(output / "call_tiers.tsv")},
+    })
+
+
+def _resident_family_map_path(args: argparse.Namespace) -> Path:
+    """The FBte id to family map of the prepared TE assets."""
+
+    return load_prepared_te_assets(_resolved_cli_path(args.te_assets)).source_path("family_map")
+
+
+def _filter_resident_copies(args: argparse.Namespace) -> None:
+    """Ablation (I-165): the call table without the core calls inside a reference copy of their own family."""
+
+    from .outputs import write_bytes, write_run_summary
+    from .pipeline import prepare_output_directory
+    from .resident_filter import (
+        CopyIndex,
+        FamilyIds,
+        dropped_tsv_bytes,
+        filter_calls,
+        load_copy_table,
+        load_family_ids,
+        verify_copy_table,
+    )
+
+    calls_path = _resolved_cli_path(args.calls)
+    copies_path = _resolved_cli_path(args.reference_te_copies)
+    if not calls_path.is_file():
+        raise InputContractError(f"call table not found: {calls_path}")
+    if not copies_path.is_file():
+        raise InputContractError(f"reference TE copy table not found: {copies_path}")
+    copies_sha, listed = verify_copy_table(copies_path, allow_unlisted=args.allow_unlisted_copies)
+    family_map = _resident_family_map_path(args)
+    started = time.time()
+    index = CopyIndex(load_copy_table(copies_path))
+    result = filter_calls(calls_path.read_bytes(), index, load_family_ids(family_map))
+    output = prepare_output_directory(_resolved_cli_path(args.output), resume=False)
+    write_bytes(output / calls_path.name, result.filtered)
+    write_bytes(output / "resident_copy_dropped.tsv", dropped_tsv_bytes(result.dropped))
+    write_run_summary(output / "resident_copy_filter_summary.json", {
+        "calls": str(calls_path),
+        "kept": result.kept,
+        "dropped": len(result.dropped),
+        "unmapped_family": result.unmapped_family,
+        "library_free_passed": result.library_free_passed,
+        "copies": len(index),
+        "copy_table_listed": listed,
+        "parameters": {"gap_bp": 0, "scope": "core calls (event_id not starting LF_)"},
+        "input_hashes": {"calls": hash_file(calls_path), "reference_te_copies": copies_sha,
+                         "family_map": hash_file(family_map)},
+        "output_hashes": {calls_path.name: hash_file(output / calls_path.name),
+                          "resident_copy_dropped.tsv": hash_file(output / "resident_copy_dropped.tsv")},
+        "wall_seconds": round(time.time() - started, 3),
+    })
 
 
 def _call(
@@ -528,12 +882,25 @@ def _call(
         },
         resolved_threads=config.runtime.resolved_threads,
     )
+    refiner = None
+    if config.refinement.breakpoints:
+        if config.output.directory is None:
+            raise InputContractError("output directory is required")
+        output = Path(config.output.directory)
+        refiner = _breakpoint_refiner(
+            msbwt_index=config.inputs.msbwt_index,
+            assets=assets,
+            work_dir=(config.runtime.work_dir or (output / ".evitea-work")) / "breakpoints",
+            pin_one_sided=config.refinement.pin_one_sided,
+            call_annotations=config.refinement.call_annotations,
+        )
     return run_sample(
         config,
         assets,
         call_engine,
         manifest_context=context,
         sample_builder=sample_builder,
+        breakpoint_refiner=refiner,
     )
 
 
@@ -601,6 +968,14 @@ def main(
             _prepare_sample(args)
         elif args.command == "call":
             _call(args, call_engine, sample_builder)
+        elif args.command == "refine-breakpoints":
+            _refine_breakpoints(args)
+        elif args.command == "library-free":
+            _library_free(args)
+        elif args.command == "call-tiers":
+            _call_tiers(args)
+        elif args.command == "filter-resident-copies":
+            _filter_resident_copies(args)
         elif args.command == "validate":
             _validate(args)
         elif args.command == "version":

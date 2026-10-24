@@ -31,8 +31,10 @@ from .host_mate_gate import HostMapping
 from .pair_aware_panel import PairAwareGroup
 
 __all__ = [
+    "MAX_RESCUE_INTERVAL_MASS",
     "RescueAnchor",
     "RescuePairEvidence",
+    "check_rescue_interval_mass",
     "plan_rescue_anchors",
     "enumerate_rescue_pairs",
     "rescue_host_requests",
@@ -47,7 +49,7 @@ UNDERCOVERAGE_THRESHOLD = 0.95
 RESCUE_TARGET_COVERAGE = 0.98
 BASE_INTERVAL_CAP = 1024
 CAP_LADDER = (1536, 2048, 3072, 4096, 8192, 16384)
-MAX_RESCUE_INTERVAL_MASS = 1_500_000
+MAX_RESCUE_INTERVAL_MASS = 1_500_000  # frozen default; a resource limit, settable with --max-rescue-interval-mass
 READ_WINDOW = 125
 RESCUE_MAPQ = 20
 RESCUE_CLUSTER_GAP = 500
@@ -99,7 +101,22 @@ def _mean(mask: np.ndarray) -> float:
     return float(mask.mean()) if len(mask) else 0.0
 
 
-def plan_rescue_anchors(catalogue: AnchorCatalogue, groups: Sequence[PairAwareGroup]) -> list[RescueAnchor]:
+def check_rescue_interval_mass(anchors: Sequence[RescueAnchor], limit: int) -> None:
+    """Fail closed when the selected anchors' msBWT interval rows exceed the limit (a resource limit only)."""
+
+    mass = sum(anchor.width for anchor in anchors)
+    if mass > limit:
+        raise BackendCompatibilityError(
+            f"rescue anchor interval mass {mass:,} exceeds the {limit:,}-row budget (--max-rescue-interval-mass)"
+        )
+
+
+def plan_rescue_anchors(
+    catalogue: AnchorCatalogue,
+    groups: Sequence[PairAwareGroup],
+    *,
+    max_interval_mass: int = MAX_RESCUE_INTERVAL_MASS,
+) -> list[RescueAnchor]:
     queries = catalogue.by_id()
     eligible: dict[tuple[str, str], list[tuple[int, int, object]]] = defaultdict(list)
     for source in catalogue.sources:
@@ -167,8 +184,7 @@ def plan_rescue_anchors(catalogue: AnchorCatalogue, groups: Sequence[PairAwareGr
             elif anchor.family != group.family:
                 raise BackendCompatibilityError(f"family-unique rescue anchor {qid} selected for two families")
     anchors = sorted(selected.values(), key=lambda a: (a.family, a.width, a.query_id))
-    if sum(anchor.width for anchor in anchors) > MAX_RESCUE_INTERVAL_MASS:
-        raise BackendCompatibilityError("rescue anchor interval mass exceeds the frozen 1,500,000-row budget")
+    check_rescue_interval_mass(anchors, max_interval_mass)
     return anchors
 
 

@@ -42,6 +42,7 @@ from .recall_repair import (
     rescue_query_name,
     enumerate_rescue_pairs,
     parse_rescue_host_sam,
+    MAX_RESCUE_INTERVAL_MASS,
     plan_rescue_anchors,
     rescue_host_requests,
     supported_rescue_pairs,
@@ -73,6 +74,8 @@ def acquire_candidate_loci(
     threads: int = 1,
     progress: Callable[[str], None] | None = None,
     rescue_read_names: str = "pair",
+    complete_routing: bool = False,
+    max_rescue_interval_mass: int = MAX_RESCUE_INTERVAL_MASS,
 ) -> CandidateAcquisition:
     def say(message: str) -> None:
         if progress is not None:
@@ -104,6 +107,21 @@ def acquire_candidate_loci(
     say("pair-aware reselection")
     pair_panel = select_pair_aware_panel(catalogue, panel, short, rescue, index)
     counts["pair_aware_pairs"] = int(len(pair_panel.pair_ids))
+    if complete_routing:
+        from .complete_routing import augment_panel, collect_extra_pairs, extra_queries, gate_extra_pairs
+
+        say("complete routing: extra words and pairs")
+        extra = extra_queries(catalogue, pair_panel.selected_sequences)
+        te_file, extra_sets, te_dollars = collect_extra_pairs(extra, pair_panel.pair_ids.tolist(), index, progress=say)
+        say(f"complete routing: {len(extra)} words, {len(te_file)} extra one-mate pairs; partner-read gate")
+        kept = gate_extra_pairs(
+            te_file, index, bowtie2=bowtie2, host_index_prefix=host_index_prefix,
+            work_directory=work_directory / "complete_routing", threads=threads, progress=say,
+        )
+        pair_panel = augment_panel(pair_panel, kept, extra, extra_sets, te_dollars)
+        counts["complete_routing_words"] = len(extra)
+        counts["complete_routing_extra_pairs"] = len(te_file)
+        counts["complete_routing_kept_pairs"] = len(kept)
 
     say("host-mate localization")
     requests = one_mate_host_requests(pair_panel, index)
@@ -121,7 +139,7 @@ def acquire_candidate_loci(
     counts["working_candidate_pairs"] = int(len(working))
 
     say("candidate recall repair")
-    anchors = plan_rescue_anchors(catalogue, pair_panel.groups)
+    anchors = plan_rescue_anchors(catalogue, pair_panel.groups, max_interval_mass=max_rescue_interval_mass)
     evidence = enumerate_rescue_pairs(anchors, pair_panel.pair_ids, index)
     rescue_requests = rescue_host_requests(evidence)
     rescue_dollars = index.mate_dollars(rescue_requests)

@@ -86,6 +86,8 @@ class RuntimeConfig:
     bowtie2_build: Path | None = None
     edlib_python: Path | None = None
     workers: int = 0
+    # recall-repair resource limit in msBWT interval rows (frozen default 1,500,000)
+    max_rescue_interval_mass: int = 1_500_000
 
     def __post_init__(self) -> None:
         for name in ("threads", "workers"):
@@ -94,6 +96,9 @@ class RuntimeConfig:
                 raise InputContractError(f"{name} must be an integer")
             if value < 0:
                 raise InputContractError(f"{name} must be non-negative")
+        value = self.max_rescue_interval_mass
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise InputContractError("max_rescue_interval_mass must be a positive integer")
         if self.exact_query_backend != "msbwt":
             raise InputContractError("the frozen profile supports only msbwt")
         if not isinstance(self.resume, bool):
@@ -125,12 +130,34 @@ class OutputConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class RefinementConfig:
+    """Optional post-call layers; all off by default (off = the frozen v1 outputs)."""
+
+    breakpoints: bool = False
+    # first-stage layer: complete routing with a partner-read gate
+    complete_routing: bool = False
+    # breakpoint-layer extras (need ``breakpoints``): one-sided junction positions for calls left
+    # wide, and output-only zygosity / TSD annotations; neither adds, removes or moves a call
+    pin_one_sided: bool = False
+    call_annotations: bool = False
+
+    def __post_init__(self) -> None:
+        for name in ("breakpoints", "complete_routing", "pin_one_sided", "call_annotations"):
+            if not isinstance(getattr(self, name), bool):
+                raise InputContractError(f"refinement.{name} must be a boolean")
+        for name in ("pin_one_sided", "call_annotations"):
+            if getattr(self, name) and not self.breakpoints:
+                raise InputContractError(f"refinement.{name} needs refinement.breakpoints")
+
+
+@dataclass(frozen=True, slots=True)
 class EviTEAConfig:
     inputs: InputConfig = InputConfig()
     assets: PreparedAssetConfig = PreparedAssetConfig()
     runtime: RuntimeConfig = RuntimeConfig()
     output: OutputConfig = OutputConfig()
     science: ScienceProfile = ScienceProfile()
+    refinement: RefinementConfig = RefinementConfig()
 
     def normalized(self) -> dict[str, Any]:
         return stable_to_primitive(self)
@@ -160,9 +187,11 @@ _SECTION_KEYS = {
             "bowtie2_build",
             "edlib_python",
             "workers",
+            "max_rescue_interval_mass",
         }
     ),
     "output": frozenset({"directory", "log_level"}),
+    "refinement": frozenset({"breakpoints", "complete_routing", "pin_one_sided", "call_annotations"}),
 }
 
 
@@ -211,6 +240,7 @@ def load_config(path: str | Path) -> EviTEAConfig:
     inputs = document.get("inputs", {})
     runtime = document.get("runtime", {})
     output = document.get("output", {})
+    refinement = document.get("refinement", {})
     base = config_path.parent
     return EviTEAConfig(
         inputs=InputConfig(
@@ -239,10 +269,17 @@ def load_config(path: str | Path) -> EviTEAConfig:
             bowtie2_build=_optional_path(runtime.get("bowtie2_build"), "bowtie2_build", base),
             edlib_python=_optional_path(runtime.get("edlib_python"), "edlib_python", base),
             workers=runtime.get("workers", 0),
+            max_rescue_interval_mass=runtime.get("max_rescue_interval_mass", 1_500_000),
         ),
         output=OutputConfig(
             directory=_optional_path(output.get("directory"), "directory", base),
             log_level=output.get("log_level", "INFO"),
+        ),
+        refinement=RefinementConfig(
+            breakpoints=refinement.get("breakpoints", False),
+            complete_routing=refinement.get("complete_routing", False),
+            pin_one_sided=refinement.get("pin_one_sided", False),
+            call_annotations=refinement.get("call_annotations", False),
         ),
     )
 
@@ -254,6 +291,7 @@ def merge_config(
     assets: PreparedAssetConfig | None = None,
     runtime: RuntimeConfig | None = None,
     output: OutputConfig | None = None,
+    refinement: RefinementConfig | None = None,
 ) -> EviTEAConfig:
     """Apply legal explicit overrides without exposing science settings."""
 
@@ -263,4 +301,5 @@ def merge_config(
         runtime=runtime or base.runtime,
         output=output or base.output,
         science=base.science,
+        refinement=refinement or base.refinement,
     )

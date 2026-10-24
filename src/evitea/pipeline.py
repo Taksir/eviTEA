@@ -8,7 +8,7 @@ import os
 import shutil
 import tempfile
 import uuid
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -55,6 +55,8 @@ CANONICAL_OUTPUTS = (
     "run_summary.json",
     "run.log",
 )
+BREAKPOINTS_OUTPUT = "breakpoints.tsv"  # written only when refinement.breakpoints is on
+ANNOTATIONS_OUTPUT = "call_annotations.tsv"  # written only when refinement.call_annotations is on
 CHECKPOINT_SCHEMA = "evitea.checkpoint.v1"
 RAW_SAMPLE_DIRECTORY = "prepared-sample"
 RAW_SAMPLE_STAGING_PREFIX = ".sample-build-"
@@ -358,11 +360,21 @@ def run_sample(
     *,
     manifest_context: RunManifestContext,
     sample_builder: RawSampleBuilder | None = None,
+    breakpoint_refiner: Callable[[CallsetState], Sequence[Any]] | None = None,
 ) -> RunResult:
-    """Orchestrate a supplied scientific engine and finalize canonical outputs."""
+    """Orchestrate a supplied scientific engine and finalize canonical outputs.
+
+    ``breakpoint_refiner`` is required exactly when ``refinement.breakpoints``
+    is on.  It never changes ``calls.native.tsv``; refined ranges go to the
+    ``calls.tsv`` / ``calls.bed`` views and to ``breakpoints.tsv``.
+    """
 
     if config.output.directory is None:
         raise InputContractError("output directory is required")
+    if config.refinement.breakpoints != (breakpoint_refiner is not None):
+        raise InputContractError(
+            "refinement.breakpoints and the breakpoint refiner must be given together"
+        )
     output = prepare_output_directory(
         config.output.directory, resume=config.runtime.resume
     )
@@ -385,9 +397,29 @@ def run_sample(
         )
     started_at = manifest_context.started_at or datetime.now(UTC).isoformat()
     state = call_engine(config, engine_assets, checkpoints)
-    ended_at = manifest_context.ended_at or datetime.now(UTC).isoformat()
     if not isinstance(state, CallsetState):
         raise InputContractError("call engine must return CallsetState")
+    breakpoint_rows = None
+    breakpoint_pins = None
+    annotations = None
+    refined = None
+    if breakpoint_refiner is not None:
+        from .breakpoints.refine import RefinementResult, refined_coordinates
+
+        result = RefinementResult.of(breakpoint_refiner(state))
+        if (result.pins is not None) != config.refinement.pin_one_sided:
+            raise InputContractError("refinement.pin_one_sided and the refiner's pins must be given together")
+        if (result.annotations is not None) != config.refinement.call_annotations:
+            raise InputContractError("refinement.call_annotations and the refiner's annotations must be given together")
+        breakpoint_rows, breakpoint_pins, annotations = result.rows, result.pins, result.annotations
+        refined = refined_coordinates(breakpoint_rows)
+        if annotations is not None:
+            from .shadow_layers import ShadowCallset
+
+            native_ids = [row["event_id"] for row in ShadowCallset.from_bytes(state.native).rows]
+            if [row.event_id for row in annotations] != native_ids:
+                raise InputContractError("call annotations must cover every native call in native order")
+    ended_at = manifest_context.ended_at or datetime.now(UTC).isoformat()
 
     stage_history = (
         *manifest_context.stage_history,
@@ -409,28 +441,43 @@ def run_sample(
 
     try:
         write_bytes(output / "calls.native.tsv", state.native)
-        write_bytes(output / "calls.tsv", calls_tsv_bytes(state))
+        write_bytes(output / "calls.tsv", calls_tsv_bytes(state, refined))
         write_bytes(
             output / "calls.bed",
-            calls_bed_bytes(state, dict(prepared_assets.reference.contigs)),
+            calls_bed_bytes(state, dict(prepared_assets.reference.contigs), refined),
         )
         write_bytes(output / "unresolved.tsv", unresolved_tsv_bytes(state))
         summary = state.summary()
-        write_run_summary(output / "run_summary.json", summary)
-        write_run_log(
-            output / "run.log",
-            (
-                "run_completed=true",
-                f"profile={state.profile}",
-                f"final_call_count={summary['final_call_count']}",
-                f"native_callset_sha256={summary['native_callset_sha256']}",
-            ),
+        hashed = tuple(name for name in CANONICAL_OUTPUTS if name != "run_manifest.json")
+        log_lines = (
+            "run_completed=true",
+            f"profile={state.profile}",
+            f"final_call_count={summary['final_call_count']}",
+            f"native_callset_sha256={summary['native_callset_sha256']}",
         )
+        if breakpoint_rows is not None:
+            from .breakpoints.refine import breakpoints_tsv_bytes, refinement_summary
+
+            write_bytes(output / BREAKPOINTS_OUTPUT, breakpoints_tsv_bytes(breakpoint_rows, pins=breakpoint_pins))
+            summary["breakpoint_refinement"] = refinement_summary(breakpoint_rows)
+            hashed = (*hashed, BREAKPOINTS_OUTPUT)
+            log_lines = (*log_lines, f"breakpoint_refined_calls={len(refined)}")
+            if breakpoint_pins is not None:
+                summary["breakpoint_refinement"]["pinned_calls"] = len(breakpoint_pins)
+                log_lines = (*log_lines, f"breakpoint_pinned_calls={len(breakpoint_pins)}")
+        if annotations is not None:
+            from .breakpoints.annotate import call_annotations_tsv_bytes
+
+            write_bytes(output / ANNOTATIONS_OUTPUT, call_annotations_tsv_bytes(annotations))
+            hashed = (*hashed, ANNOTATIONS_OUTPUT)
+            log_lines = (*log_lines, f"annotated_calls={len(annotations)}")
+        write_run_summary(output / "run_summary.json", summary)
+        write_run_log(output / "run.log", log_lines)
         manifest = build_run_manifest(finalized_context)
         manifest = finalize_output_hashes(
             manifest,
             output,
-            tuple(name for name in CANONICAL_OUTPUTS if name != "run_manifest.json"),
+            hashed,
             output_counts={
                 "calls": summary["final_call_count"],
                 "unresolved": summary["unresolved_count"],
@@ -493,6 +540,8 @@ def engine_inputs(config: EviTEAConfig, assets: PreparedAssets) -> "EngineInputs
         threads=config.runtime.resolved_threads,
         workers=config.runtime.resolved_workers,
         edlib_python=config.runtime.edlib_python,
+        complete_routing=config.refinement.complete_routing,
+        max_rescue_interval_mass=config.runtime.max_rescue_interval_mass,
     )
 
 

@@ -45,6 +45,7 @@ from .mate_rescue import (
     route_one_sided_targets,
 )
 from .parallel import map_locus_batches
+from .recall_repair import MAX_RESCUE_INTERVAL_MASS
 from .repeat_rescue import crossvalidate, reaggregate, rescue_calls
 from .sequence import fasta_records_full_header, load_reference_contigs
 from .split_junction import SplitJunctionResult, finalize_split_junctions
@@ -79,12 +80,19 @@ class IncumbentInputs:
     # Query names of the candidate-recall-repair host mapping (see
     # ``recall_repair.RESCUE_READ_NAME_PROFILES``): ``pair`` in production.
     rescue_read_names: str = "pair"
+    # Optional complete routing with a partner-read gate (off = the frozen v1 first stage).
+    complete_routing: bool = False
+    # Recall-repair resource limit (``recall_repair.MAX_RESCUE_INTERVAL_MASS`` by default).
+    max_rescue_interval_mass: int = 1_500_000
 
     def __post_init__(self) -> None:
         from .recall_repair import RESCUE_READ_NAME_PROFILES
 
         if self.rescue_read_names not in RESCUE_READ_NAME_PROFILES:
             raise ValueError(f"rescue_read_names must be one of {RESCUE_READ_NAME_PROFILES}")
+        value = self.max_rescue_interval_mass
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise ValueError("max_rescue_interval_mass must be a positive integer")
 
 
 @dataclass(slots=True)
@@ -124,6 +132,10 @@ def _fingerprint(inputs: IncumbentInputs) -> dict[str, object]:
     # the profile existed (all ``pair``) stay resumable.
     if inputs.rescue_read_names != "pair":
         identity["rescue_read_names"] = inputs.rescue_read_names
+    if inputs.complete_routing:
+        identity["complete_routing"] = True
+    if inputs.max_rescue_interval_mass != MAX_RESCUE_INTERVAL_MASS:
+        identity["max_rescue_interval_mass"] = inputs.max_rescue_interval_mass
     return identity
 
 
@@ -198,6 +210,8 @@ def run_incumbent_caller(
         threads=inputs.threads,
         progress=progress,
         rescue_read_names=inputs.rescue_read_names,
+        complete_routing=inputs.complete_routing,
+        max_rescue_interval_mass=inputs.max_rescue_interval_mass,
     ))
     loci = acquisition.loci
     families = {locus.family for locus in loci}

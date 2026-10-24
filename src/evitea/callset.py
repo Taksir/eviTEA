@@ -232,21 +232,41 @@ def _tsv(columns: tuple[str, ...], rows: Iterable[Mapping[str, Any]]) -> bytes:
     return handle.getvalue().encode("utf-8")
 
 
-def _sorted_views(state: CallsetState) -> list[dict[str, Any]]:
+def _sorted_views(
+    state: CallsetState, refined: Mapping[str, tuple[int, int]] | None = None
+) -> list[dict[str, Any]]:
     views = [_call_view(state.sample_id, row) for row in state.callset.rows]
     ids = [view["call_id"] for view in views]
     if len(set(ids)) != len(ids):
         raise InputContractError("native callset has duplicate event ids")
+    if refined:
+        unknown = sorted(set(refined) - set(ids))
+        if unknown:
+            raise InputContractError(f"refined breakpoints name unknown calls: {unknown[:5]}")
+        for view in views:
+            if view["call_id"] in refined:
+                start, end = (int(x) for x in refined[view["call_id"]])
+                if not view["start"] <= start < end <= view["end"]:
+                    raise InputContractError(f"refined call {view['call_id']} leaves its native range")
+                view.update(start=start, end=end, coordinate_kind=RANGE)
     return sorted(views, key=lambda v: (v["chrom"], v["start"], v["end"], v["family"], v["call_id"]))
 
 
-def calls_tsv_bytes(state: CallsetState) -> bytes:
-    return _tsv(CALL_COLUMNS, _sorted_views(state))
+def calls_tsv_bytes(
+    state: CallsetState, refined: Mapping[str, tuple[int, int]] | None = None
+) -> bytes:
+    """``refined`` (call id -> [start, end)) replaces the native range of refined calls."""
+
+    return _tsv(CALL_COLUMNS, _sorted_views(state, refined))
 
 
-def calls_bed_bytes(state: CallsetState, contig_lengths: Mapping[str, int]) -> bytes:
+def calls_bed_bytes(
+    state: CallsetState,
+    contig_lengths: Mapping[str, int],
+    refined: Mapping[str, tuple[int, int]] | None = None,
+) -> bytes:
     rows = []
-    for view in _sorted_views(state):
+    for view in _sorted_views(state, refined):
         try:
             length = int(contig_lengths[view["chrom"]])
         except KeyError as exc:

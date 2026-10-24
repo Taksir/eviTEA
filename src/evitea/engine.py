@@ -122,6 +122,8 @@ class EngineInputs:
     threads: int = 1
     workers: int = 1
     edlib_python: Path | None = None
+    complete_routing: bool = False
+    max_rescue_interval_mass: int = 1_500_000
 
     def __post_init__(self) -> None:
         for name in ("threads", "workers"):
@@ -157,6 +159,13 @@ class EngineInputs:
                     "internal_codebook", "te_index_prefix",
                 )
             },
+            # recorded only when on, so identities of v1 runs are unchanged
+            **({"complete_routing": True} if self.complete_routing else {}),
+            **(
+                {"max_rescue_interval_mass": self.max_rescue_interval_mass}
+                if self.max_rescue_interval_mass != 1_500_000
+                else {}
+            ),
         }
 
 
@@ -250,6 +259,8 @@ def run_engine(
             threads=inputs.threads,
             workers=inputs.workers,
             rescue_read_names=profile.rescue_read_names,
+            complete_routing=inputs.complete_routing,
+            max_rescue_interval_mass=inputs.max_rescue_interval_mass,
         ),
         sample,
         work / "incumbent",
