@@ -250,12 +250,12 @@ class PhysicalPair:
         _nonnegative_int(self.pair_id, "pair_id")
         _nonnegative_int(self.fold_id, "fold_id")
         if self.fold_id >= N_FOLDS:
-            raise ArchitectureInvariantError("fold_id is outside the frozen fold range")
+            raise ArchitectureInvariantError("fold_id is outside the fold range")
         if self.identity_mode is PairIdentityMode.EVITEA_ORDINAL0:
             if self.pair_id != self.raw_pair_ordinal0:
                 raise ArchitectureInvariantError("ordinal-zero pair identity was renumbered")
             if self.legacy_pair_id is not None:
-                raise ArchitectureInvariantError("new-data identity cannot carry legacy_pair_id")
+                raise ArchitectureInvariantError("ordinal-zero identity cannot carry legacy_pair_id")
         if self.fold_id != self.pair_id % N_FOLDS:
             raise ArchitectureInvariantError("fold_id must equal pair_id % 5")
         if (
@@ -439,12 +439,12 @@ class ProposalInterval:
         )
         if len(self.support_pair_ids) < MIN_PAIRS or len(self.support_fold_ids) < MIN_FOLDS:
             raise ArchitectureInvariantError(
-                "proposal lacks frozen pair/fold support"
+                "proposal lacks the minimum pair/fold support"
             )
         if any(fold_id >= N_FOLDS for fold_id in self.support_fold_ids):
-            raise ArchitectureInvariantError("proposal fold_id lies outside frozen folds")
+            raise ArchitectureInvariantError("proposal fold_id is outside the fold range")
         if any(fold_id >= N_FOLDS for fold_id in self.discovery_fold_ids):
-            raise ArchitectureInvariantError("discovery fold_id lies outside frozen folds")
+            raise ArchitectureInvariantError("discovery fold_id is outside the fold range")
         expected_folds = tuple(
             sorted({pair_id % N_FOLDS for pair_id in self.support_pair_ids})
         )
@@ -482,7 +482,7 @@ class ExactJunctionWitness:
         _nonnegative_int(self.breakpoint0, "junction breakpoint0")
         if self.fold_id != self.pair_id % N_FOLDS:
             raise ArchitectureInvariantError(
-                "junction fold_id must equal pair_id modulo the frozen fold count"
+                "junction fold_id must equal pair_id modulo the fold count"
             )
         if not self.unexplained_query_spans0:
             raise ArchitectureInvariantError(
@@ -507,7 +507,7 @@ class ExactJunctionEvent:
         fold_ids = _canonical_int_tuple(self.support_fold_ids, "junction fold_id")
         if len(pair_ids) < MIN_PAIRS or len(fold_ids) < MIN_FOLDS:
             raise ArchitectureInvariantError(
-                "exact junction event lacks frozen pair/fold support"
+                "exact junction event lacks the minimum pair/fold support"
             )
         if fold_ids != tuple(sorted({pair_id % N_FOLDS for pair_id in pair_ids})):
             raise ArchitectureInvariantError(
@@ -540,7 +540,7 @@ class PairedEndAnchorInterval:
         _nonnegative_int(self.fold_id, "paired-end fold_id")
         if self.fold_id != self.pair_id % N_FOLDS:
             raise ArchitectureInvariantError(
-                "paired-end fold_id must equal pair_id modulo the frozen fold count"
+                "paired-end fold_id must equal pair_id modulo the fold count"
             )
         if self.host_strand not in {"+", "-"}:
             raise ArchitectureInvariantError("paired-end host strand must be + or -")
@@ -606,7 +606,7 @@ class PairedEndAnchorSupport:
         )
         if self.support_state is not expected_state:
             raise ArchitectureInvariantError(
-                "paired-end support state disagrees with frozen pair/fold thresholds"
+                "paired-end support state disagrees with the pair/fold thresholds"
             )
 
 
@@ -636,14 +636,14 @@ class CertifiedEvent:
         )
         if not self.proposal_ids:
             raise ArchitectureInvariantError(
-                "certified event requires proposal provenance"
+                "confirmed event requires proposal provenance"
             )
         if (
             self.paired_end_support.support_state.value
             not in CERTIFYING_PAIRED_END_STATES
         ):
             raise ArchitectureInvariantError(
-                "certified event requires positive paired-end anchor support"
+                "confirmed event requires positive paired-end anchor support"
             )
         if (
             self.exact_junction.sample_id != self.sample_id
@@ -657,14 +657,14 @@ class CertifiedEvent:
             or self.paired_end_support.breakpoint0 != self.breakpoint0
         ):
             raise ArchitectureInvariantError(
-                "support evidence mutated the certified exact key"
+                "support evidence changed the confirmed exact key"
             )
         if set(self.exact_junction.support_pair_ids) & (
             set(self.paired_end_support.left_pair_ids)
             | set(self.paired_end_support.right_pair_ids)
         ):
             raise ArchitectureInvariantError(
-                "certified exact and paired-end evidence share a physical pair"
+                "confirmed exact and paired-end evidence share a physical pair"
             )
         if self.paired_end_support.excluded_exact_pair_ids != (
             self.exact_junction.support_pair_ids
