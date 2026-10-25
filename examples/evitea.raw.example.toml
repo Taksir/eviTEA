@@ -4,8 +4,8 @@ read1 = "data/example_R1.fastq.gz"
 read2 = "data/example_R2.fastq.gz"
 reference_assets = "prepared/reference"
 te_assets = "prepared/te"
-# "production" (default; Bowtie2 host names P{pid}).  AKA017 / ISO1 are
-# reproduction-only profiles for the frozen development samples.
+# "production" (default; Bowtie2 host names P{pid}). AKA017 and ISO1 are
+# reproduction-only profiles for the two development samples.
 profile = "production"
 
 [runtime]
