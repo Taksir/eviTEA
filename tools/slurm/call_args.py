@@ -6,6 +6,14 @@ import sys
 SET = ("--te-assets", "--output", "--work-dir")
 
 
+def recorded_command_line(document):
+    """The command line of a run_manifest.json: under "values" in a real manifest (architecture_id, schema_version, values)."""
+    for holder in (document.get("values"), document):
+        if isinstance(holder, dict) and isinstance(holder.get("command_line"), list):
+            return holder["command_line"]
+    raise SystemExit("run_manifest.json holds no command_line")
+
+
 def call_args(command_line, values):
     words = list(command_line)
     if "call" not in words:
@@ -31,5 +39,5 @@ def call_args(command_line, values):
 if __name__ == "__main__":
     manifest, te, output, work = sys.argv[1:5]
     with open(manifest, encoding="utf-8") as handle:
-        command_line = json.load(handle)["command_line"]
+        command_line = recorded_command_line(json.load(handle))
     sys.stdout.write("".join(w + "\0" for w in call_args(command_line, dict(zip(SET, (te, output, work))))))
