@@ -1,8 +1,8 @@
-"""Real backends for breakpoint refinement: msBWT read counts and a minimap2 segment aligner.
+"""Backends for breakpoint refinement: msBWT read counts and a minimap2 segment aligner.
 
 minimap2 is reached through ``mappy`` (optional extra ``evitea[breakpoints]``).
-mappy publishes no CPython 3.14 Windows wheel, so the switch currently needs
-Linux (or WSL); without mappy it fails closed.
+mappy publishes no CPython 3.14 Windows wheel, so the switch needs Linux (or
+WSL); without mappy the run stops with an error.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ __all__ = ["BreakpointRefiner", "read_fasta"]
 
 
 def read_fasta(path: Path) -> dict[str, str]:
-    """name (first word of the header) -> sequence, in file order."""
+    """Map each name (first word of the header) to its sequence, in file order."""
 
     records: dict[str, list[str]] = {}
     name = None

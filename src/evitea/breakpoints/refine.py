@@ -158,7 +158,7 @@ def refine_native(
 
 
 def refined_coordinates(rows: Iterable[BreakpointRow]) -> dict[str, tuple[int, int]]:
-    """event_id -> refined [start, end) for REFINED rows only."""
+    """Map event_id to the refined [start, end) for REFINED rows only."""
 
     return {row.event_id: (row.s1, row.e1) for row in rows if row.decision == "REFINED"}
 

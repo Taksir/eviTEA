@@ -1,11 +1,11 @@
-"""One-sided breakpoint pinning of calls the breakpoint switch leaves wide (PIN1 Part A rule).
+"""One-sided breakpoint pinning of calls the breakpoint switch leaves wide.
 
 A wide call whose walk found no TE junction (decision ``KEEP_NO_TE_JUNCTION``)
 gets a reported position when exactly one side's walk ended in a TE junction
 label (``TE_GENOMIC`` or ``TE_CONSENSUS``, not ``UNANCHORED``) with a recorded
 position; the position is that side's ``pos`` as the walker records it.  The
-rule is the frozen research rule (``tests/reference_pin1/pin1_lib.py``,
-preregistration ``PIN1A_PREREGISTRATION.md``), which reads the side labels only.
+rule reads the side labels only (research implementation:
+``tests/reference_pin1/pin1_lib.py``).
 
 Positions only: the call, its range in ``calls.tsv`` and ``calls.bed`` and the
 native callset never change; the pin goes to ``breakpoints.tsv`` columns
@@ -41,7 +41,7 @@ def one_sided_position(L: dict, R: dict) -> tuple[str, int] | None:
 
 
 def pin_rows(rows: Sequence, walks: Sequence) -> dict[str, tuple[str, int]]:
-    """event_id -> (side, position) for rows left wide without a TE junction; rows and walks in the same order."""
+    """Map event_id to (side, position) for rows left wide without a TE junction; rows and walks in the same order."""
 
     if [row.event_id for row in rows] != [walk.event_id for walk in walks]:
         raise InputContractError("breakpoint rows and walks must name the same calls in the same order")

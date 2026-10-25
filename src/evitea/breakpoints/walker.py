@@ -1,8 +1,8 @@
-"""Reference-guided k-mer walk and J1 junction placement over a sample msBWT.
+"""Reference-guided k-mer walk and junction placement over a sample msBWT.
 
-Port of the frozen S3 research modules (``oracle_walk``, ``junction``, ``j1``,
-``s3a_outcome``, ``s3_rules``; see ``tests/reference_s3``).  Every constant and
-tie rule is kept; the differential tests require identical results.
+Port of the research modules ``oracle_walk``, ``junction``, ``j1``,
+``s3a_outcome`` and ``s3_rules`` (see ``tests/reference_s3``).  Every constant
+and tie rule is kept; the differential tests require identical results.
 
 All positions are 0-based.  A side is walked on the forward reference (left
 side) or on its reverse complement (right side); ``site`` converts both to
@@ -24,7 +24,7 @@ from collections.abc import Callable, Iterable
 K = 31
 W = 20
 PRE = 20  # the walk starts W + PRE bases before the window
-REF_OK, LOW, SUPP, HETMAX = 0.15, 0.65, 0.15, 0.85  # branch support (x D); reference-fraction cut-offs
+REF_OK, LOW, SUPP, HETMAX = 0.15, 0.65, 0.15, 0.85  # branch support (x D); reference-fraction thresholds
 from ..depth_window import D_MIN, upper_bound as _upper_bound  # noqa: E402
 
 D_MAX = _upper_bound()  # no absolute upper bound unless --depth-cap / EVITEA_DEPTH_CAP sets one
@@ -161,7 +161,7 @@ def walk_events(C: KmerCounter, ref: str, a: int, e: int, w: int = W):
 
 
 def build_rm_index(records: Iterable[tuple[str, int, int, str]]) -> dict:
-    """chrom -> (starts, ends, te_ids, max length), sorted by (start, end, id): the reference TE annotation."""
+    """Map chrom to (starts, ends, te_ids, max length), sorted by (start, end, id): the reference TE annotation."""
 
     by_chrom: dict[str, list[tuple[int, int, str]]] = {}
     for chrom, start, end, te_id in records:
@@ -212,7 +212,7 @@ def label_hit(cl: SegmentClassifier, seg: str):
     return "NON_TE_REFERENCE", f"{h.ctg}:{h.r_st}", h.mlen, h
 
 
-# --- J1 junction placement (research ``j1``) --------------------------------
+# --- junction placement (research ``j1``) -----------------------------------
 MATCH, MISM, GAPO, GAPE = 1, -4, 6, 1  # a gap of length L costs GAPO + GAPE * L
 BAND = 12  # max |net indel| inside the host prefix
 HOST_MIN = 12  # minimum extension score for a host prefix
@@ -249,7 +249,7 @@ def dp(q: str, r: str, band: int = BAND):
 
 
 def ext_align(q: str, r: str, band: int = BAND):
-    """Best prefix-vs-prefix alignment (free end): (score, qe, re); ties -> smallest qe, then re; (0, 0, 0) if none > 0."""
+    """Best prefix-vs-prefix alignment (free end): (score, qe, re); ties go to the smallest qe, then re; (0, 0, 0) if none > 0."""
 
     H = dp(q, r, band)
     best = (0, 0, 0)
@@ -261,7 +261,7 @@ def ext_align(q: str, r: str, band: int = BAND):
 
 
 def row_best(H, Q: int):
-    """(score, j): best alignment of the whole q[:Q] against some prefix r[:j]; ties -> smallest j."""
+    """(score, j): best alignment of the whole q[:Q] against some prefix r[:j]; ties go to the smallest j."""
 
     row = H[Q]
     s = max(row)
@@ -284,7 +284,7 @@ def extend(C: KmerCounter, cur: str, seq: str, n_alt: int, maxlen: int):
 
 
 def refine(C: KmerCounter, ref: str, i: int, ctx: str, alt: str, n_alt: int, cl: SegmentClassifier) -> dict:
-    """J1 for one divergence at walk position i.
+    """Junction placement for one divergence at walk position i.
 
     The divergent branch is extended; a host prefix (banded affine alignment to
     the reference from i, score >= HOST_MIN) absorbs host variants; the rest is
@@ -324,7 +324,7 @@ def refine(C: KmerCounter, ref: str, i: int, ctx: str, alt: str, n_alt: int, cl:
 
 
 def walk(C: KmerCounter, ref: str, i: int, path: str, hi: int, D):
-    """The divergence walk from position i with context ``path`` to hi -> (events, i_end, broke)."""
+    """The divergence walk from position i with context ``path`` to hi; returns (events, i_end, broke)."""
 
     ev = []
     while i < hi:
@@ -362,7 +362,7 @@ def resume_point(ref: str, i: int, r: dict) -> int:
 
 
 def choose(C: KmerCounter, ref: str, a: int, e: int, cl: SegmentClassifier):
-    """Side junction with host-variant skipping -> (status, event, refine result, n host variants)."""
+    """Side junction with host-variant skipping; returns (status, event, refine result, n host variants)."""
 
     lo, hi = a - W - PRE, e + W + PRE
     ev0, D = walk_events(C, ref, a, e)
@@ -500,7 +500,7 @@ def site(C: KmerCounter, fw: str, rv: str, a: int, e: int, cl: SegmentClassifier
 
 
 def breakpoint(o: str, L: dict, R: dict):
-    """Insertion interval [lo, hi] (forward, inclusive): two-sided -> [pR+1, pL] (TSD span); one-sided -> the TE side."""
+    """Insertion interval [lo, hi] (forward, inclusive): two-sided gives [pR+1, pL] (TSD span); one-sided gives the TE side."""
 
     if o == "TE_JUNCTION_TWO_SIDED":
         x, y = R["pos"] + 1, L["pos"]
@@ -514,7 +514,7 @@ def breakpoint(o: str, L: dict, R: dict):
 
 # --- refinement rule (research ``s3_rules``) --------------------------------
 def refine_decision(s0: int, e0: int, outcome: str, bp_lo, bp_hi):
-    """-> (decision, start, end). REFINED only for a TE junction whose interval [bp_lo, bp_hi] lies inside [s0, e0]."""
+    """Return (decision, start, end). REFINED only for a TE junction whose interval [bp_lo, bp_hi] lies inside [s0, e0]."""
 
     if outcome not in TE_JUNCTION:
         return "KEEP_NO_TE_JUNCTION", s0, e0
