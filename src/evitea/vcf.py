@@ -30,7 +30,9 @@ __all__ = [
     "VCF_OUTPUT",
     "VcfCall",
     "calls_vcf_bytes",
+    "fasta_contigs",
     "library_free_vcf_calls",
+    "native_row_vcf_calls",
     "native_vcf_calls",
     "reference_bases",
     "vcf_position",
@@ -82,6 +84,38 @@ def native_vcf_calls(views: Iterable[Mapping[str, object]]) -> list[VcfCall]:
                   "SUPPORT": view.get("total_support", "")},
         ))
     return out
+
+
+def native_row_vcf_calls(rows: Iterable[Mapping[str, str]]) -> list[VcfCall]:
+    """Calls of a native call table (``calls.native.tsv`` rows); a call with ``start == end`` is a point. Only ``event_id``,
+    ``chr``, ``start``, ``end`` and ``family`` are needed; the other columns are used when present."""
+
+    from .callset import CALL_ORIGINS
+
+    views = []
+    for row in rows:
+        start, end = int(row["start"]), int(row["end"])
+        views.append({
+            "call_id": row["event_id"], "chrom": row["chr"], "start": start, "end": end, "family": row["family"],
+            "families": row.get("families", ""), "coordinate_kind": "POINT" if start == end else "RANGE",
+            "call_origin": CALL_ORIGINS.get(row.get("evidence_type", ""), ""), "evidence_type": row.get("evidence_type", ""),
+            "left_support": row.get("left_support", ""), "right_support": row.get("right_support", ""),
+            "total_support": row.get("total_support", ""),
+        })
+    return native_vcf_calls(views)
+
+
+def fasta_contigs(fasta: str | Path) -> list[tuple[str, int]]:
+    """(name, length) of every FASTA record, in file order."""
+
+    contigs: list[tuple[str, int]] = []
+    with Path(fasta).open("r", encoding="ascii", errors="replace") as handle:
+        for line in handle:
+            if line.startswith(">"):
+                contigs.append((line[1:].split()[0], 0))
+            elif contigs:
+                contigs[-1] = (contigs[-1][0], contigs[-1][1] + len(line.strip()))
+    return contigs
 
 
 def library_free_vcf_calls(added: bytes) -> list[VcfCall]:

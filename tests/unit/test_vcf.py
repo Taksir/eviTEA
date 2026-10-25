@@ -64,3 +64,21 @@ def test_library_free_calls_carry_their_source_and_tsd(tmp_path: Path) -> None:
     assert "SOURCE=library-free" in lf[7] and "ORIGIN=LIBRARY_FREE" in lf[7] and "TSD=6" in lf[7]
     # without the reference the REF base is N
     assert _records(vcf_bytes(calls, CONTIGS, sample_id="s1"))[0][3] == "N"
+
+
+def test_combined_vcf_from_a_minimal_native_table(tmp_path: Path) -> None:
+    from evitea.library_free.runtime import combined_calls_vcf_bytes
+    from evitea.vcf import fasta_contigs
+
+    fasta = tmp_path / "ref.fa"
+    fasta.write_text(REFERENCE, encoding="ascii")
+    assert fasta_contigs(fasta) == [("chr1", 60), ("chr2", 80)]
+    native = b"event_id\tchr\tstart\tend\tfamily\tfamilies\nN0\tchr2\t40\t40\tPX\tPX\n"
+
+    class Reference:  # a reference without contig lengths: they are read from the FASTA
+        reference_fasta_path = fasta
+
+    rows = _records(combined_calls_vcf_bytes(native, ADDED.encode(), Reference(), "s1"))
+    assert [(r[0], r[1], r[2], r[4]) for r in rows] == [
+        ("chr1", "30", "LF_chr1_30", "<INS:ME:LF_cluster_7>"), ("chr2", "40", "N0", "<INS:ME:PX>")]
+    assert "IMPRECISE" not in rows[1][7] and "SOURCE=library" in rows[1][7]

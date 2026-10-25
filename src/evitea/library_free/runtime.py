@@ -21,7 +21,6 @@ from pathlib import Path
 
 from ..contigs import MITO_CONTIG_NAMES, find_mito_contig
 from .. import vcf as V
-from ..callset import CallsetState, call_views
 from ..errors import InputContractError, OperationalResourceError
 from ..outputs import write_bytes, write_run_summary
 from ..shadow_layers import ShadowCallset
@@ -87,10 +86,10 @@ def combined_calls_tsv_bytes(native: bytes, added: bytes) -> bytes:
 def combined_calls_vcf_bytes(native: bytes, added: bytes, reference, sample_id: str) -> bytes:
     """``calls.combined.vcf``: the library calls (as in ``calls.tsv``) and the added library-free calls, as VCF records."""
 
-    calls = [*V.native_vcf_calls(call_views(CallsetState(sample_id=sample_id, native=native))),
-             *V.library_free_vcf_calls(added)]
+    calls = [*V.native_row_vcf_calls(ShadowCallset.from_bytes(native).rows), *V.library_free_vcf_calls(added)]
     fasta = Path(reference.reference_fasta_path)
-    return V.calls_vcf_bytes(calls, reference.contigs, sample_id=sample_id, bases=V.reference_bases(fasta, calls),
+    contigs = getattr(reference, "contigs", None) or V.fasta_contigs(fasta)
+    return V.calls_vcf_bytes(calls, contigs, sample_id=sample_id, bases=V.reference_bases(fasta, calls),
                              reference_name=fasta.name)
 
 
