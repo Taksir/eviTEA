@@ -93,6 +93,8 @@ class RuntimeConfig:
     # fragment-size 95th / 99th percentiles; None = estimated from the sample (see ``sample_geometry``)
     fragment_q95: float | None = None
     fragment_q99: int | None = None
+    # contigs of the full-memory proposals; None = taken from the reference (see ``evitea.contigs``)
+    primary_contigs: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
         for name in ("threads", "workers"):
@@ -116,6 +118,12 @@ class RuntimeConfig:
             validate_fragment_size(self.fragment_q99, "fragment_q99")
             if not isinstance(self.fragment_q99, int):
                 raise InputContractError("fragment_q99 must be an integer")
+        if self.primary_contigs is not None and (
+            not isinstance(self.primary_contigs, tuple)
+            or not self.primary_contigs
+            or not all(isinstance(name, str) and name for name in self.primary_contigs)
+        ):
+            raise InputContractError("primary_contigs must be a non-empty list of contig names")
         if self.exact_query_backend != "msbwt":
             raise InputContractError("the frozen profile supports only msbwt")
         if not isinstance(self.resume, bool):
@@ -208,11 +216,26 @@ _SECTION_KEYS = {
             "read_length",
             "fragment_q95",
             "fragment_q99",
+            "primary_contigs",
         }
     ),
     "output": frozenset({"directory", "log_level"}),
     "refinement": frozenset({"breakpoints", "complete_routing", "pin_one_sided", "call_annotations"}),
 }
+
+
+def _contig_list(value: Any) -> tuple[str, ...] | None:
+    """``primary_contigs`` from TOML: a list of names, or a comma list / file path as on the command line."""
+
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return tuple(value)
+    if isinstance(value, str):
+        from .contigs import parse_contig_list
+
+        return parse_contig_list(value)
+    raise InputContractError("primary_contigs must be a list of names or text")
 
 
 def _optional_path(value: Any, field: str, base_dir: Path) -> Path | None:
@@ -293,6 +316,7 @@ def load_config(path: str | Path) -> EviTEAConfig:
             read_length=runtime.get("read_length"),
             fragment_q95=runtime.get("fragment_q95"),
             fragment_q99=runtime.get("fragment_q99"),
+            primary_contigs=_contig_list(runtime.get("primary_contigs")),
         ),
         output=OutputConfig(
             directory=_optional_path(output.get("directory"), "directory", base),

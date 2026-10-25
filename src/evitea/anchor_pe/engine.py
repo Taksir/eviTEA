@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..constants import Q99
+from ..contigs import DEVELOPMENT_PRIMARY_CONTIGS
 from ..errors import InputContractError
 from ..incumbent.engine import StageStore
 from ..shadow_layers import AnchorPECandidate
@@ -55,6 +56,8 @@ class AnchorPEInputs:
     edlib_python: Path | None = None
     # 99th percentile of the sample's fragment size (bp); see ``sample_geometry``.
     fragment_q99: int = Q99
+    # contigs the full-memory proposals look at; see ``evitea.contigs``
+    primary_contigs: tuple[str, ...] = DEVELOPMENT_PRIMARY_CONTIGS
 
     def __post_init__(self) -> None:
         if self.host_read_names not in HOST_READ_NAME_PROFILES:
@@ -93,6 +96,8 @@ def _fingerprint(inputs: AnchorPEInputs) -> dict[str, object]:
         "host_read_names": inputs.host_read_names,
         # recorded only when not the default, so earlier work directories stay resumable
         **({"fragment_q99": inputs.fragment_q99} if inputs.fragment_q99 != Q99 else {}),
+        **({"primary_contigs": list(inputs.primary_contigs)}
+           if tuple(inputs.primary_contigs) != DEVELOPMENT_PRIMARY_CONTIGS else {}),
     }
 
 

@@ -88,7 +88,8 @@ def test_engine_identity_records_only_a_non_default_read_length(tmp_path: Path) 
     assert "read_length" not in default.identity()
     longer = EngineInputs(sample_id="s", read_length=151, read_length_source="prepared-sample", **paths)
     assert longer.identity()["read_length"] == 151
-    assert longer.run_parameters() == {"read_length": 151, "read_length_source": "prepared-sample"}
+    assert longer.run_parameters()["read_length"] == 151
+    assert longer.run_parameters()["read_length_source"] == "prepared-sample"
 
 
 # -- fragment size ----------------------------------------------------------------------------------------------

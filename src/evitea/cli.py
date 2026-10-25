@@ -28,6 +28,7 @@ from .config import (
     merge_config,
 )
 from .constants import ARCHITECTURE_ID
+from .contigs import parse_contig_list
 from .sample_geometry import validate_read_length
 from .errors import (
     ArchitectureInvariantError,
@@ -309,6 +310,13 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         help="99th percentile of the fragment size in bp, also Bowtie2's maximum fragment length (default: "
         "estimated from the sample, 805 when too few pairs)",
+    )
+    call.add_argument(
+        "--primary-contigs",
+        metavar="LIST|FILE",
+        help="contigs of the full-memory proposals: a comma list or a file with one name per line (default: "
+        "contigs at least 10%% as long as the longest, without organelle, unplaced or alternative contigs; the fly "
+        "runs pass chr2L,chr2R,chr3L,chr3R,chrX)",
     )
     _add_engineering_options(call, use_defaults=False)
 
@@ -674,6 +682,11 @@ def _call_config(args: argparse.Namespace) -> EviTEAConfig:
                 args.fragment_q99
                 if getattr(args, "fragment_q99", None) is not None
                 else base.runtime.fragment_q99
+            ),
+            primary_contigs=(
+                parse_contig_list(args.primary_contigs)
+                if getattr(args, "primary_contigs", None) is not None
+                else base.runtime.primary_contigs
             ),
         ),
         output=OutputConfig(

@@ -42,6 +42,7 @@ from .anchor_pe.alignments import PRODUCTION_HOST_READ_NAMES
 from .anchor_pe.engine import AnchorPEInputs
 from .errors import InputContractError
 from .extension_engine import ExtensionRun, run_extension
+from .contigs import DEVELOPMENT_PRIMARY_CONTIGS
 from .sample_geometry import (
     DEFAULT_READ_LENGTH,
     FragmentSizes,
@@ -139,6 +140,9 @@ class EngineInputs:
     # fragment-size 95th / 99th percentile overrides; None = estimated from the sample (``sample_geometry``)
     fragment_q95: float | None = None
     fragment_q99: int | None = None
+    # contigs of the full-memory proposals (``evitea.contigs``) and where the list came from
+    primary_contigs: tuple[str, ...] = DEVELOPMENT_PRIMARY_CONTIGS
+    primary_contigs_source: str = "default"
 
     def __post_init__(self) -> None:
         validate_read_length(self.read_length)
@@ -191,12 +195,15 @@ class EngineInputs:
             **({"read_length": self.read_length} if self.read_length != DEFAULT_READ_LENGTH else {}),
             **({"fragment_q95": self.fragment_q95} if self.fragment_q95 is not None else {}),
             **({"fragment_q99": self.fragment_q99} if self.fragment_q99 is not None else {}),
+            **({"primary_contigs": list(self.primary_contigs)}
+               if tuple(self.primary_contigs) != DEVELOPMENT_PRIMARY_CONTIGS else {}),
         }
 
     def run_parameters(self) -> dict[str, object]:
         """Sample-derived values used by this run (recorded in the run manifest)."""
 
-        return {"read_length": self.read_length, "read_length_source": self.read_length_source}
+        return {"read_length": self.read_length, "read_length_source": self.read_length_source,
+                "primary_contigs": list(self.primary_contigs), "primary_contigs_source": self.primary_contigs_source}
 
 
 @dataclass(slots=True)
@@ -341,6 +348,7 @@ def run_engine(
             threads=inputs.threads,
             edlib_python=inputs.edlib_python,
             fragment_q99=fragment.q99,
+            primary_contigs=tuple(inputs.primary_contigs),
         ),
         inputs.internal_codebook,
         sample,

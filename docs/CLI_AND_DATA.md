@@ -63,6 +63,40 @@ processes; default CPUs-1), `--work-dir`, `--resume`, `--bowtie2`,
 decoder, used only when the running interpreter lacks it; edlib has no
 CPython 3.14 Windows wheel).
 
+### Values taken from the sample and the reference
+
+Each value below is written to `run_manifest.json` (`values.run_parameters`)
+with where it came from.
+
+| value | default | option |
+|---|---|---|
+| read length (the window of the coverage panels and of recall repair) | the prepared sample's read length, or the msBWT index's (`n` reads hold `n * (L + 1)` symbols) | `--read-length` |
+| fragment-size 95th percentile (an ordinary reference pair longer than it does not explain a read pair) | estimated from the sample | `--fragment-q95` |
+| fragment-size 99th percentile (mate-to-breakpoint windows; Bowtie2 `-X` of the paired reference mappings) | estimated from the sample | `--fragment-q99` |
+| primary contigs (the full-memory proposals look only at these) | the reference rule below | `--primary-contigs` (comma list or file, one name per line) |
+
+Fragment size: up to 200,000 evenly spaced read pairs are mapped to the
+reference with Bowtie2 (end-to-end, no mixed or discordant pairs, `-X 5000`).
+Spans of properly paired reads with both mates at MAPQ >= 20 are kept, spans
+above median + 10 x MAD are dropped as outliers, and the nearest-rank 95th and
+99th percentiles are taken. With fewer than 1,000 usable pairs the development
+values 494 and 805 bp are used and a warning is logged.
+
+Primary contigs, without `--primary-contigs`: every contig at least 10% as
+long as the longest contig, except organelle contigs (`chrM`, `MT`, `M`,
+`chrMT`, `Mito`, chloroplast names such as `ChrC` or `Pt`) and unplaced,
+unlocalised or alternative contigs (`chrUn...`, `Un...`, or names with
+`_random`, `_alt`, `_fix`, `_hap`, `_decoy`). The 10% scales with the genome:
+it keeps every yeast chromosome (chromosome I is about 15% of chromosome IV)
+and every mouse or human chromosome, and leaves out unplaced scaffolds. On dm6
+it gives chr2L, chr2R, chr3L, chr3R, chrX and chrY; the fly runs of the paper
+pass `--primary-contigs chr2L,chr2R,chr3L,chr3R,chrX`, the list the layer was
+developed with.
+
+To reproduce a development run exactly, pass the development values:
+`--read-length 125 --fragment-q95 494 --fragment-q99 805
+--primary-contigs chr2L,chr2R,chr3L,chr3R,chrX`.
+
 ### Profiles
 
 `--profile production` (default) names AnchorPE host Bowtie2 queries

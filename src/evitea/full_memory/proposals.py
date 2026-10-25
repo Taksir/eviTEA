@@ -5,7 +5,7 @@ Population: uncensored ``ELIGIBLE`` + ``REFERENCE_UNEXPLAINED`` +
 alternative.  Each contributes the q99 interval ``[end, end + q99]`` (``+``) or
 ``[max(0, start - q99), start]`` (``-``) — not clipped at contig ends; q99 is
 the fragment-size 99th percentile (805 bp by default).  On the
-primary chromosomes only, a sweep keeps every elementary segment covered by
+primary contigs only (``primary``; the fly arms by default), a sweep keeps every elementary segment covered by
 >= 2 pairs over >= 2 folds; adjacent/overlapping segments merge into regions.
 A rotation's regions come from its three discovery folds and are *confirmed*
 when each held-out fold has >= 1 overlapping interval.  Proposals never
@@ -15,7 +15,7 @@ certify an event.
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from dataclasses import dataclass
 
 from ..constants import N_FOLDS, Q99
@@ -76,10 +76,11 @@ def load_proposal_records(accounting: Iterable[Mapping[str, str]],
     return records
 
 
-def discover_regions(records: Iterable[ProposalRecord], discovery_folds: set[int]) -> list[dict]:
+def discover_regions(records: Iterable[ProposalRecord], discovery_folds: set[int],
+                     primary: Collection[str] = PRIMARY_CHROMS) -> list[dict]:
     by: dict[tuple[str, str], list[ProposalRecord]] = defaultdict(list)
     for r in records:
-        if r.chrom in PRIMARY_CHROMS and r.fold in discovery_folds:
+        if r.chrom in primary and r.fold in discovery_folds:
             by[(r.family, r.chrom)].append(r)
     out: list[dict] = []
     for (family, chrom), values in sorted(by.items()):
@@ -119,9 +120,9 @@ def discover_regions(records: Iterable[ProposalRecord], discovery_folds: set[int
     return out
 
 
-def full_data_proposals(sample: str, records: list[ProposalRecord]) -> list[dict]:
+def full_data_proposals(sample: str, records: list[ProposalRecord], primary: Collection[str] = PRIMARY_CHROMS) -> list[dict]:
     rows = []
-    for j, c in enumerate(discover_regions(records, set(range(N_FOLDS))), 1):
+    for j, c in enumerate(discover_regions(records, set(range(N_FOLDS)), primary), 1):
         rows.append({
             "sample": sample, "candidate_id": f"{sample}_FULL_{j:06d}", "family": c["family"], "chrom": c["chrom"],
             "candidate_lo": c["lo"], "candidate_hi": c["hi"], "candidate_width": c["hi"] - c["lo"] + 1,
@@ -132,18 +133,18 @@ def full_data_proposals(sample: str, records: list[ProposalRecord]) -> list[dict
     return rows
 
 
-def rotation_proposals(sample: str, records: list[ProposalRecord]) -> list[dict]:
+def rotation_proposals(sample: str, records: list[ProposalRecord], primary: Collection[str] = PRIMARY_CHROMS) -> list[dict]:
     rows = []
     for held in ROTATIONS:
         discovery = set(range(N_FOLDS)) - set(held)
         index: dict[tuple[str, str, int], list[tuple[int, int, int]]] = defaultdict(list)
         for r in records:
-            if r.chrom in PRIMARY_CHROMS and r.fold in held:
+            if r.chrom in primary and r.fold in held:
                 index[(r.family, r.chrom, r.fold)].append((r.candidate_lo, r.candidate_hi, r.pair_id))
         for key in index:
             index[key].sort()
         label = rotation_label(held)
-        for j, c in enumerate(discover_regions(records, discovery), 1):
+        for j, c in enumerate(discover_regions(records, discovery, primary), 1):
             support = {}
             for fold in held:
                 hits = []

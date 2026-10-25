@@ -23,6 +23,7 @@ from .backends.exact_query import (
 )
 from .backends.msbwt import build_prepared_msbwt_sample
 from .config import EviTEAConfig
+from .contigs import resolve_primary_contigs
 from .sample_geometry import resolve_read_length
 from .constants import ARCHITECTURE_ID
 from .contracts import ProvenanceRecord, stable_json_dumps
@@ -531,6 +532,7 @@ def engine_inputs(config: EviTEAConfig, assets: PreparedAssets) -> "EngineInputs
         assets.sample.backend_profile if assets.sample is not None and config.inputs.msbwt_index is None else None,
         msbwt_index,
     )
+    primary = resolve_primary_contigs(config.runtime.primary_contigs, dict(reference.contigs))
     return EngineInputs(
         sample_id=str(sample_id),
         msbwt_index=Path(msbwt_index),
@@ -553,6 +555,8 @@ def engine_inputs(config: EviTEAConfig, assets: PreparedAssets) -> "EngineInputs
         read_length_source=read_length.source,
         fragment_q95=config.runtime.fragment_q95,
         fragment_q99=config.runtime.fragment_q99,
+        primary_contigs=primary[0],
+        primary_contigs_source=primary[1],
     )
 
 
