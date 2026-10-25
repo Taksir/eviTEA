@@ -175,6 +175,13 @@ def main():
     check("U8 the floor is part of the detection identity, the limit is not", _O(relative_depth_floor=True).detection_identity != _O().detection_identity
           and _O(identity_min_comparisons=0).detection_identity == _O().detection_identity)
 
+    f0 = t / "floor_on"
+    rf = run(f0, ROOT / "src", json.dumps({"relative_depth_floor": True}))
+    sf = json.loads((f0 / "library_free_summary.json").read_text()) if rf.returncode == 0 else {}
+    fl = sf.get("detection", {}).get("depth_floors", {})
+    check("U8 floor on: the summary lists each contig's floor (at most 10)", rf.returncode == 0 and list(fl) == ["chrS"] and 0 < fl["chrS"] <= 10, (fl, rf.stderr[-300:]))
+    check("U8 floor off: no floor entry in the summary", "depth_floors" not in summ["detection"], list(summ["detection"]))
+
     print("\n%d checks, %d failed" % (NCHK[0], len(FAIL)))
     sys.exit(1 if FAIL else 0)
 

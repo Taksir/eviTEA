@@ -188,6 +188,8 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
                                "grouped_places": len(grouped2)}
     if any(stats.values()):
         info["scan_counts"] = stats
+    if opts.relative_depth_floor:
+        info["depth_floors"] = {chrom: stats[chrom].get("depth_floor") for chrom in contigs}
     return tables, info
 
 
