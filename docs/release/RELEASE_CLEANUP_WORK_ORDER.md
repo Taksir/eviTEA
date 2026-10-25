@@ -37,7 +37,7 @@ These are firm. If an item seems to need a break of one of them, stop and write 
 
 ## 4. Part A: changes before the freeze
 
-These change calls, or other genomes need them to run at all. On a sample that the old code already handled (dm6, 125 bp reads, FlyBase ids), A1, A4, A5 and A6 must leave the calls byte for byte the same. A2 and A3 are meant to change calls on samples whose read length or fragment size differs from 125 and 494.
+These change calls, or other genomes need them to run at all. On a sample that the old code already handled (dm6, 125 bp reads, FlyBase ids), A1, A4, A5 and A6 must leave the calls byte for byte the same. A2 and A3 are meant to change calls on samples whose read length or fragment size differs from 125, 494 and 805.
 
 For every item, keep a way to get the old behaviour (an option, or the old value as a fallback), so that the identity check below can run.
 
@@ -76,20 +76,20 @@ Acceptance:
 - A unit test covers the windows at a length other than 125.
 - Expected effect on the paper strains: none on the 125 bp strains. MUN-009 (151 bp reads) will run on its full reads.
 
-### A3. Fragment size from the sample, not a fixed 494
+### A3. Fragment size from the sample, not a fixed 494 and 805
 
 - `src/evitea/incumbent/mate_rescue.py:61`: `FRAGMENT_Q95 = 494.0` (used at `:624`; the docstring at `:20` names 494).
 
 What to do: estimate the fragment-size distribution from the sample's own properly paired reads, and use its 95th percentile. The estimate must be deterministic (same input, same number). Keep 494 as the fallback when too few pairs exist, and say in the log when the fallback is used. Add an option (for example `--fragment-q95`) that overrides the estimate. Write the value used, and how many pairs it came from, into the run manifest. Say in a code comment why the 95th percentile is used: a pair whose span is above it is unlikely to be a normal pair.
 
-**PLACEHOLDER, Taksir decides: the 99th percentile.** A second fixed fragment number exists: `Q99 = 805` at `src/evitea/constants.py:11`, carried in `ScienceProfile.q99` (`src/evitea/config.py:40`) and used in `src/evitea/anchor_pe/anchors.py:43`, `:125-127`, `src/evitea/full_memory/strict_a.py:153`, `:167-169` and `src/evitea/incumbent/complete_routing.py:125-191`. If this placeholder says "yes", take it from the same estimate as the 95th percentile, with 805 as the fallback and an override option. If it still says PLACEHOLDER when you start, leave 805 unchanged and note it in the report.
+**The 99th percentile too (Taksir's decision).** A second fixed fragment number exists: `Q99 = 805` at `src/evitea/constants.py:11`. It is carried in `ScienceProfile.q99` (`src/evitea/constants.py:42`, `src/evitea/config.py:40`) and used in `src/evitea/anchor_pe/anchors.py:43`, `:125-127`, `src/evitea/full_memory/strict_a.py:153`, `:167-169` and `src/evitea/incumbent/complete_routing.py:125-191`. Take it from the same estimate as the 95th percentile, with 805 as the fallback and an override option (for example `--fragment-q99`). Note that `ScienceProfile.__post_init__` (`src/evitea/constants.py:49-71`) refuses any q99 other than 805 under the current architecture id. Take q99 out of that frozen check, and record the value used in the run manifest instead. Do not change the architecture id or the other frozen values in that check. Update the tests that assert 805 (for example in `tests/unit/test_phase1_constants_families.py`) so that they test the default and the override.
 
 Do not change the 250 bp slops (`CANDIDATE_SLOP` at `mate_rescue.py:49`, `junction_groups.py:32`, `split_junction.py:43`; `HOST_SEED_OUTER_PAD` at `mate_rescue.py:65`). They are out of scope.
 
 Acceptance:
-- With `--fragment-q95 494`, the outputs are byte for byte the same as at the base commit.
+- With `--fragment-q95 494` and `--fragment-q99 805`, the outputs are byte for byte the same as at the base commit.
 - A unit test with synthetic pairs of known spans returns the expected 95th percentile, and the fallback case is tested.
-- Expected effect: calls can change on every sample whose estimate is not 494. That is intended.
+- Expected effect: calls can change on every sample whose estimates are not 494 and 805. That is intended.
 
 ### A4. Primary contigs from the reference, not the fly arm list
 
@@ -132,7 +132,7 @@ Acceptance:
 
 ### Identity check for all of Part A
 
-Run the full test suite (section 7). In addition, run the comparisons against the previous version that the repository already has: set `PREVIOUS_SRC` to the `src` folder of a checkout of the base commit, and run `tools/library_free_tests/run_all.sh`. With the old values passed (`--read-length 125`, `--fragment-q95 494`, the five arms), every comparison must be identical. Add the same kind of comparison for the library layer on the existing fixtures (`tests/fixtures/`), if one does not exist yet.
+Run the full test suite (section 7). In addition, run the comparisons against the previous version that the repository already has: set `PREVIOUS_SRC` to the `src` folder of a checkout of the base commit, and run `tools/library_free_tests/run_all.sh`. With the old values passed (`--read-length 125`, `--fragment-q95 494`, `--fragment-q99 805`, the five arms), every comparison must be identical. Add the same kind of comparison for the library layer on the existing fixtures (`tests/fixtures/`), if one does not exist yet.
 
 You do not have the real fly data. Do not try to get it. The frozen run on the real data is done by Taksir afterwards (section 8).
 
