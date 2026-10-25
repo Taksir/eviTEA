@@ -1,4 +1,4 @@
-"""Frozen 500-bp host-midpoint clustering, novelty masks and residency."""
+"""500-bp host-midpoint clustering, novelty masks and residency."""
 
 from __future__ import annotations
 
@@ -167,12 +167,12 @@ def relaxed_provisional_clusters(
     strict_new: Mapping[int, Mapping],
     decoded_host: Mapping[int, Mapping],
 ) -> list[dict]:
-    """Delayed-aggregation novelty mask from strictly decoded new fragments.
+    """Delayed-aggregation novelty mask from strictly decoded fragments outside the primary set.
 
-    Combine decoded UNIQUE_HIGH fragments with the old primary set, keep
-    clusters with a decoded member that lie > 500 bp from every same-family
-    primary cluster, and retain those with >= 2 masked-family-confirmed
-    decoded UNIQUE_HIGH members.
+    Combine decoded UNIQUE_HIGH fragments with the primary set. Keep clusters
+    with a decoded member that lie > 500 bp from every same-family primary
+    cluster. Retain those with >= 2 masked-family-confirmed decoded
+    UNIQUE_HIGH members.
     """
 
     combined = cluster_mappings(old_primary_unique + decoded_unique, require_folds=False, prefix="FRAGMENT_DECODED")

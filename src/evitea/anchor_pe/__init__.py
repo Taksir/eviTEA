@@ -1,20 +1,19 @@
-"""AnchorPE evidence producer (S20-S70 for the bilateral/asymmetric layers).
+"""Paired-end anchor support evidence producer (``AnchorPE`` in names).
 
-A typed port of the frozen, self-contained Route-B v3 AnchorPE transfer
-procedure (``route_b_v3_anchor_pe_iso1_transfer_freeze.py``; also reused
-unchanged for GIM-024).  Run unchanged it reproduces the frozen AnchorPE
-candidate tables of both development samples, ISO-1 and AKA-017 (the latter
-with the AKA historical Bowtie2 host read-name profile).
+Feeds the bilateral and asymmetric layers.  Stages:
 
-Stages::
-
-    final safe terminal codebook -> exact msBWT projection -> physical-pair
-    classification -> whole-read TE-record fragment decoder (relaxed novelty)
-    -> opposite-host Bowtie2 -k 2 -> LOCAL paired reference Bowtie2 -k 20
-    -> evidence-complete reference ledger -> 500-bp host-midpoint clusters
-    (old primary / relaxed provisional / corrected unexplained) -> RepeatMasker
-    residency -> novel+nonresident targets -> Channel-A exact soft-clip anchors
-    -> Channel-B NO_LOCAL_PROPER + UNIQUE_HIGH q99 geometry -> candidates.
+1. Exact msBWT projection of the final safe terminal codebook.
+2. Physical-pair classification.
+3. Whole-read TE-record fragment decoder (input of the relaxed novelty mask).
+4. Opposite-host Bowtie2 ``-k 2``.
+5. LOCAL paired-reference Bowtie2 ``-k 20``, giving the evidence-complete
+   reference table.
+6. 500-bp host-midpoint clusters (primary, relaxed provisional, corrected
+   unexplained).
+7. RepeatMasker residency, giving the novel, non-resident targets.
+8. Exact soft-clip anchors ("A", ``channel_a``).
+9. NO_LOCAL_PROPER + UNIQUE_HIGH q99 geometry ("B", ``channel_b_universe``).
+10. Candidates.
 """
 
 __all__ = ["AnchorPEInputs", "AnchorPEResult", "HOST_READ_NAME_PROFILES", "derive_candidates", "run_anchor_pe"]

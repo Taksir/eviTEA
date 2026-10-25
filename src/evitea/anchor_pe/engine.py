@@ -1,4 +1,4 @@
-"""AnchorPE candidate engine over a prepared sample (S20-S70 for layers 1-2)."""
+"""Paired-end anchor (``AnchorPE``) candidate engine over a prepared sample."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ class AnchorPEResult:
     b_universe: list[dict]
     witnesses: list[dict]
     counts: dict[str, int] = field(default_factory=dict)
-    # Shared evidence handed to the downstream (full-memory) branch.
+    # Shared evidence for the downstream full-memory layer.
     signature_rows: list[dict] = field(default_factory=list)
     eligible: dict[int, dict] = field(default_factory=dict)
     reads: dict[int, tuple[str, str]] = field(default_factory=dict)
@@ -96,7 +96,7 @@ def _fingerprint(inputs: AnchorPEInputs) -> dict[str, object]:
         "repeatmasker_bed": stat(inputs.repeatmasker_bed),
         "host_index_prefix": str(inputs.host_index_prefix),
         "host_read_names": inputs.host_read_names,
-        # recorded only when not the default, so earlier work directories stay resumable
+        # recorded only when not the default, so existing work directories stay resumable
         **({"fragment_q99": inputs.fragment_q99} if inputs.fragment_q99 != Q99 else {}),
         **({"primary_contigs": list(inputs.primary_contigs)}
            if tuple(inputs.primary_contigs) != DEVELOPMENT_PRIMARY_CONTIGS else {}),
@@ -110,7 +110,7 @@ def run_anchor_pe(
     *,
     progress: Callable[[str], None] | None = None,
 ) -> AnchorPEResult:
-    """Derive the AnchorPE candidates of one sample.
+    """Derive the paired-end anchor candidates of one sample.
 
     ``sample`` is an ``incumbent.MsbwtSample`` over the prepared sample index;
     reads are recovered from it (no FASTQ is needed after sample preparation).
@@ -169,7 +169,7 @@ def run_anchor_pe(
         write_pair_fastas(r1, r2, eligible, reads)
         map_reference_pairs(inputs.bowtie2, inputs.host_index_prefix, r1, r2, sam, inputs.threads, inputs.fragment_q99)
         ledger, te_records = parse_reference_sam(sam, eligible, reads, by_family)
-        # Only LOCAL_PROPER_TE_UNEXPLAINED records can witness Channel A.
+        # Only LOCAL_PROPER_TE_UNEXPLAINED records can witness exact anchors (A).
         kept = {pid: recs for pid, recs in te_records.items()
                 if ledger[pid]["reference_state"] == "LOCAL_PROPER_TE_UNEXPLAINED"}
         return ledger, kept
@@ -207,7 +207,7 @@ def derive_candidates(
     repeatmasker_bed: Path,
     q99: int = Q99,
 ) -> AnchorPEResult:
-    """Clusters, novelty/residency, Channel A, Channel B and candidates."""
+    """Clusters, novelty and residency, exact anchors (A), paired-end support (B) and candidates."""
 
     unique = [{"pair_id": pid, "family": m["family"], **{k: host[pid][k] for k in ("chrom", "start", "end", "strand")},
                "primary": m["primary"], "reference_state": m["reference_state"]}

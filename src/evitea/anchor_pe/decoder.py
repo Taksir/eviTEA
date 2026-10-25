@@ -1,14 +1,14 @@
 """Strict whole-read TE-record fragment decoder with masked single-probe
 source competition (the relaxed-provisional novelty mask input).
 
-Frozen semantics: for every candidate TE record of the TE-positive read,
-infix (``HW``) edit-distance alignment of the read and its reverse complement;
-a pair is *strictly fragment-decodable* when one record is uniquely best, its
+For every candidate TE record of the TE-positive read, the decoder aligns the
+read and its reverse complement by infix (``HW``) edit distance.  A pair is
+*strictly fragment-decodable* when one record is uniquely best, its
 orientation is resolved, every assigned probe occurs in the read orientation
 implied by the alignment, one best location spans every positionally
 interpretable probe, and the alignment's terminal side agrees with the
-codebook.  Strict single-probe pairs outside the old primary set additionally
-get an exact masked-source competition: the decoder record must be among the
+codebook.  Strict single-probe pairs outside the primary set additionally get
+an exact masked-source competition: the decoder record must be among the
 records with the most exact bases adjacent to the (masked) probe.
 """
 
@@ -46,12 +46,12 @@ def _edlib():
     try:
         import edlib  # type: ignore
     except ImportError as exc:  # pragma: no cover - environment dependent
-        raise BackendCompatibilityError("edlib is required for the AnchorPE fragment decoder") from exc
+        raise BackendCompatibilityError("edlib is required for the paired-end anchor fragment decoder") from exc
     return edlib
 
 
 def load_te_library(path: str | Path) -> dict[str, str]:
-    """``first header token -> upper-case sequence`` (frozen FASTA reader)."""
+    """``first header token -> upper-case sequence``."""
 
     out: dict[str, str] = {}
     name = None
@@ -250,7 +250,7 @@ def decode_fragments(
             strands = list(dict.fromkeys(unit.sequences)) or [unit.canonical, revcomp(unit.canonical)]
             seeds = [(q, rp) for q in strands for rp in _find_all(read, q)]
             if not seeds:
-                raise InputContractError(f"pair {pid}: exact frozen seed absent from the TE read")
+                raise InputContractError(f"pair {pid}: exact seed absent from the TE read")
             per_record: dict[str, tuple] = {}
             for q, rp in seeds:
                 for tid, orient, source, sp in seed_occurrences(q):
@@ -297,8 +297,9 @@ def decode_fragments_external(
 ) -> list[dict[str, object]]:
     """Run the same decoder under another interpreter that has ``edlib``.
 
-    Environment accommodation only (edlib publishes no CPython 3.14 Windows
-    wheel); the code and therefore the semantics are identical.
+    For an environment whose own interpreter lacks edlib (edlib publishes no
+    CPython 3.14 Windows wheel).  The code and therefore the results are
+    identical.
     """
 
     work.mkdir(parents=True, exist_ok=True)

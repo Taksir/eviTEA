@@ -78,7 +78,7 @@ class SafeCodebook:
         return out
 
     def probe_index(self) -> dict[tuple[str, str], list[CodeUnit]]:
-        """``(te_id, oriented probe) -> units`` over both strands."""
+        """Units keyed by ``(te_id, oriented probe)`` over both strands."""
 
         index: dict[tuple[str, str], list[CodeUnit]] = defaultdict(list)
         for unit in self.units:
@@ -90,7 +90,7 @@ class SafeCodebook:
 
 
 def load_safe_codebook(path: str | Path) -> SafeCodebook:
-    """Load the frozen final safe terminal codebook (one unit per row)."""
+    """Load the final safe terminal codebook (one unit per row)."""
 
     with Path(path).open(encoding="utf-8-sig", newline="") as handle:
         rows = list(csv.DictReader(handle, delimiter="\t"))
@@ -122,7 +122,7 @@ def load_safe_codebook(path: str | Path) -> SafeCodebook:
     return SafeCodebook(tuple(units))
 
 
-# pair_id -> {1: unit ids on mate 1, 2: unit ids on mate 2}
+# pair_id maps to {1: unit ids on mate 1, 2: unit ids on mate 2}
 PairHits = dict[int, dict[int, set[int]]]
 
 
@@ -219,7 +219,7 @@ def one_mate_universe(pair_hits: Mapping[int, Mapping[int, set[int]]], eligible:
     """Broader one-mate probe-positive universe used by the relaxed novelty mask.
 
     Includes one-mate family-conflict pairs (not only the family-resolved set).
-    Insertion order follows ``pair_hits`` (the frozen iteration order).
+    Insertion order follows ``pair_hits``.
     """
 
     out: dict[int, dict] = {}

@@ -1,17 +1,16 @@
-"""Frozen Bowtie2 invocations, query naming, and SAM interpretation.
+"""Bowtie2 invocations, query naming, and SAM interpretation.
 
 Bowtie2 seeds its per-read pseudo-random choices from the read name, so the
 query-name convention changes which placements a multi-mapping read reports
 under ``-k``.  The convention is therefore an explicit, recorded profile:
 
-* ``pid``            - ``P{pair_id}``: the **production** convention, used for
-  every new sample.  It is the ISO-1 / GIM-024 transfer convention and the one
-  every other Bowtie2 replay of the architecture uses (full-memory finite
-  state, INTERNAL21, paired LOCAL reference mapping).
+* ``pid``            - ``P{pair_id}``: the default convention, used for
+  every sample.  Every other Bowtie2 replay uses it too (full-memory finite
+  state, internal 21-mer, paired LOCAL reference mapping).
 * ``aka-historical`` - ``p{pair_id}|h{host_mate}`` for single-mate host
-  mapping.  **Reproduction only**: the AKA-017 historical AnchorPE chain was
-  run with these names, so reproducing its frozen layers byte for byte needs
-  them.  It is never a production default.
+  mapping.  **Reproduction only**: it reproduces the host read names of the
+  AKA017 sample, so reproducing that sample's layers byte for byte requires
+  it.  It is never a default.
 
 The paired LOCAL reference mapping names both mates ``P{pair_id}`` in both
 profiles.
@@ -198,7 +197,7 @@ def parse_reference_sam(
     reads: Mapping[int, tuple[str, str]],
     by_family: Mapping[str, list[CodeUnit]],
 ) -> tuple[dict[int, dict], dict[int, list[dict]]]:
-    """Evidence-complete reference ledger over LOCAL proper placement signatures.
+    """Evidence-complete reference table over LOCAL proper placement signatures.
 
     A pair is reference-explained if any proper placement signature (both mates
     present) has a TE-mate record whose every candidate-family safe-probe
