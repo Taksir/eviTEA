@@ -5,7 +5,7 @@ from __future__ import annotations
 from ..constants import FROZEN_FAMILY_ALIASES, N_FOLDS
 from ..contigs import DEVELOPMENT_PRIMARY_CONTIGS
 
-# Default primary contigs (the fly arms the layer was built with); a run passes its own (``evitea.contigs``).
+# Default primary contigs (the fly arms); a run passes its own (``evitea.contigs``).
 PRIMARY_CHROMS = DEVELOPMENT_PRIMARY_CONTIGS
 ROTATIONS = tuple((a, b) for a in range(N_FOLDS) for b in range(a + 1, N_FOLDS))
 _ALIASES = dict(FROZEN_FAMILY_ALIASES)

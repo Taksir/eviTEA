@@ -10,10 +10,10 @@ experiment state.  For the one-mate family-resolved (``ELIGIBLE``) pairs:
 * reference: one row per proper LOCAL placement signature under ``-k 20``;
   a signature is evidence-complete when some TE-mate record has every
   candidate-family safe-probe occurrence in ``M``/``=``/``X`` bases.  Any
-  complete signature -> ``CLEAN_REFERENCE``; else a hit cap (20 signatures or
-  a 40-record group) -> ``CENSORED``; else ``REFERENCE_UNEXPLAINED``.
+  complete signature gives ``CLEAN_REFERENCE``; else a hit cap (20 signatures
+  or a 40-record group) gives ``CENSORED``; else ``REFERENCE_UNEXPLAINED``.
 
-Finally ``ELIGIBLE`` pairs with no host placement become ``UNMAPPED``, and a
+``ELIGIBLE`` pairs with no host placement become ``UNMAPPED``, and a
 single low-MAPQ placement ``HOST_UNRESOLVED``.
 """
 
@@ -77,7 +77,7 @@ def _mask(cigar: str, qlen: int) -> list[bool]:
         elif op in "IS":
             q += n
     if q != qlen:
-        raise InputContractError(f"CIGAR/query length mismatch {cigar} -> {q} != {qlen}")
+        raise InputContractError(f"CIGAR/query length mismatch {cigar}: {q} != {qlen}")
     return mask
 
 
@@ -208,7 +208,7 @@ def finite_reference_alternatives(
     """Stream a ``--reorder`` SAM grouped by consecutive query name.
 
     Evidence completeness is judged on the pair's family probes, or on
-    ``pair_probes[pair_id]`` when given (INTERNAL21: the pair's own observed
+    ``pair_probes[pair_id]`` when given (internal 21-mer: the pair's own observed
     probes, both strands).
     """
 

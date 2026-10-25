@@ -1,10 +1,11 @@
-"""A-only proposal selection and full-data Channel-B support.
+"""Anchor selection per proposal, then full-data paired-end anchor support.
 
-For every full-data proposal, among the ledger's *proposal-only* A events that
-it contains, one anchor is chosen by A evidence only (most pairs, most folds,
-lower breakpoint, LEFT first) — B is not consulted.  The chosen anchor is then
-scored against the full-data Channel-B universe without excluding its A pairs
-(the frozen hostile-audit scoring used by the production freeze).
+For every full-data proposal, one anchor is chosen among the *proposal-only*
+exact-junction events ("A") of the event table that it contains.  The choice
+uses exact junction evidence alone (most pairs, most folds, lower breakpoint,
+LEFT first), so paired-end anchor support ("B") is not consulted.  The chosen
+anchor is then scored against the full-data paired-end anchor universe without
+excluding its own "A" pairs.
 """
 
 from __future__ import annotations

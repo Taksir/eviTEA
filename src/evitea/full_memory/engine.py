@@ -1,4 +1,4 @@
-"""Full-memory branch engine: finite state -> proposals -> strict A -> events."""
+"""Full-memory layer engine: finite state, proposals, exact junction evidence, events."""
 
 from __future__ import annotations
 
@@ -24,9 +24,9 @@ from .strict_a import a_groups, allowed_pairs, build_b_index, derive_witnesses, 
 
 __all__ = ["FullMemoryResult", "run_full_memory"]
 
-# The finite-state (Section-128) replay names every host query P{pid},
-# independently of the AnchorPE host read-name profile.
-# AKA017 therefore maps its host mates a second time.
+# The finite-state replay names every host query P{pid}, independent of the
+# paired-end anchor host read-name profile.
+# The AKA017 profile therefore maps its host mates a second time.
 FINITE_STATE_HOST_PROFILE = PRODUCTION_HOST_READ_NAMES
 
 
@@ -81,7 +81,7 @@ def run_full_memory(
                 for p, m in eligible.items()}
         ref_rows, ref_summary = finite_reference_alternatives(Path(reference_sam), meta, family_probes(codebook), reads)
         accounting = pair_accounting(anchor_pe.signature_rows, host_summary, ref_summary)
-        # Only uncensored, not evidence-complete alternatives can witness strict A.
+        # Only uncensored, not evidence-complete alternatives can witness exact junction evidence.
         ref_rows = [r for r in ref_rows if not r["evidence_complete"] and not r["reference_cap_censored"]]
         return accounting, host_rows, ref_rows
 
