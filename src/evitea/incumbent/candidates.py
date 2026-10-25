@@ -9,8 +9,8 @@ wide-anchor then sparse-panel evidence. A pair with several families joins
 every family bucket. Loci are single-link clusters of float host midpoints per
 ``(chrom, family)`` (gap 500 bp, >= 2 distinct pairs).
 
-The ``source`` field of a pair is "G1F" for a working pair and "G1HR_RESCUE"
-for a pair added by the wide-anchor step.
+The ``source`` field is "G1F" for a working pair and "G1HR_RESCUE" for a
+wide-anchor pair.
 """
 
 from __future__ import annotations

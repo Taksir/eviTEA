@@ -137,8 +137,8 @@ def _fingerprint(inputs: IncumbentInputs) -> dict[str, object]:
         "reference_fasta": stat(inputs.reference_fasta),
         "host_index_prefix": str(inputs.host_index_prefix),
     }
-    # Recorded only when not the default, so the fingerprint of a default run
-    # has no extra key and its work directory stays resumable.
+    # Recorded only when not the default, so default runs keep the same
+    # fingerprint and stay resumable.
     if inputs.rescue_read_names != "pair":
         identity["rescue_read_names"] = inputs.rescue_read_names
     if inputs.complete_routing:
@@ -155,7 +155,7 @@ def _fingerprint(inputs: IncumbentInputs) -> dict[str, object]:
 
 
 class StageStore:
-    """Pickle checkpoints of completed steps, with the completion marker written last.
+    """Pickle checkpoints of completed steps; the completion marker is written last.
 
     A checkpoint is reused only when its recorded input fingerprint equals the
     current one. The files live inside the run's private work directory.

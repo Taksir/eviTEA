@@ -6,10 +6,10 @@ needs: an exact globally unique host half near the nominated locus on the
 missing genomic side, no contiguous reference explanation of the 40-bp
 signature within two edits, and a complete bounded exact msBWT locate of the
 signature.  Located pairs are collapsed into exact pair-sequence groups
-(``sha256(mate1 + "|" + mate2)``), groups touching physical pairs that earlier
-calls or strict winners use are excluded, one realization per (locus, side)
-competes globally, and each surviving group adds at most one representative
-pair to one locus side.
+(``sha256(mate1 + "|" + mate2)``), groups touching pairs used by earlier calls
+or strict winners are excluded, one realization per (locus, side) competes
+globally, and each surviving group adds at most one representative pair to one
+locus side.
 
 The output is the locus aggregation record and the per-group junction source
 needed for full TE-segment confirmation.
@@ -326,7 +326,7 @@ def screen_proposals(
     work_directory: Path,
     counts: dict[str, int],
 ) -> tuple[list[tuple[JunctionProposal, float, str]], dict[str, str]]:
-    """Screen proposals by a globally exact-unique host half and competition with the contiguous reference."""
+    """Screen by exact-unique host half and contiguous-reference competition."""
 
     work_directory.mkdir(parents=True, exist_ok=True)
     host_fasta = work_directory / "junction_host_halves.fa"
@@ -477,7 +477,7 @@ def run_junction_groups(
     work_directory: Path,
     pair_reader,
 ) -> JunctionGroupsResult:
-    """``pair_reader(pair_ids)`` fetches the exact-hit pairs and returns ``{pair_id: (mate1, mate2)}``."""
+    """``pair_reader(pair_ids)`` returns ``{pair_id: (mate1, mate2)}`` for exact-hit pairs."""
 
     counts: dict[str, int] = {}
     target_ids = {target.locus_id for target in targets}

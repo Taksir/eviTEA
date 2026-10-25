@@ -173,7 +173,7 @@ class MsbwtSample(SeedPairLocator):
 
     # -- bounded seed location (host-seed routing) -----------------------
     def seed_pairs(self, seed: str, row_cap: int) -> tuple[int, bool, set[int]]:
-        """Return the row count over the seed and its reverse complement, whether it was located, and the physical pair IDs if located."""
+        """Return the rows over seed and reverse complement, whether located, and the pair IDs if located."""
 
         patterns = [seed.upper()]
         reverse = revcomp(seed.upper())

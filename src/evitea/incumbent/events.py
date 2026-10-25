@@ -1,4 +1,4 @@
-"""Typed calls of the library layer and their rows in the combined call table."""
+"""Typed library layer calls and their combined-call-table rows."""
 
 from __future__ import annotations
 

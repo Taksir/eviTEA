@@ -119,11 +119,8 @@ def parse_te_consensus(path: str | Path) -> dict[str, str]:
 
 
 def load_te_family_map(path: str | Path) -> dict[str, str]:
-    """Read the record-to-family labels without alias normalization.
-
-    The table is either a FlyBase table (``FBte_ID``, ``FlyBase_Family``) or a
-    two-column ``record<TAB>family`` table (``evitea.family_table``).
-    """
+    """Read record-to-family labels, without alias normalization, from a FlyBase table (``FBte_ID``, ``FlyBase_Family``)
+    or a two-column ``record<TAB>family`` table (``evitea.family_table``)."""
 
     import csv
 

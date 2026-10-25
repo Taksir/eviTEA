@@ -1,6 +1,4 @@
-"""Paired-end mate-anchored search and strict reference-discriminative pair evidence.
-
-The strict evidence is used by junction completion.
+"""Paired-end mate-anchored search, and strict reference-discriminative pair evidence.
 
 Orientation-corrected mate-anchored search
     Candidate loci not within 50 bp of a same-family split-junction call are
@@ -73,7 +71,7 @@ GLOBAL_PLACEMENT_CAP = 20
 
 
 def quantize(value: float) -> float:
-    """Round to one decimal, the quantization of the locus records from the mate-anchored search onward."""
+    """Round to one decimal (the locus-record quantization)."""
 
     return float(f"{value:.1f}")
 
@@ -182,7 +180,7 @@ def _record_conflict(first: TEWindow, second: TEWindow) -> bool:
 def best_te_mate_window(
     read: str, candidate_family: str, family_kmers: set[str], te_index: LocalTEIndex, scope: str
 ) -> tuple[TEWindow | None, str]:
-    """Return the confirmed TE-mate window for the mate-anchored search; windows explained by the local reference are rejected."""
+    """Confirm the TE mate: windows explained by the local reference are rejected."""
 
     windows = candidate_te_windows(read, family_kmers)
     if not windows:
@@ -233,7 +231,7 @@ def _best_symmetric_local(sequence: str, scope: str, max_edits: int) -> int | No
 def best_te_window_symmetric(
     read: str, candidate_family: str, family_kmers: set[str], te_index: LocalTEIndex, scope: str
 ) -> tuple[TEWindow | None, str]:
-    """Return the confirmed TE-mate window for one-sided loci; windows explained by the local reference on either strand are rejected."""
+    """Confirm the TE mate with strand-symmetric local-reference rejection."""
 
     windows = candidate_te_windows(read, family_kmers)
     if not windows:
@@ -338,7 +336,7 @@ def resolve_pair_evidence(rows: Sequence[MateEvidence]) -> tuple[MateEvidence | 
 
 @dataclass(frozen=True, slots=True)
 class MateRescueLocus:
-    """One row of the locus record of the mate-anchored search (coordinates quantized to one decimal)."""
+    """Row of the mate-anchored locus record (coordinates quantized to one decimal)."""
 
     locus_id: str
     chrom: str
@@ -393,7 +391,7 @@ def mate_rescue_evidence(
     te_index: LocalTEIndex,
     progress: Callable[[int, int], None] | None = None,
 ) -> tuple[list[MateEvidence], dict[str, int]]:
-    """Return the confirmed mate evidence of the eligible ``loci`` in locus order (batchable)."""
+    """Return confirmed mate evidence of eligible ``loci`` in locus order (batchable)."""
 
     counts: Counter[str] = Counter()
     evidence: list[MateEvidence] = []
