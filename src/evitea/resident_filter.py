@@ -8,12 +8,12 @@ Rule (the same one the wrong-call anatomy measured):
 
 * the copy is a RepeatMasker ``.out`` line on the same chromosome (chromosome names normalised as ``norm_chrom``:
   a bare name such as ``2L`` or ``1`` gets ``chr`` when the reference has that ``chr`` contig), copy begin taken 0-based (``int(f[5]) - 1``), copy end
-  ``int(f[6])``, copy id the FBte id in column 10, divergence column 2; lines with fewer than 15 fields, or whose first
+  ``int(f[6])``, copy id the record id (FBte id) in column 10, divergence column 2; lines with fewer than 15 fields, or whose first
   field is not a number (the header), are skipped;
 * gap = max(0, copy_begin - call_end, call_start - copy_end); the call is dropped iff a copy of its own family has gap 0
   (touching counts; no strand, similarity or distance condition);
-* the call's own family is its ``family`` column.  A family that is itself an FBte id stands for that id; a family name
-  stands for every FBte id the family map lists under it (HeT-A and a few others have several); a family with neither is
+* the call's own family is its ``family`` column.  A family that is itself a record id (an FBte id, or a record of the map)
+  stands for that id; a family name stands for every record id the family map lists under it (HeT-A and a few others have several); a family with neither is
   never dropped and is counted as ``unmapped_family``;
 * only core calls are judged: an ``event_id`` starting ``LF_`` (library-free layer) passes through unchanged;
 * kept rows are written byte for byte, in input order; dropped calls go to a side table with the copy that decided it
@@ -33,6 +33,7 @@ from pathlib import Path
 
 from .contigs import match_contig_name
 from .errors import InputContractError
+from .family_table import family_pairs
 
 __all__ = [
     "CopyIndex",
@@ -130,32 +131,24 @@ def verify_copy_table(path: str | Path, *, allow_unlisted: bool) -> tuple[str, b
 
 
 class FamilyIds:
-    """Family name -> the FBte ids that stand for it."""
+    """Family name -> the record ids (FBte ids, or the record names of a two-column map) that stand for it."""
 
     def __init__(self, ids_by_name: Mapping[str, Iterable[str]]):
         self._ids = {name: frozenset(ids) for name, ids in ids_by_name.items()}
+        self._records = frozenset(record for ids in self._ids.values() for record in ids)
 
     def of(self, family: str) -> frozenset[str] | None:
-        if family.startswith("FBte"):
+        if family.startswith("FBte") or family in self._records:
             return frozenset({family})
         return self._ids.get(family) or None
 
 
 def load_family_ids(path: str | Path) -> FamilyIds:
-    """Family map: the FlyBase table (``FBte_ID``, ``FlyBase_Family``) or two columns ``FBte id<TAB>family``."""
+    """Family map: the FlyBase table (``FBte_ID``, ``FlyBase_Family``) or two columns ``record<TAB>family``."""
 
-    with Path(path).open("r", encoding="utf-8-sig", newline="") as handle:
-        rows = list(csv.reader(handle, delimiter="\t"))
-    pairs: list[tuple[str, str]]
-    if rows and "FBte_ID" in rows[0] and "FlyBase_Family" in rows[0]:
-        i, j = rows[0].index("FBte_ID"), rows[0].index("FlyBase_Family")
-        pairs = [(r[i], r[j]) for r in rows[1:] if len(r) > max(i, j)]
-    else:
-        pairs = [(r[0], r[1]) for r in rows if len(r) >= 2]
     ids: dict[str, set[str]] = defaultdict(set)
-    for fbte, name in pairs:
-        if fbte.strip() and name.strip():
-            ids[name.strip()].add(fbte.strip())
+    for record, name in family_pairs(path):
+        ids[name].add(record)
     return FamilyIds(ids)
 
 

@@ -8,6 +8,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from ..errors import InputContractError
+from ..family_table import family_pairs
 from ..library_free import detector as D
 from ..library_free.resident import CopyIndex
 from . import build as B
@@ -204,7 +205,7 @@ def add_record_calls(*, calls, base_calls, annotation, family_map, output):
     within 500 bp of each other count once (the one nearest the start of the contig is kept)."""
     out = Path(output)
     out.mkdir(parents=True, exist_ok=True)
-    fam_of = {r["FBte_ID"]: r["FlyBase_Family"] for r in read_tsv(family_map)}
+    fam_of = dict(family_pairs(family_map))
     names = {f for f in fam_of.values() if not f.startswith("PAD")}
     copies = defaultdict(list)
     for line in Path(annotation).read_text().splitlines():

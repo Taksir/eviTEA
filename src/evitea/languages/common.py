@@ -25,6 +25,8 @@ from typing import Any
 
 import numpy as np
 
+from ..family_table import family_pairs, is_two_column_table
+
 __all__ = [
     "build_interval_index",
     "canonical_family",
@@ -193,6 +195,9 @@ def _family_map_rows(path: str | Path) -> list[dict[str, str]]:
 
 
 def _parse_family_map(path: str | Path, extract) -> dict[str, str]:
+    if is_two_column_table(path):
+        # record names as written; a FlyBase id among them keeps its FlyBase parsing
+        return {extract(record) or record: family for record, family in family_pairs(path)}
     rows = _family_map_rows(path)
     if not rows:
         raise RuntimeError("Empty family map.")
@@ -244,10 +249,20 @@ def _sorted(intervals: dict[str, list[Annotation]]) -> dict[str, list[Annotation
     return intervals
 
 
+def annotation_record(name: str, families: Mapping[str, str]) -> str | None:
+    """A non-FlyBase annotation name that names a library record (as written, or before ``#``, ``|`` or ``:``), else None."""
+
+    raw = (name or "").strip()
+    for token in (raw, raw.split("#")[0], raw.split("|")[0], raw.split(":")[0]):
+        if token in families:
+            return token
+    return None
+
+
 def load_repeatmasker_rebuild(path: str | Path, fbte_to_family: Mapping[str, str]) -> dict[str, list[Annotation]]:
     intervals: dict[str, list[Annotation]] = defaultdict(list)
     for chrom, start, end, name in _bed_rows(path):
-        te = extract_fbte_rebuild(name)
+        te = extract_fbte_rebuild(name) or annotation_record(name, fbte_to_family)
         family = fbte_to_family.get(te) if te else None
         intervals[chrom].append((start, end, name, te, family))
     return _sorted(intervals)
@@ -259,7 +274,7 @@ def load_repeatmasker_gapfill(path: str | Path, fbte_to_family: Mapping[str, str
         by_norm.setdefault(canonical_family(family), family)
     intervals: dict[str, list[Annotation]] = defaultdict(list)
     for chrom, start, end, name in _bed_rows(path):
-        te = extract_fbte_gapfill(name)
+        te = extract_fbte_gapfill(name) or annotation_record(name, fbte_to_family)
         if te:
             family = fbte_to_family.get(te)
         else:

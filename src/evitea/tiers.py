@@ -23,9 +23,10 @@ Tiers (1 = most confident; the first rule that applies decides):
 
 The evidence class of a call is the stage that made it, read from the native
 ``evidence_type`` and reported beside the tier.  Reference copies come from
-the prepared repeat annotation (BED6, FlyBase ``FBte`` ids) and the TE family
-map; both interval ends are treated as inclusive when a call and a copy are
-compared, and an ``FBte`` id missing from the map keeps its own name.
+the prepared repeat annotation (BED6 named by TE record ids, for example FlyBase
+``FBte`` ids) and the TE family map; both interval ends are treated as inclusive
+when a call and a copy are compared, and a record id missing from the map keeps
+its own name.
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ from dataclasses import astuple, dataclass, fields
 from pathlib import Path
 
 from .errors import InputContractError
+from .family_table import family_pairs
 from .shadow_layers import ShadowCallset
 
 __all__ = [
@@ -141,12 +143,7 @@ class ResidentIndex:
 def _family_map(path: Path) -> dict[str, str]:
     """FlyBase-style table (FBte_ID, FlyBase_Family) or two columns record<TAB>family; labels kept as written."""
 
-    with Path(path).open("r", encoding="utf-8-sig", newline="") as handle:
-        rows = list(csv.reader(handle, delimiter="\t"))
-    if rows and "FBte_ID" in rows[0] and "FlyBase_Family" in rows[0]:
-        i, j = rows[0].index("FBte_ID"), rows[0].index("FlyBase_Family")
-        return {r[i]: r[j] for r in rows[1:] if len(r) > max(i, j)}
-    return {r[0]: r[1] for r in rows if len(r) >= 2}
+    return dict(family_pairs(path))
 
 
 def load_resident_index(repeat_annotation: Path, family_map: Path) -> ResidentIndex:

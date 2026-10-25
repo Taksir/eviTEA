@@ -207,7 +207,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     te = commands.add_parser("prepare-te")
     te.add_argument("--te-library", type=Path, required=True)
-    te.add_argument("--family-map", type=Path, required=True)
+    te.add_argument(
+        "--family-map",
+        type=Path,
+        required=True,
+        help="TE record to family map: a FlyBase table (FBte_ID, FlyBase_Family columns) or two tab-separated "
+        "columns record<TAB>family with any record names (the first word of each TE FASTA header)",
+    )
     te.add_argument("--g1a-archive", type=Path)
     te.add_argument("--family-crosswalk", type=Path)
     te.add_argument(
@@ -405,7 +411,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     resident.add_argument("--calls", type=Path, required=True, help="calls.native.tsv or calls.combined.tsv")
     resident.add_argument("--reference-te-copies", type=Path, required=True, help="RepeatMasker .out of the reference")
-    resident.add_argument("--te-assets", type=Path, required=True, help="prepared TE assets (the FBte id to family map)")
+    resident.add_argument("--te-assets", type=Path, required=True, help="prepared TE assets (the TE record to family map)")
     resident.add_argument("--reference-assets", type=Path,
                           help="prepared reference assets: bare copy-table contig names (2L, 1) are matched to its chr "
                           "contigs (default: to the contigs of the call table)")
@@ -973,7 +979,7 @@ def _call_tiers(args: argparse.Namespace) -> None:
 
 
 def _resident_family_map_path(args: argparse.Namespace) -> Path:
-    """The FBte id to family map of the prepared TE assets."""
+    """The TE record to family map of the prepared TE assets."""
 
     return load_prepared_te_assets(_resolved_cli_path(args.te_assets)).source_path("family_map")
 

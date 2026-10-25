@@ -7,7 +7,6 @@ Linux (or WSL); without mappy it fails closed.
 
 from __future__ import annotations
 
-import csv
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -15,6 +14,7 @@ from pathlib import Path
 from ..backends.msbwt import load_msbwt
 from ..callset import CallsetState
 from ..errors import InputContractError, OperationalResourceError
+from ..family_table import family_pairs
 from . import walker as W
 from . import MIN_WIDTH
 from .refine import BreakpointRow, RefinementResult, breakpoint_row, refine_native, walk_native
@@ -43,12 +43,7 @@ def read_fasta(path: Path) -> dict[str, str]:
 def _family_map(path: Path) -> dict[str, str]:
     """FlyBase-style table (FBte_ID, FlyBase_Family) or two columns record<TAB>family; labels kept as written."""
 
-    with Path(path).open("r", encoding="utf-8-sig", newline="") as handle:
-        rows = list(csv.reader(handle, delimiter="\t"))
-    if rows and "FBte_ID" in rows[0] and "FlyBase_Family" in rows[0]:
-        i, j = rows[0].index("FBte_ID"), rows[0].index("FlyBase_Family")
-        return {r[i]: r[j] for r in rows[1:] if len(r) > max(i, j)}
-    return {r[0]: r[1] for r in rows if len(r) >= 2}
+    return dict(family_pairs(path))
 
 
 def _rm_records(path: Path):

@@ -78,7 +78,7 @@ def load_record_families(codebook: SafeCodebook, family_map_rows: Iterable[Mappi
     rows = list(family_map_rows)
     if rows:
         header = list(rows[0])
-        fb = next((h for h in header if "fbte" in h.lower()), None)
+        fb = next((h for h in header if "fbte" in h.lower() or h == "te_record_id"), None)
         fam = next((h for h in header if "family" in h.lower()), None)
         if fb and fam:
             for row in rows:

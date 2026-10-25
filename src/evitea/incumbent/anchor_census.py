@@ -119,9 +119,15 @@ def parse_te_consensus(path: str | Path) -> dict[str, str]:
 
 
 def load_te_family_map(path: str | Path) -> dict[str, str]:
-    """Raw ``FBte_ID -> FlyBase_Family`` labels (no alias normalization)."""
+    """Raw ``record -> family`` labels (no alias normalization): a FlyBase table (``FBte_ID``, ``FlyBase_Family``) or a
+    two-column ``record<TAB>family`` table (``evitea.family_table``)."""
 
     import csv
+
+    from ..family_table import family_pairs, is_two_column_table
+
+    if is_two_column_table(path):
+        return dict(family_pairs(path))
 
     mapping: dict[str, str] = {}
     with Path(path).open("rt", encoding="utf-8-sig", newline="") as handle:

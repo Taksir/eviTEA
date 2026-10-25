@@ -22,6 +22,7 @@ from .contracts import (
 )
 from .errors import ArchitectureInvariantError, InputContractError, PairSynchronizationError
 from .families import FamilyMap, canonical_family
+from .family_table import FLYBASE, FLYBASE_COLUMNS, family_pairs, family_table_kind
 
 _FASTQ_SUFFIXES = (".fastq", ".fq", ".fastq.gz", ".fq.gz")
 _IUPAC_DNA = frozenset("ACGTRYSWKMBDHVN")
@@ -273,94 +274,30 @@ def validate_te_fasta(path: str | Path) -> TELibraryInput:
     return TELibraryInput(fasta_path, records, raw_sha256, semantic_sha256)
 
 
-FLYBASE_FAMILY_COLUMNS = ("FBte_ID", "FlyBase_Family")
+FLYBASE_FAMILY_COLUMNS = FLYBASE_COLUMNS
 
 
 def is_flybase_family_table(path: str | Path) -> bool:
     """True for a FlyBase-style table with ``FBte_ID`` and ``FlyBase_Family`` columns."""
 
-    try:
-        with _open_text(_path(path)) as handle:
-            for raw_line in handle:
-                line = _strip_newline(raw_line)
-                if line and not line.startswith("#"):
-                    fields = line.split("\t")
-                    return all(name in fields for name in FLYBASE_FAMILY_COLUMNS)
-    except (OSError, UnicodeError) as exc:
-        raise InputContractError(f"cannot read family map {path}: {exc}") from exc
-    return False
-
-
-def _load_flybase_family_table(map_path: Path) -> FamilyMap:
-    assignments: dict[str, str] = {}
-    with _open_text(map_path) as handle:
-        header: list[str] | None = None
-        for line0, raw_line in enumerate(handle):
-            line = _strip_newline(raw_line)
-            if not line or line.startswith("#"):
-                continue
-            fields = line.split("\t")
-            if header is None:
-                header = fields
-                id_index = header.index(FLYBASE_FAMILY_COLUMNS[0])
-                family_index = header.index(FLYBASE_FAMILY_COLUMNS[1])
-                continue
-            record_id = fields[id_index].strip() if id_index < len(fields) else ""
-            family = fields[family_index].strip() if family_index < len(fields) else ""
-            if not record_id or not family:
-                continue
-            canonical = canonical_family(family)
-            if assignments.setdefault(record_id, canonical) != canonical:
-                raise InputContractError(f"conflicting family assignments for {record_id!r}")
-    if not assignments:
-        raise InputContractError("family map is empty")
-    return FamilyMap(assignments)
+    return family_table_kind(_path(path)) == FLYBASE
 
 
 def load_family_map(path: str | Path) -> FamilyMap:
     """Load a TE-record/family relation with frozen alias handling.
 
-    Accepts the two-column ``te_record_id<TAB>family`` form or a FlyBase-style
-    table (``FBte_ID`` / ``FlyBase_Family`` columns, as the engines read it).
+    Accepts the two-column ``te_record_id<TAB>family`` form (any record names) or a FlyBase-style table
+    (``FBte_ID`` / ``FlyBase_Family`` columns, as the engines read it); see ``evitea.family_table``.
     """
 
     map_path = _path(path)
-    if is_flybase_family_table(map_path):
-        try:
-            return _load_flybase_family_table(map_path)
-        except (OSError, UnicodeError) as exc:
-            raise InputContractError(f"cannot read family map {map_path}: {exc}") from exc
     assignments: dict[str, str] = {}
-    saw_data_row = False
-    try:
-        with _open_text(map_path) as handle:
-            for line0, raw_line in enumerate(handle):
-                line = _strip_newline(raw_line)
-                if not line or line.startswith("#"):
-                    continue
-                fields = line.split("\t")
-                if not saw_data_row and fields == ["te_record_id", "family"]:
-                    saw_data_row = True
-                    continue
-                saw_data_row = True
-                if len(fields) != 2:
-                    raise InputContractError(
-                        f"family-map line {line0 + 1} must have exactly two tab fields"
-                    )
-                record_id, family = fields
-                if not record_id:
-                    raise InputContractError(f"empty TE ID at family-map line {line0 + 1}")
-                canonical = canonical_family(family)
-                previous = assignments.get(record_id)
-                if previous is not None and previous != canonical:
-                    raise InputContractError(
-                        f"conflicting family assignments for {record_id!r}"
-                    )
-                assignments[record_id] = canonical
-    except (OSError, UnicodeError) as exc:
-        raise InputContractError(f"cannot read family map {map_path}: {exc}") from exc
-    if not assignments:
-        raise InputContractError("family map is empty")
+    for record_id, family in family_pairs(map_path):
+        canonical = canonical_family(family)
+        previous = assignments.get(record_id)
+        if previous is not None and previous != canonical:
+            raise InputContractError(f"conflicting family assignments for {record_id!r}")
+        assignments[record_id] = canonical
     return FamilyMap(assignments)
 
 

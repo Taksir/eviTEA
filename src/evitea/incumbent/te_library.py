@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..errors import InputContractError
+from ..family_table import family_pairs, is_two_column_table
 from .alignment import hw_distance
 from .sequence import fasta_records_full_header, revcomp, shannon_entropy_acgt
 
@@ -65,8 +66,10 @@ def _read_tsv(path: Path) -> list[dict[str, str]]:
 
 
 def load_record_family_map(path: str | Path) -> dict[str, str]:
-    """``FBte_ID -> FlyBase_Family`` (raw labels) with frozen column fallbacks."""
+    """``FBte_ID -> FlyBase_Family`` (raw labels) with frozen column fallbacks, or a two-column ``record<TAB>family`` table."""
 
+    if is_two_column_table(path):
+        return dict(family_pairs(path))
     out: dict[str, str] = {}
     with Path(path).open("r", encoding="utf-8", newline="") as handle:
         for row in csv.DictReader(handle, delimiter="\t"):
@@ -80,8 +83,10 @@ def load_record_family_map(path: str | Path) -> dict[str, str]:
 
 
 def load_heuristic_family_map(path: str | Path) -> dict[str, str]:
-    """Gate-1 family map: first ID-like column and first ``family`` column."""
+    """Gate-1 family map: first ID-like column and first ``family`` column, or a two-column ``record<TAB>family`` table."""
 
+    if is_two_column_table(path):
+        return dict(family_pairs(path))
     rows = _read_tsv(Path(path))
     if not rows:
         return {}

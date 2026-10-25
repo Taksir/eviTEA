@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import re
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
@@ -9,14 +10,17 @@ from pathlib import Path
 
 from ..constants import MIN_FOLDS, MIN_PAIRS
 from ..errors import AssetCompatibilityError
+from ..family_table import family_pairs, is_two_column_table
 from .codebook import fold_of
 
 __all__ = [
     "CLUSTER_GAP",
     "cluster_mappings",
     "interval_gap",
+    "family_map_rows",
     "load_family_map",
     "parse_repeatmasker",
+    "unmapped_records",
     "relaxed_provisional_clusters",
     "annotate_corrected_clusters",
 ]
@@ -73,6 +77,9 @@ def cluster_mappings(rows: Iterable[Mapping], *, require_folds: bool, prefix: st
     return out
 
 
+TWO_COLUMN_RECORD = "te_record_id"
+
+
 def interval_gap(a0: int, a1: int, b0: int, b1: int) -> int:
     if max(a0, b0) <= min(a1, b1):
         return 0
@@ -89,22 +96,42 @@ def _canonical(text: str) -> str:
 
 
 def load_family_map(rows: list[Mapping[str, str]]) -> tuple[dict[str, str], set[str]]:
+    """``(record -> family, families)`` from the rows of ``family_map_rows``: FlyBase ids parsed as FlyBase ids
+    (``FBte`` + digits), the record names of a two-column table (column ``te_record_id``) taken as written."""
+
     if not rows:
         raise AssetCompatibilityError("family map is empty")
     header = list(rows[0])
-    fb = next((h for h in header if "fbte" in h.lower()), None)
+    plain = TWO_COLUMN_RECORD in header
+    fb = TWO_COLUMN_RECORD if plain else next((h for h in header if "fbte" in h.lower()), None)
     fam = next((h for h in header if "family" in h.lower()), None)
     if not fb or not fam:
         raise AssetCompatibilityError(f"cannot identify family-map columns: {header}")
     mapping: dict[str, str] = {}
     for row in rows:
-        te = _fbte(row.get(fb, ""))
+        te = (row.get(fb, "") or "").strip() if plain else _fbte(row.get(fb, ""))
         family = (row.get(fam, "") or "").strip()
         if te and family:
             mapping[te] = family
-    if len(mapping) < 100:
-        raise AssetCompatibilityError(f"only {len(mapping)} family-map entries parsed")
+    if not mapping:
+        raise AssetCompatibilityError("no family-map entries parsed")
     return mapping, set(mapping.values())
+
+
+def family_map_rows(path: str | Path) -> list[dict[str, str]]:
+    """Rows of the family map as dicts: the FlyBase table's own columns, or ``te_record_id`` / ``family`` for a two-column
+    ``record<TAB>family`` table (``evitea.family_table``)."""
+
+    if is_two_column_table(path):
+        return [{TWO_COLUMN_RECORD: record, "family": family} for record, family in family_pairs(path)]
+    with Path(path).open(encoding="utf-8-sig", newline="") as handle:
+        return list(csv.DictReader(handle, delimiter="\t"))
+
+
+def unmapped_records(records, mapping: Mapping[str, str]) -> int:
+    """How many library records have no family in the map."""
+
+    return sum(1 for record in records if record not in mapping)
 
 
 def parse_repeatmasker(path: str | Path, fbmap: Mapping[str, str], known: set[str]) -> list[dict]:
@@ -120,7 +147,8 @@ def parse_repeatmasker(path: str | Path, fbmap: Mapping[str, str], known: set[st
             if len(x) < 3:
                 continue
             name = x[3] if len(x) >= 4 else ""
-            te = _fbte(name)
+            te = _fbte(name) or next(
+                (t for t in (name, name.split("#")[0], name.split("|")[0], name.split(":")[0]) if t in fbmap), None)
             family = fbmap.get(te, "") if te else ""
             if not family:
                 for token in (name, name.split("#")[0], name.split("|")[0], name.split(":")[0]):

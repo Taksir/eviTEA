@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import csv
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -10,6 +9,7 @@ from pathlib import Path
 from ..constants import Q99
 from ..contigs import DEVELOPMENT_PRIMARY_CONTIGS
 from ..errors import InputContractError
+from ..incumbent.anchor_census import parse_te_consensus
 from ..incumbent.engine import StageStore
 from ..shadow_layers import AnchorPECandidate
 from .alignments import (
@@ -26,9 +26,11 @@ from .anchors import channel_a, channel_b_universe, score_candidates
 from .clusters import (
     annotate_corrected_clusters,
     cluster_mappings,
+    family_map_rows,
     load_family_map,
     parse_repeatmasker,
     relaxed_provisional_clusters,
+    unmapped_records,
 )
 from .codebook import classify_pairs, load_safe_codebook, one_mate_universe, project_codebook
 from .decoder import (
@@ -101,11 +103,6 @@ def _fingerprint(inputs: AnchorPEInputs) -> dict[str, object]:
     }
 
 
-def _tsv(path: Path) -> list[dict[str, str]]:
-    with Path(path).open(encoding="utf-8-sig", newline="") as handle:
-        return list(csv.DictReader(handle, delimiter="\t"))
-
-
 def run_anchor_pe(
     inputs: AnchorPEInputs,
     sample,
@@ -129,6 +126,11 @@ def run_anchor_pe(
     profile = inputs.host_read_names
     codebook = load_safe_codebook(inputs.safe_codebook)
     by_family = codebook.by_family()
+    family_rows = family_map_rows(inputs.te_family_map)
+    library = parse_te_consensus(inputs.te_fasta)
+    unmapped = unmapped_records(library, load_family_map(family_rows)[0])
+    if unmapped:
+        say(f"warning: {unmapped} of {len(library)} TE library records have no family in the family map")
 
     pair_hits = store.get("projection", lambda: project_codebook(sample, codebook, progress=say)[0])
     signature_rows, eligible = classify_pairs(pair_hits, codebook)
@@ -145,7 +147,7 @@ def run_anchor_pe(
             return decode_fragments_external(
                 Path(inputs.edlib_python), rows, codebook_path=Path(inputs.safe_codebook),
                 te_fasta=Path(inputs.te_fasta), family_map=Path(inputs.te_family_map), work=work / "decoder")
-        families = load_record_families(codebook, _tsv(inputs.te_family_map))
+        families = load_record_families(codebook, family_rows)
         return decode_fragments(rows, codebook, load_te_library(inputs.te_fasta), families)
 
     decoded = store.get("decoder", decode)
@@ -179,7 +181,7 @@ def run_anchor_pe(
 
     result = derive_candidates(
         ledger=ledger, te_records=te_records, host=host, decoded_host=decoded_host, strict_new=strict_new,
-        by_family=by_family, family_map_rows=_tsv(inputs.te_family_map), repeatmasker_bed=inputs.repeatmasker_bed,
+        by_family=by_family, family_map_rows=family_rows, repeatmasker_bed=inputs.repeatmasker_bed,
         q99=inputs.fragment_q99,
     )
     result.counts = {

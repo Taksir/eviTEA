@@ -60,7 +60,7 @@ def validate_family_map(
     """Validate exactly one canonical family for every TE record ID.
 
     ``allow_unassigned`` accepts a species-wide crosswalk (e.g. the FlyBase
-    ``FBte_ID -> FlyBase_Family`` table): IDs absent from the TE library are
+    ``FBte_ID -> FlyBase_Family`` table, or any other species-wide map): IDs absent from the TE library are
     dropped and library records without a family stay unassigned, exactly as
     the frozen engines read that table.
     """
