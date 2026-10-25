@@ -1,29 +1,30 @@
-"""Default EviTEA v1 scientific engine: clean incumbent + frozen v3 extension.
+"""Default scientific engine: the library layer followed by the extension layers.
 
 One call runs, on one prepared sample msBWT::
 
-    incumbent (R9E)  -> bilateral -> asymmetric -> full memory -> INTERNAL21
+    library layer  -> bilateral -> asymmetric -> full memory -> internal 21-mer
 
-``evitea.incumbent.run_incumbent_caller`` derives the repeat-aware incumbent
-callset; ``evitea.extension_engine.run_extension`` appends the four frozen v3
-layers to its exact bytes.  The final native callset is the frozen Route-B v3
-callset schema (AKA017 838 rows, ISO1 194 rows on the development samples).
+``evitea.incumbent.run_incumbent_caller`` derives the repeat-aware library-layer
+callset; ``evitea.extension_engine.run_extension`` appends the four extension
+layers to its exact bytes.  The final native callset has 838 rows for AKA017
+and 194 rows for ISO1 on the development samples.
 
 Profiles
 --------
-Only Bowtie2 query names (they seed Bowtie2's per-read tie-breaking) and the
-sample labels embedded in extension event identifiers differ between a
-production run and a byte-for-byte reproduction of a frozen sample:
+Only the Bowtie2 query names (they seed Bowtie2's per-read tie-breaking) and the
+sample labels in the extension event identifiers differ between the default
+profile and a byte-for-byte reproduction of a development sample:
 
-=================  ==========================  ===============  ============
-profile            AnchorPE host names         recall-repair    labels
-=================  ==========================  ===============  ============
-production         ``P{pid}``                  ``pair_{pid}``   from sample
-AKA017 (repro)     ``p{pid}|h{mate}``          ``pair_{pid}``   historical
-ISO1 (repro)       ``P{pid}``                  ``{pid}``        historical
-=================  ==========================  ===============  ============
+=================  ==========================  ===================  ============
+profile            paired-end anchor host      wide-anchor step     labels
+                   read names                  read names
+=================  ==========================  ===================  ============
+production         ``P{pid}``                  ``pair_{pid}``       from sample
+AKA017 (repro)     ``p{pid}|h{mate}``          ``pair_{pid}``       fixed
+ISO1 (repro)       ``P{pid}``                  ``{pid}``            fixed
+=================  ==========================  ===================  ============
 
-Reproduction profiles refuse any other sample id.
+A reproduction profile accepts only its own sample id.
 
 No scientific threshold is a profile setting.
 """
@@ -163,7 +164,7 @@ class EngineInputs:
         return resolve_profile(self.profile, self.sample_id)
 
     def identity(self) -> dict[str, object]:
-        """Scientific identity (inputs and profile), without engineering knobs."""
+        """Return the scientific identity (inputs and profile), without run-time settings such as threads."""
 
         profile = self.run_profile
         return {
@@ -185,7 +186,7 @@ class EngineInputs:
                     "internal_codebook", "te_index_prefix",
                 )
             },
-            # recorded only when on, so identities of v1 runs are unchanged
+            # recorded only when set to a non-default value, so the identity of a default run does not change
             **({"complete_routing": True} if self.complete_routing else {}),
             **(
                 {"max_rescue_interval_mass": self.max_rescue_interval_mass}
@@ -200,7 +201,7 @@ class EngineInputs:
         }
 
     def run_parameters(self) -> dict[str, object]:
-        """Sample-derived values used by this run (recorded in the run manifest)."""
+        """Return the sample-derived values used by this run (recorded in the run manifest)."""
 
         return {"read_length": self.read_length, "read_length_source": self.read_length_source,
                 "primary_contigs": list(self.primary_contigs), "primary_contigs_source": self.primary_contigs_source}
@@ -235,7 +236,7 @@ class EngineResult:
 
     @property
     def layer_sha256(self) -> dict[str, str]:
-        """SHA-256 of the callset after each layer (the frozen equivalence targets)."""
+        """Return the SHA-256 of the callset after each layer, for layer-by-layer comparison."""
 
         hashes = {"incumbent": hashlib.sha256(self.incumbent_bytes).hexdigest()}
         for layer in self.extension.layers:
@@ -253,7 +254,7 @@ class EngineResult:
 
 
 def default_bowtie2_build(bowtie2: Path) -> Path | None:
-    """``bowtie2-build`` next to ``bowtie2`` (same suffix), else on PATH."""
+    """Return ``bowtie2-build`` next to ``bowtie2`` (same suffix), else the one on PATH."""
 
     candidate = Path(bowtie2)
     sibling = candidate.with_name("bowtie2-build" + "".join(candidate.suffixes))
@@ -264,7 +265,7 @@ def default_bowtie2_build(bowtie2: Path) -> Path | None:
 
 
 def _fragment_sizes(inputs: EngineInputs, sample, work: Path, say: Callable[[str], None]) -> FragmentSizes:
-    """The fragment-size percentiles of this run: options, else the sample's estimate (saved for resume)."""
+    """Return the fragment-size percentiles of this run: the options, else the sample's estimate (saved for resume)."""
 
     saved = work / "fragment_sizes.json"
     key = {"msbwt_index": str(inputs.msbwt_index), "host_index_prefix": str(inputs.host_index_prefix),
@@ -293,7 +294,7 @@ def run_engine(
     *,
     progress: Callable[[str], None] | None = None,
 ) -> EngineResult:
-    """Run incumbent + v3 extension; stage checkpoints live under ``work_directory``."""
+    """Run the library layer and the extension layers; stage checkpoints are written under ``work_directory``."""
 
     profile = inputs.run_profile
     work = Path(work_directory)

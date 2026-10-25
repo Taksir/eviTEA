@@ -1,17 +1,16 @@
-"""Canonical outputs of the default engine, derived from the native callset.
+"""Output views of a run, derived from the native callset.
 
-The scientific result of an EviTEA v1 run is the **native callset**: the
-frozen Route-B v3 callset schema (15 columns), written byte for byte as
-``calls.native.tsv``.  It is the file whose SHA-256 reproduces the frozen
-development callsets.  ``calls.tsv``, ``calls.bed`` and ``unresolved.tsv`` are
-deterministic *views* of it and of the integration layers' fail-closed
-events; they add no scientific decision.
+The scientific result of an EviTEA run is the **native callset**: a table of
+15 columns, written byte for byte as ``calls.native.tsv``.  Its SHA-256 is
+reported as ``native_callset_sha256``.  ``calls.tsv``, ``calls.bed`` and
+``unresolved.tsv`` are deterministic *views* of it and of the unresolved events
+of the extension layers.  They add no scientific decision.
 
 Native coordinates are kept as written by the producers:
 
 * ``start == end``: a breakpoint (zero-based interbase point); split-junction
-  and all v3 extension events.
-* ``start < end``: a breakpoint range (mate-rescue and repeat-aware rescue
+  events and all extension-layer events.
+* ``start < end``: a breakpoint range (mate-anchored search and repeat-aware
   events), reported unchanged.
 """
 
@@ -45,8 +44,8 @@ __all__ = [
     "unresolved_tsv_bytes",
 ]
 
-# Native ``evidence_type`` -> public call origin.  Unknown evidence types fail
-# closed: every native row must come from a frozen producer.
+# Native ``evidence_type`` to public call origin.  An unknown evidence type raises
+# an error: every native row must come from a known producer.
 CALL_ORIGINS: Mapping[str, str] = MappingProxyType(
     {
         "two_sided": "INCUMBENT_SPLIT_JUNCTION",
@@ -107,7 +106,7 @@ RANGE = "RANGE"
 
 @dataclass(frozen=True, slots=True)
 class CallsetState:
-    """What a call engine hands to output finalization."""
+    """The result of a call engine, input to the output writers."""
 
     sample_id: str
     native: bytes
@@ -258,7 +257,7 @@ def _sorted_views(
 
 
 def call_views(state: CallsetState) -> list[dict[str, Any]]:
-    """The rows of ``calls.tsv`` as dicts (native coordinates), in its order."""
+    """Return the rows of ``calls.tsv`` as dicts (native coordinates), in file order."""
 
     return _sorted_views(state)
 
@@ -266,7 +265,7 @@ def call_views(state: CallsetState) -> list[dict[str, Any]]:
 def calls_tsv_bytes(
     state: CallsetState, refined: Mapping[str, tuple[int, int]] | None = None
 ) -> bytes:
-    """``refined`` (call id -> [start, end)) replaces the native range of refined calls."""
+    """Return the bytes of ``calls.tsv``.  ``refined`` maps a call id to its [start, end) and replaces the native range."""
 
     return _tsv(CALL_COLUMNS, _sorted_views(state, refined))
 
@@ -308,7 +307,7 @@ def calls_vcf_bytes(
     reference_fasta: Path | None,
     refined: Mapping[str, tuple[int, int]] | None = None,
 ) -> bytes:
-    """``calls.vcf``: the calls of ``calls.tsv`` (same coordinates) as VCF records (``evitea.vcf``)."""
+    """Return ``calls.vcf``: the calls of ``calls.tsv`` (same coordinates) as VCF records (``evitea.vcf``)."""
 
     from . import vcf
 
@@ -338,6 +337,6 @@ def unresolved_tsv_bytes(state: CallsetState) -> bytes:
 
 
 def native_rows(data: bytes) -> list[dict[str, str]]:
-    """Parse native bytes (utility for tests and adapters)."""
+    """Parse native callset bytes into row dicts, for tests and adapters."""
 
     return list(csv.DictReader(io.StringIO(data.decode("utf-8-sig"), newline=""), delimiter="\t"))

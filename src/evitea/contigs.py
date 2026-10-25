@@ -6,8 +6,8 @@ Bare names
     itself does not; every other name is kept as it is.
 
 Mitochondrial contig
-    The library-free layer's segment firewall tests segments against the mitochondrial sequence (nuclear copies of
-    mitochondrial DNA).  ``--mito-contig`` names that contig; without it the first of ``MITO_CONTIG_NAMES`` (``chrM``, ``MT``,
+    The library-free layer tests segments against the mitochondrial sequence to find nuclear copies of
+    mitochondrial DNA.  ``--mito-contig`` names that contig; without it the first of ``MITO_CONTIG_NAMES`` (``chrM``, ``MT``,
     ``M``, ``chrMT``) found in the reference is used, and with none of them the mitochondrial test is off.
 
 Primary contigs
@@ -18,11 +18,11 @@ Primary contigs
       it keeps every yeast chromosome (the shortest, I, is about 15 % of the longest) and every mouse or human chromosome, and
       leaves out unplaced scaffolds (at most a few percent of the longest chromosome in those assemblies);
     * the contig is not an organelle genome (``ORGANELLE_CONTIG_NAMES``: mitochondrion and chloroplast names);
-    * the name does not mark an unplaced, unlocalised or alternative sequence (``chrUn...``, ``Un...``, or a name with
+    * the name does not mark an unplaced, unlocalized or alternative sequence (``chrUn...``, ``Un...``, or a name with
       ``_random``, ``_alt``, ``_fix``, ``_hap`` or ``_decoy``).
 
     Contigs are listed in reference order.  On dm6 the rule gives chr2L, chr2R, chr3L, chr3R, chrX and chrY (chr4 is 4 % of
-    chr3R); the fly runs of the paper pass ``--primary-contigs chr2L,chr2R,chr3L,chr3R,chrX``, the list the layer was built
+    chr3R); the development runs pass ``--primary-contigs chr2L,chr2R,chr3L,chr3R,chrX``, the list the layer was developed
     with (``DEVELOPMENT_PRIMARY_CONTIGS``).
 """
 
@@ -56,7 +56,7 @@ _UNPLACED = re.compile(r"^(chr)?Un([_\W]|$)|_(random|alt|fix|hap\d*|decoy)\b", r
 
 
 def match_contig_name(name: str, contigs: Collection[str]) -> str:
-    """``name``, or ``chr`` + ``name`` when only that one is a contig of the reference (``contigs``)."""
+    """Return ``name``, or ``chr`` + ``name`` when only that one is a contig of the reference (``contigs``)."""
 
     if contigs and name not in contigs and "chr" + name in contigs:
         return "chr" + name
@@ -64,7 +64,7 @@ def match_contig_name(name: str, contigs: Collection[str]) -> str:
 
 
 def find_mito_contig(contigs: Iterable[str], option: str | None = None) -> str | None:
-    """The mitochondrial contig: ``option`` (which must exist), else the first of ``MITO_CONTIG_NAMES`` present, else None."""
+    """Return the mitochondrial contig: ``option`` (which must exist), else the first of ``MITO_CONTIG_NAMES`` present, else None."""
 
     names = set(contigs)
     if option:
@@ -75,7 +75,7 @@ def find_mito_contig(contigs: Iterable[str], option: str | None = None) -> str |
 
 
 def default_primary_contigs(lengths: Mapping[str, int]) -> tuple[str, ...]:
-    """The primary contigs of a reference (``{name: length}`` in reference order) by the rule in the module notes."""
+    """Return the primary contigs of a reference (``{name: length}`` in reference order) by the rule in the module notes."""
 
     if not lengths:
         return ()
@@ -87,7 +87,7 @@ def default_primary_contigs(lengths: Mapping[str, int]) -> tuple[str, ...]:
 
 
 def parse_contig_list(text: str) -> tuple[str, ...]:
-    """A comma list of names, or the path of a file with one name per line (``#`` comments allowed)."""
+    """Return the names in a comma list, or in a file with one name per line (``#`` comments allowed)."""
 
     path = Path(text).expanduser()
     if "," not in text and path.is_file():
@@ -102,7 +102,7 @@ def parse_contig_list(text: str) -> tuple[str, ...]:
 
 
 def resolve_primary_contigs(option: Iterable[str] | None, lengths: Mapping[str, int]) -> tuple[tuple[str, ...], str]:
-    """(primary contigs, source): the option's names (which must be reference contigs) or the reference rule."""
+    """Return (primary contigs, source): the option's names (which must be reference contigs) or the reference rule."""
 
     if option is not None:
         names = tuple(option)
