@@ -1,35 +1,35 @@
 # Library-free layer: switches and outputs
 
-Every rule added to the library-free layer since the previous release is a switch. With every switch off
+Each rule that the previous release did not have is a switch. With every switch off
 (`library-free --previous-behaviour --depth-cap 100`; the previous release has the upper depth bound 100) the layer writes the
-previous release's files byte for byte; `tools/library_free_tests/test_runtime.py` checks this on a synthetic sample.
+previous release's files byte for byte. `tools/library_free_tests/test_runtime.py` checks this on a synthetic sample.
 
 ## Switches
 
 | Part | Switch | Default | What it does |
 |---|---|---|---|
-| Depth window | `--depth-cap N` | none | upper bound of the local depth D (the lower bound 10 stays). `--depth-cap 100` is the previous release's window. Also `EVITEA_DEPTH_CAP`. |
+| Depth window | `--depth-cap N` | none | upper bound of the local depth D (the lower bound of 10 reads always applies). `--depth-cap 100` is the previous release's window. Also `EVITEA_DEPTH_CAP`. |
 | Anchored extension | `--anchored-extension` | on | builds the inserted DNA from reads of one site only, where the plain extension stops short |
 | Walk-out | `--walk-out` | on | moves a repeated walk-start word outward (up to 50 strides) to the nearest unique word |
 | First-pass priority | `--first-pass-priority` | on | second-chance sources add calls and never change a first-pass duplicate choice, grouping or family-identity filter |
-| Poly-A crossing | `--polya-cross` | off | the extension crosses a poly-A run (needs anchored extension) |
+| Poly-A crossing | `--polya-cross` | off | the extension crosses a poly-A run (requires anchored extension) |
 | Poly-A TSD | `--polya-tsd` | off | a poly-A tail counts toward the two TSDs of the family rule |
 | Het scan | `--het-scan off\|safe-start\|second-walk\|full` | full | a second scan that follows both letters at a het SNP |
 | | `--early-start`, `--right-fallback`, `--second-chance`, `--second-scan-anchored`, `--het-yield` | on | parts of the full mode; `--het-yield`: an early-start or right-side-alone place yields to the plain or second-chance walk of its duplicate chain |
-| Identity evidence | `--identity-min-comparisons N` | 3 | the family-identity filter judges a family only on at least N member comparisons (each of at least 50 aligned columns): the frozen-extension members when they give N, otherwise all members. A family with fewer is not judged (its similarity is NaN, which the filter never drops); the one-site check and the resident-copy test decide. Applies to the first pass and to the haplotype scan's trusted members. 0 judges on whatever comparisons the members give (the previous rule). |
-| Relative depth floor | `--relative-depth-floor on\|off` | off | the lower bound of the local-depth window is the smaller of 10 reads and half the median local depth of the contig (valid words); at a median of 20 or more it stays 10. The upper bound is `--depth-cap`. The floor is part of the identity of a saved scan piece. |
+| Identity evidence | `--identity-min-comparisons N` | 3 | the family-identity filter judges a family only on at least N member comparisons (each of at least 50 aligned columns): the members that the first-pass priority picks when they give N, otherwise all members. A family with fewer is not judged (its similarity is NaN, which the filter never drops). The one-site check and the resident-copy test decide. Applies to the first pass and to the haplotype scan's trusted members. 0 judges on any comparisons the members give (the previous rule). |
+| Relative depth floor | `--relative-depth-floor on\|off` | off | the lower bound of the local-depth window is the smaller of 10 reads and half the median local depth of the contig (valid words); at a median of 20 or more it is 10. The upper bound is `--depth-cap`. The floor is part of the identity of a saved scan piece. |
 | One-site check | `--check-scope none\|path-dropped\|unconfirmed` | unconfirmed | which calls must show one-site evidence: none (the previous release's rule), the calls the reference-path filter drops, or every call the library layer does not make |
 | | `--tol p95\|p99` | p99 | depth tolerance of the check |
 | | `--tol-source library\|own-calls` | library | tolerance from library-confirmed calls (own two-sided calls when there are none) |
-| Resident-copy test | `--resident-guard off\|per-call\|family` | family | drops a call inside an annotated reference TE copy; `family`: only when the family's calls sit in copies more than twice the genome's TE share. Needs `--repeat-annotation` (RepeatMasker .out or BED) or the prepared reference's annotation; off without one. |
-| | `--repeat-map FILE` | none | the repeat map of the reference (`build-repeat-map`): the resident-copy test reads it when the library layer made no call and no `--repeat-annotation` is given; with library calls it is not used and the files are those of a run without it |
+| Resident-copy test | `--resident-guard off\|per-call\|family` | family | drops a call inside an annotated reference TE copy. `family`: only when the family's calls sit in copies more than twice the genome's TE share. Requires `--repeat-annotation` (RepeatMasker .out or BED) or the prepared reference's annotation; off without one. |
+| | `--repeat-map FILE` | none | the repeat map of the reference (`build-repeat-map`): the resident-copy test reads it when the library layer made no call and no `--repeat-annotation` is given. With library calls it is not used, and the files are those of a run without it |
 | Family records | `build-family-records`, `add-record-calls` | commands | see below |
 | Record guard | `--record-guard on\|off` | on | a family of old copies gets no record |
-| Copy report | `--copy-report on\|off` | off | per record: share of its words absent from the reference, reference copies |
+| Copy report | `--copy-report on\|off` | off | per record: fraction of its words absent from the reference, reference copies |
 
 ## What the one-site check does
 
-A real junction is new sequence read at single-copy depth. Each side of a call that the detection recorded is measured:
+A real junction is non-reference sequence read at single-copy depth. Each side of a call that the detection recorded is measured:
 `T / D <= tolerance` (T = reads continuing the walk's context at the break, D = local depth) and the junction (30 host + first 30
 inserted letters) has at most 10 of its 31-letter windows in the reference and no ungapped alignment at >= 95% identity to it.
 A call passes when it has a side and every side passes. The detection records `chkL_T`, `chkL_junction`, `chkR_T`, `chkR_junction`
@@ -37,7 +37,7 @@ A call passes when it has a side and every side passes. The detection records `c
 
 The tolerance is the p95 or p99 of the side depth ratios of the first-pass family calls with a library call within 500 bp.
 
-Call statuses (family-calls table; `DROPPED_V2` is the reference-path filter, `DROPPED_RULE_C` the family-identity filter): `DROPPED_V2`, `DROPPED_RULE_C`, `NEAR_EVITEA`, `DROPPED_CHECK`, `DROPPED_RESIDENT_COPY`, `ADDED`.
+Call statuses in the family-calls table: `DROPPED_V2` (excluded by the reference-path filter), `DROPPED_RULE_C` (excluded by the family-identity filter), `NEAR_EVITEA`, `DROPPED_CHECK`, `DROPPED_RESIDENT_COPY`, `ADDED`.
 Second-scan calls: `NOT_HET`, `DROPPED_V2`, `NEAR_FIRST_PASS`, `DROPPED_CHECK`, `DROPPED_RULE_C`, `NEAR_EVITEA`,
 `DROPPED_RESIDENT_COPY`, `ADDED`. A second-scan call joins the first pass only where the first pass has no family call within 500 bp.
 
@@ -45,17 +45,17 @@ Second-scan calls: `NOT_HET`, `DROPPED_V2`, `NEAR_FIRST_PASS`, `DROPPED_CHECK`, 
 
 The previous release's files, unchanged columns, plus: `library_free_second_places.tsv`, `library_free_second_segments.fa` (with the het scan);
 extra columns `walked`, `bL0` (walk-out), `origin` (second-scan places), the four `chk*` columns, and in the family-calls table
-`scan`, `origin`, `check`, `ratio_L`, `ratio_R`, `inside_copy`, `family_inside` (when any switch needs them).
+`scan`, `origin`, `check`, `ratio_L`, `ratio_R`, `inside_copy`, `family_inside` (when a switch requires them).
 Second-scan families are named `LF_cluster_h<N>` in `calls.library_free.tsv`.
 
 Re-running with other grouping or assembly switches in the same `--work-dir` reuses the saved scan pieces. Set
-`EVITEA_PIECES_READONLY=1` on such a run: it then refuses, instead of scanning again and replacing the saved pieces, if a
-detection switch, the code or an input differs. `--detection-dir` rebuilds the family calls from saved tables (assembly switches only).
+`EVITEA_PIECES_READONLY=1` on such a run. If a detection switch, the code or an input differs, the run then stops instead of
+scanning again and replacing the saved pieces. `--detection-dir` rebuilds the family calls from saved tables (assembly switches only).
 
 ## Family records
 
-A library-free family with at least 2 calls away from the library layer's calls, and more away than near, is a family the
-library lacks.
+A library-free family with at least 2 calls away from the library layer's calls, and more away than near, is a family that the
+library does not have.
 
 ```
 evitea build-family-records --family-calls <library_free_family_calls.tsv> [...] --segments library_free_segments.fa \
@@ -70,12 +70,12 @@ evitea add-record-calls --calls <run>/calls.native.tsv --base-calls <existing>/c
 - Flag rule `kept` (default): away = calls the filters left (`ADDED`, `DROPPED_RESIDENT_COPY`); near = `NEAR_EVITEA`
   (`NEAR_FIRST_PASS` counts as neither). `before-filters`: away = calls not near a library call that the family-identity filter does not drop. `both`: either.
 - Record names: first-pass families `FBte99<cluster>` / `LF<cluster>`; second-scan families `FBte97<cluster>` / `LFh<cluster>`.
-  `family_map_padded.tsv` adds inert `FBte98` / `PAD` rows up to 100 entries (the anchor-pair stage needs that many); `prepare-te`
-  keeps only the rows of library records.
+  `family_map_padded.tsv` adds inert `FBte98` / `PAD` rows up to 100 entries (the anchor-pair stage requires that many); `prepare-te`
+  retains only the rows of library records.
 - Record guard: a family whose calls lie inside annotated copies more than `max(0.5, 2 x genome TE share)` of the time gets no
   record. The share is measured with `--repeat-annotation`, or read from the `family_inside` column with `--te-share`.
 - `add-record-calls`: drops a call inside a reference copy of its own record (`annotation.bed`), adds a call only where no call of
-  the existing set lies within 500 bp, and keeps one of calls added within 500 bp of each other (the one nearest the contig start).
+  the existing set is within 500 bp, and retains one of the calls added within 500 bp of each other (the one nearest the contig start).
   Writes `record_calls_added.tsv`, `calls.combined.tsv` (existing + added, source `RECORD`), `record_calls_report.json`.
 
 ## Runs without a library
@@ -89,7 +89,7 @@ reference and the sample:
   window's own locus. The map is `<dir>/repeat_map.bed`; `repeat_map_summary.json` holds the constants, the counts and checksums.
   Build it once per reference. It does not depend on the sample.
 - **Tolerance of the one-site check.** With no library call, the tolerance (99th percentile by default) comes from the layer's own
-  two-sided calls; `--tol-source library` falls back to them on its own, so no switch is needed.
+  two-sided calls. `--tol-source library` falls back to them on its own, so no switch is needed.
 - **Resident-copy test and record guard.** `library-free --repeat-map <bed>` reads the map for the resident-copy test when the library
   layer made no call (an explicit `--repeat-annotation` wins; with library calls the map is not used and the run equals one without
   the option). `build-family-records --repeat-map <bed>` reads it for the record guard.
@@ -117,10 +117,10 @@ filters gets a consensus record (unless the record guard drops it), and the libr
 
 - `--family-records` is not a switch of `library-free`: the second library pass is a separate `evitea call`, so the records are two commands.
 - The one-site check reads the junction recorded at detection, so a call never has a missing junction.
-- Anchored extension off cannot be rebuilt from saved tables; run a detection with it off.
+- A run with anchored extension off cannot be rebuilt from saved tables; run a detection with it off.
 - `RefWords` (walk-out) and `word_copies` (records) hold the reference in Python objects; they are sized for the fly genome. A
-  mouse-size reference needs a memory-lean version before use.
+  mouse-size reference requires a lower-memory implementation.
 
 ## Tests (`tools/library_free_tests/`, run with `PYTHONPATH=src`)
 
-`test_depth_window`, `test_depth_tool`, `test_assemble`, `test_records`, `test_runtime` (`PREVIOUS_SRC`: the previous release's src for U1; `BASELINE_SRC`: the src of the commit before the identity-evidence and relative-floor switches for U8), `test_repeat_map` (needs BLAST+ on PATH for its build checks), `test_slurm_tools`; `tools/library_free_tests/run_all.sh` runs them all.
+`test_depth_window`, `test_depth_tool`, `test_assemble`, `test_records`, `test_runtime` (`PREVIOUS_SRC`: the previous release's src for U1; `BASELINE_SRC`: the src of the commit before the identity-evidence and relative-floor switches for U8), `test_repeat_map` (requires BLAST+ on PATH for its build checks), `test_slurm_tools`; `tools/library_free_tests/run_all.sh` runs them all.

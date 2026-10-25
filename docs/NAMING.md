@@ -1,7 +1,7 @@
 # EviTEA naming
 
-The pre-release naming audit found eight groups of research-stage shorthand in
-the clean package. Production code now uses the descriptive terms below.
+The research code used eight groups of shorthand labels. The package uses the
+descriptive terms in the right-hand column below.
 
 | Legacy shorthand | Descriptive production name |
 |---|---|
@@ -14,6 +14,6 @@ the clean package. Production code now uses the descriptive terms below.
 | Route-B v3 architecture freeze | EviTEA v1 repeat-aware evidence architecture |
 | R9E/V3 fixture and origin labels | repeat-aware incumbent / evidence extension |
 
-Historical planning documents and cited source filenames retain their original
-labels because those strings identify immutable research artifacts. They are
-not production APIs, output labels, or user-facing workflow names.
+Planning documents and cited source file names keep their original labels,
+because those strings identify the research files. The labels are not API
+names, output labels, or workflow names.
