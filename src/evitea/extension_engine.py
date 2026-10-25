@@ -1,11 +1,11 @@
-"""Frozen v3 extension engine: R9E bytes -> 801/820/835/838-style layers.
+"""Extension engine: library-layer callset bytes to the four extension layers.
 
 Runs the evidence producers in dependency order on one prepared sample and
-composes the four frozen integration layers (``shadow_layers``)::
+composes the four extension layers (``shadow_layers``)::
 
     anchor_pe (candidates)  -> bilateral, asymmetric
     full_memory (events)    -> full-memory
-    internal21 (loci)       -> INTERNAL21
+    internal21 (loci)       -> internal 21-mer
 """
 
 from __future__ import annotations

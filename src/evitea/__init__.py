@@ -1,4 +1,4 @@
-"""EviTEA package metadata and frozen architecture surface."""
+"""EviTEA package metadata and architecture identifier."""
 
 from ._version import __version__
 from .constants import ARCHITECTURE_ID

@@ -1,35 +1,33 @@
-"""Frozen v3 extension-layer integration onto the R9E incumbent callset (S100).
+"""Extension layers appended to the library-layer callset.
 
-The frozen Route-B v3 architecture composes four ordered extension layers on
-top of the byte-exact R9E incumbent file::
+Four ordered extension layers are composed on top of the byte-exact
+library-layer callset::
 
-    R9E -> bilateral AnchorPE -> asymmetric AnchorPE -> full-memory AnchorPE
-        -> INTERNAL21 strict-A
+    library layer -> bilateral paired-end anchor support
+        -> asymmetric paired-end anchor support
+        -> full-memory paired-end anchor support
+        -> internal 21-mer exact junction evidence
 
-Every layer preserves the complete previous callset as an exact byte prefix
-and appends only genuinely new events in the native R9E schema.  The layers
-differ in small but frozen ways (candidate admission, event identifiers, family
-alias handling, distance geometry, and collision policy); each difference below
-is reproduced exactly from the frozen research integration scripts and is part
-of the architecture, not a tunable option:
+Every layer keeps the complete previous callset as an exact byte prefix.
+It appends only events that the callset does not already represent, in the
+schema of the library-layer callset.  The layers differ in candidate admission,
+event identifiers, family alias handling, distance geometry, and collision
+policy.  These differences are fixed, not options:
 
-========================  ==========  ==========  ============  ==========
-policy                    bilateral   asymmetric  full-memory   internal21
-========================  ==========  ==========  ============  ==========
-admitted B states         BILATERAL   one side    any but       (locus
-                                                  NEITHER       ledger)
-family aliases            no          no          yes           yes
-distance geometry         point-range point-range point-range   range-range
-diff-family nearby        ignored     ignored     ignored       unresolved
-new-to-new within 500 bp  not checked not checked same family   any family
-========================  ==========  ==========  ============  ==========
+==============================  ===========  ===========  ===============  ===============
+policy                          bilateral    asymmetric   full-memory      internal 21-mer
+==============================  ===========  ===========  ===============  ===============
+admitted paired-end states      BILATERAL    one side     any but NEITHER  (locus record)
+family aliases                  no           no           yes              yes
+distance geometry               point-range  point-range  point-range      range-range
+nearby different-family call    ignored      ignored      ignored          unresolved
+two new events within 500 bp    not checked  not checked  same family      any family
+==============================  ===========  ===========  ===============  ===============
 
-A new-to-new collision was fail-closed (a hard stop) in the research scripts and
-never occurred on the frozen samples.  Here it is fail-closed as an explicit
-``UnresolvedShadowEvent``: neither colliding event is appended.
+If two new events collide, neither is appended.  The pair is returned as an
+``UnresolvedShadowEvent``.
 
-This module has no knowledge of historical report files.  Validation adapters
-translate frozen research tables into these typed inputs.
+This module reads no report files.  It takes only the typed inputs below.
 """
 
 from __future__ import annotations
@@ -51,7 +49,7 @@ _B_STATES = ("BILATERAL", "LEFT_ONLY", "RIGHT_ONLY", "NEITHER")
 
 
 # ---------------------------------------------------------------------------
-# The mutable-by-append callset
+# The callset, which grows by appending
 # ---------------------------------------------------------------------------
 
 
@@ -66,13 +64,13 @@ class ShadowCallset:
     @classmethod
     def from_bytes(cls, data: bytes) -> "ShadowCallset":
         if not data:
-            raise InputContractError("shadow callset is empty")
+            raise InputContractError("callset is empty")
         text = data.decode("utf-8-sig")
         reader = csv.DictReader(io.StringIO(text, newline=""), delimiter="\t")
         fields = tuple(reader.fieldnames or ())
         missing = REQUIRED_SHADOW_FIELDS - set(fields)
         if missing:
-            raise InputContractError(f"shadow callset schema lacks {sorted(missing)}")
+            raise InputContractError(f"callset schema lacks {sorted(missing)}")
         return cls(data, fields, tuple(dict(row) for row in reader))
 
     @property
@@ -80,7 +78,7 @@ class ShadowCallset:
         return len(self.rows)
 
     def append(self, rows: Sequence[Mapping[str, str]]) -> "ShadowCallset":
-        """Append rows in the base schema, keeping the base bytes as exact prefix."""
+        """Append rows in the base schema, keeping the base bytes as an exact prefix."""
 
         head = self.data if self.data.endswith((b"\n", b"\r")) else self.data + b"\n"
         handle = io.StringIO(newline="")
@@ -131,7 +129,7 @@ def paired_end_state(left_pair_ids: Sequence[int], right_pair_ids: Sequence[int]
 
 @dataclass(frozen=True, slots=True)
 class AnchorPECandidate:
-    """One replicated exact Channel-A anchor of a corrected cluster, scored for B."""
+    """One replicated exact-junction anchor of a corrected cluster, scored for paired-end anchor support."""
 
     cluster_id: int
     family: str
@@ -148,9 +146,9 @@ class AnchorPECandidate:
         object.__setattr__(self, "right_b_pair_ids", _ids(self.right_b_pair_ids))
         _side(self.anchor_host_side)
         if self.breakpoint0 < 0 or self.cluster_id < 0:
-            raise InputContractError("AnchorPE candidate coordinates must be non-negative")
+            raise InputContractError("paired-end anchor candidate coordinates must be non-negative")
         if not _passes(self.a_pair_ids):
-            raise InputContractError("AnchorPE Channel A requires >=2 pairs across >=2 folds")
+            raise InputContractError("exact junction evidence requires >=2 pairs across >=2 folds")
 
     @property
     def b_state(self) -> str:
@@ -167,7 +165,7 @@ class AnchorPECandidate:
 
 @dataclass(frozen=True, slots=True)
 class FullMemoryEvent:
-    """Hostile-valid proposal-memory strict-A event with its held-out B support."""
+    """Hostile-valid proposal-memory exact-junction event with its held-out paired-end anchor support."""
 
     candidate_id: str
     family: str
@@ -196,7 +194,7 @@ class FullMemoryEvent:
 
 @dataclass(frozen=True, slots=True)
 class Internal21Instance:
-    """One certified exact key of an INTERNAL21 strict-A locus in one rotation."""
+    """One confirmed exact key of an internal 21-mer locus, in one rotation."""
 
     rotation: str
     breakpoint0: int
@@ -211,12 +209,12 @@ class Internal21Instance:
         object.__setattr__(self, "right_b_pair_ids", _ids(self.right_b_pair_ids))
         _side(self.anchor_host_side)
         if not self.rotation:
-            raise InputContractError("INTERNAL21 instance rotation must be non-empty")
+            raise InputContractError("internal 21-mer instance rotation must be non-empty")
 
 
 @dataclass(frozen=True, slots=True)
 class Internal21Locus:
-    """A ``NOVEL_UNCONFOUNDED`` INTERNAL21 strict-A locus and its instances."""
+    """A ``NOVEL_UNCONFOUNDED`` internal 21-mer locus and its instances."""
 
     family: str
     chrom: str
@@ -226,14 +224,15 @@ class Internal21Locus:
 
     def __post_init__(self) -> None:
         if self.locus_lo > self.locus_hi:
-            raise InputContractError("INTERNAL21 locus bounds are inverted")
+            raise InputContractError("internal 21-mer locus bounds are inverted")
         object.__setattr__(self, "instances", tuple(self.instances))
 
     def representative(self) -> tuple[Internal21Instance, int]:
-        """Frozen truth-blind representative exact key.
+        """Return the representative exact key (chosen without truth data) and its rotation count.
 
-        Greatest certified-rotation recurrence, then lower breakpoint, then LEFT
-        before RIGHT; the lexicographically earliest rotation of that key.
+        The key seen in the most confirmed rotations wins, then the lower
+        breakpoint, then LEFT before RIGHT.  The instance returned has the
+        lexicographically earliest rotation of that key.
         """
 
         members = [
@@ -242,7 +241,7 @@ class Internal21Locus:
         ]
         if not members:
             raise InputContractError(
-                f"INTERNAL21 locus {self.family} {self.chrom}:{self.locus_lo}-{self.locus_hi} has no instance"
+                f"internal 21-mer locus {self.family} {self.chrom}:{self.locus_lo}-{self.locus_hi} has no instance"
             )
         by_key: dict[tuple[int, str], list[Internal21Instance]] = defaultdict(list)
         for row in members:
@@ -268,7 +267,7 @@ def _alias(name: str, use_aliases: bool) -> str:
 
 
 def call_families(row: Mapping[str, str], *, use_aliases: bool) -> frozenset[str]:
-    """Family set of an existing call (``families`` list, else ``family``)."""
+    """Return the family set of an existing call, from ``families`` or else ``family``."""
 
     raw = str(row.get("families", "") or "").strip()
     out: set[str] = set()
@@ -294,7 +293,7 @@ def _same_family(family: str, row: Mapping[str, str], use_aliases: bool) -> bool
 
 
 def range_distance(lo_a: int, hi_a: int, lo_b: int, hi_b: int) -> int:
-    """Distance between closed integer ranges; overlap/touch-free inclusion is 0."""
+    """Return the distance between two closed integer ranges (0 if they overlap)."""
 
     if hi_a < lo_b:
         return lo_b - hi_a
@@ -321,7 +320,7 @@ def nearest_call(
     use_aliases: bool,
     tie_break_event_id: bool,
 ) -> tuple[int | None, Mapping[str, str] | None]:
-    """Nearest same- (or different-) family call on ``chrom`` to ``[lo, hi]``."""
+    """Return (distance, row) of the nearest same-family (or different-family) call on ``chrom`` to ``[lo, hi]``."""
 
     best: int | None = None
     best_row: Mapping[str, str] | None = None
@@ -344,7 +343,7 @@ def nearest_call(
 
 
 # ---------------------------------------------------------------------------
-# Row construction in the native R9E schema
+# Row construction in the schema of the library-layer callset
 # ---------------------------------------------------------------------------
 
 
@@ -444,7 +443,7 @@ def _new_to_new(
     same_family_only: bool,
     use_aliases: bool,
 ) -> tuple[list[tuple[str, str, str, int, dict[str, str]]], list[UnresolvedShadowEvent]]:
-    """Fail closed on new events within the equivalence window of each other."""
+    """Exclude new events within 500 bp of another new event, and return them as unresolved."""
 
     conflicts: dict[int, set[int]] = defaultdict(set)
     for i, (_, fam_a, chrom_a, bp_a, _) in enumerate(pending):
@@ -490,10 +489,9 @@ def _new_to_new(
 
 @dataclass(frozen=True, slots=True)
 class ShadowLabels:
-    """Sample labels embedded in frozen event identifiers.
+    """Sample labels embedded in event identifiers, one per layer.
 
-    Historical identifiers were not uniform across layers; each layer's label
-    is therefore explicit.  ``for_sample`` gives the default for a new sample.
+    ``for_sample`` builds the default labels for a sample.
     """
 
     bilateral_prefix: str
@@ -572,7 +570,7 @@ def _anchor_pe_layer(
 def append_bilateral_layer(
     base: ShadowCallset, candidates: Iterable[AnchorPECandidate], labels: ShadowLabels
 ) -> ShadowLayerResult:
-    """Full-data exact-A + bilateral-B AnchorPE events (frozen 2026-09-20)."""
+    """Append events with exact junction evidence and paired-end anchor support on both sides."""
 
     prefix = labels.bilateral_prefix
     return _anchor_pe_layer(
@@ -586,7 +584,7 @@ def append_bilateral_layer(
 def append_asymmetric_layer(
     base: ShadowCallset, candidates: Iterable[AnchorPECandidate], labels: ShadowLabels
 ) -> ShadowLayerResult:
-    """Exact-A + exactly-one-sided-B AnchorPE events (frozen 2026-09-20)."""
+    """Append events with exact junction evidence and paired-end anchor support on exactly one side."""
 
     tag = labels.asymmetric
     return _anchor_pe_layer(
@@ -604,7 +602,7 @@ def append_full_memory_layer(
     *,
     sample_id: str,
 ) -> ShadowLayerResult:
-    """Proposal-memory strict-A + certified B events (frozen 2026-09-22)."""
+    """Append full-memory events: proposal-memory exact junction evidence plus paired-end anchor support on at least one side."""
 
     layer = "FULL_MEMORY"
     valid = [row for row in events if row.b_state != "NEITHER"]
@@ -662,7 +660,7 @@ def append_full_memory_layer(
 def append_internal21_layer(
     base: ShadowCallset, loci: Iterable[Internal21Locus], labels: ShadowLabels
 ) -> ShadowLayerResult:
-    """INTERNAL21 strict-A observability supplementation (frozen 2026-09-23)."""
+    """Append internal 21-mer loci that make exact junction evidence observable."""
 
     layer = "INTERNAL21"
     ordered = sorted(
@@ -746,10 +744,10 @@ def compose_frozen_shadow(
     *,
     sample_id: str,
 ) -> tuple[ShadowLayerResult, ...]:
-    """Apply the four frozen layers in order; returns each layer's result.
+    """Apply the four extension layers in order and return each layer's result.
 
-    The AnchorPE candidate universe is shared by the bilateral and asymmetric
-    layers: the same candidates are admitted by their B state.
+    The bilateral and asymmetric layers share one candidate set.  Each admits
+    candidates by paired-end state.
     """
 
     base = ShadowCallset.from_bytes(incumbent)

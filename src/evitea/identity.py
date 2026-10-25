@@ -1,4 +1,4 @@
-"""Immutable new-data physical-pair identity assignment."""
+"""Immutable physical-pair identity assignment."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ def _validate_pair_id(pair_id: int) -> None:
 
 
 def fold_id(pair_id: int) -> int:
-    """Return the frozen five-fold label for a physical-pair ID."""
+    """Return the five-fold label for a physical-pair ID."""
 
     _validate_pair_id(pair_id)
     return pair_id % N_FOLDS
@@ -26,7 +26,7 @@ def assign_pair_identity(
     ordinal0: int,
     sample_id: str = "sample",
 ) -> PhysicalPair:
-    """Assign the production ``pair_id = synchronized ordinal0`` identity."""
+    """Assign the ``pair_id = synchronized ordinal0`` identity."""
 
     _validate_pair_id(ordinal0)
     if not isinstance(sample_id, str) or not sample_id:

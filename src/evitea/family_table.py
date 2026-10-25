@@ -1,13 +1,13 @@
 """The TE family map: one reader for the two accepted formats.
 
-1. The FlyBase table: a header row with ``FBte_ID`` and ``FlyBase_Family`` columns (other columns are ignored).  It is read
-   as before, so FlyBase ids (``FBte`` + digits) keep their exact parsing.
+1. The FlyBase table: a header row with ``FBte_ID`` and ``FlyBase_Family`` columns (other columns are ignored).
+   FlyBase ids (``FBte`` + digits) are parsed exactly.
 2. A plain two-column table, ``record<TAB>family``, with any record names (``B1_Mm``, ``L1MdA_I``, ``Ty1``, ...).  An optional
    first row naming the columns (``te_record_id<TAB>family``, ``record<TAB>family``, ``id<TAB>family``, ...) is skipped.
 
 Blank lines and lines starting with ``#`` are ignored in both.  Record names in the plain table are taken as written; they must
-match the first word of the TE library's FASTA headers.  Labels are returned as written (no alias or case folding); each
-reader applies its own normalisation.
+match the first word of the TE library's FASTA headers.  Labels are returned as written (no alias or case folding).
+Each reader applies its own normalization.
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ _HEADER_FAMILIES = frozenset({"family", "te_family", "flybase_family"})
 
 
 def read_rows(path: str | Path) -> list[list[str]]:
-    """Tab-separated rows, without blank lines and ``#`` comments."""
+    """Return the tab-separated rows, without blank lines and ``#`` comment lines."""
 
     path = Path(path)
     try:
@@ -57,7 +57,7 @@ def _kind(rows: list[list[str]]) -> str:
 
 
 def family_table_kind(path: str | Path) -> str:
-    """``flybase``, ``two-column`` (``record<TAB>family``) or ``other`` (any other layout, read by each reader as before)."""
+    """Return ``flybase``, ``two-column`` (``record<TAB>family``) or ``other`` (any other layout, read by each reader)."""
 
     return _kind(read_rows(path))
 
@@ -71,7 +71,7 @@ def _is_header(row: list[str]) -> bool:
 
 
 def family_pairs(path: str | Path) -> list[tuple[str, str]]:
-    """``(record, family)`` pairs in file order, both non-empty and stripped, from either format.
+    """Return ``(record, family)`` pairs in file order, both non-empty and stripped, from either format.
 
     A table in neither format is refused, as is a table that yields no pair.
     """

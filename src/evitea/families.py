@@ -1,4 +1,4 @@
-"""Canonical TE-family labels and family-map validation."""
+"""TE-family labels and family-map validation."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ _ALIASES = MappingProxyType(dict(FROZEN_FAMILY_ALIASES))
 
 
 def canonical_family(label: str) -> str:
-    """Return a family normalized by only the two frozen aliases."""
+    """Return the family label after applying the two built-in aliases only."""
 
     if not isinstance(label, str):
         raise InputContractError("family label must be text")
@@ -25,7 +25,7 @@ def canonical_family(label: str) -> str:
 
 @dataclass(frozen=True, slots=True)
 class FamilyMap(Mapping[str, str]):
-    """Immutable mapping from TE record IDs to canonical families."""
+    """Immutable mapping from TE record IDs to families (aliases applied)."""
 
     assignments: Mapping[str, str]
 
@@ -57,12 +57,11 @@ def validate_family_map(
     *,
     allow_unassigned: bool = False,
 ) -> FamilyMap:
-    """Validate exactly one canonical family for every TE record ID.
+    """Validate that every TE record ID has exactly one family (aliases applied).
 
-    ``allow_unassigned`` accepts a species-wide crosswalk (e.g. the FlyBase
-    ``FBte_ID -> FlyBase_Family`` table, or any other species-wide map): IDs absent from the TE library are
-    dropped and library records without a family stay unassigned, exactly as
-    the frozen engines read that table.
+    ``allow_unassigned`` accepts a species-wide map (for example the FlyBase
+    ``FBte_ID -> FlyBase_Family`` table).  IDs absent from the TE library are
+    dropped, and library records without a family stay unassigned.
     """
 
     rows = records.items() if isinstance(records, Mapping) else records

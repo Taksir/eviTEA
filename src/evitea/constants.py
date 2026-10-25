@@ -1,4 +1,4 @@
-"""Frozen EviTEA v1 architecture identity and scientific constants."""
+"""Architecture identifier and scientific constants."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from .errors import ArchitectureInvariantError
 
 ARCHITECTURE_ID = "EVITEA_V1_REPEAT_AWARE_EVIDENCE_ARCHITECTURE_20260928_REVISION_1"
 N_FOLDS = 5
-Q99 = 805  # default fragment-size 99th percentile (bp); a run uses the sample's own (``sample_geometry``)
+Q99 = 805  # default fragment-size 99th percentile (bp). A run uses the sample's own value (``sample_geometry``)
 MIN_PAIRS = 2
 MIN_FOLDS = 2
 EVENT_EQUIV_DISTANCE = 500
@@ -22,7 +22,7 @@ def _require_nonnegative_integer(value: int, name: str) -> None:
 
 
 def repeat_aware_edit_rate_passes(adjusted_nm: int, te_facing_length: int) -> bool:
-    """Return the frozen integer-safe ``3/35`` edit-rate predicate."""
+    """Return True when the edit rate is at most ``3/35``, using integer arithmetic."""
 
     _require_nonnegative_integer(adjusted_nm, "adjusted_nm")
     if (
@@ -36,7 +36,7 @@ def repeat_aware_edit_rate_passes(adjusted_nm: int, te_facing_length: int) -> bo
 
 @dataclass(frozen=True, slots=True)
 class ScienceProfile:
-    """Immutable scientific settings bound to an architecture identity."""
+    """Immutable scientific parameters tied to an architecture identifier."""
 
     architecture_id: str = ARCHITECTURE_ID
     n_folds: int = N_FOLDS
@@ -48,8 +48,8 @@ class ScienceProfile:
     certifying_paired_end_states: tuple[str, ...] = CERTIFYING_PAIRED_END_STATES
 
     def __post_init__(self) -> None:
-        # q99 (the fragment-size 99th percentile) is not frozen: each run estimates it from the sample (805 is the
-        # default) and records the value used in the run manifest; see ``sample_geometry``.
+        # q99 (the fragment-size 99th percentile) is not checked: each run estimates it from the sample (default 805)
+        # and records the value used in the run manifest. See ``sample_geometry``.
         frozen_values = (
             self.n_folds,
             self.min_pairs,
@@ -68,7 +68,7 @@ class ScienceProfile:
         )
         if self.architecture_id == ARCHITECTURE_ID and frozen_values != expected:
             raise ArchitectureInvariantError(
-                "frozen scientific values require a different architecture identity"
+                "scientific values other than the defaults require a different architecture identity"
             )
 
 

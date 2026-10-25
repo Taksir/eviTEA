@@ -1,10 +1,10 @@
-"""The local-depth window of the breakpoint walk and of the library-free layer.
+"""Local-depth window shared by the breakpoint walk and the library-free layer.
 
-Both layers judge a site only when the median 31-mer count D around it lies in the window ``[D_MIN, upper]``.
-``D_MIN`` (10 reads) is the minimum evidence and stays.  Every other depth rule of both layers is relative to D
-(0.65 D, 0.15 D, the anchor test's multiple of D), so the layers have no absolute upper bound by default; repeat copies
+Both layers judge a site only when the median 31-mer count D around it is inside the window ``[D_MIN, upper]``.
+``D_MIN`` (10 reads) is the minimum evidence.  Every other depth rule of both layers is relative to D
+(0.65 D, 0.15 D, the anchor test's multiple of D), so by default the window has no absolute upper bound.  Repeat copies
 that collapse onto one reference place are caught by the anchor test and the multi-copy word tests, not by the depth.
-``--depth-cap N`` (``set_depth_cap(N)``) restores an absolute upper bound (``--depth-cap 100`` is the previous behaviour).
+``--depth-cap N`` (``set_depth_cap(N)``) sets an absolute upper bound, for example ``--depth-cap 100``.
 
 The cap is mirrored into the environment variable ``EVITEA_DEPTH_CAP`` so that worker processes inherit it.
 """
@@ -23,7 +23,7 @@ __all__ = ["D_MIN", "ENV_VAR", "parse_depth_cap", "set_depth_cap", "upper_bound"
 
 
 def parse_depth_cap(text) -> float:
-    """``None``, ``""``, ``"none"`` -> no upper bound (inf); a positive number -> that bound."""
+    """Return the upper bound for ``text``: ``None``, ``""`` and ``"none"`` give no bound (inf); a positive number gives that bound."""
 
     if text is None:
         return math.inf
@@ -40,13 +40,13 @@ def parse_depth_cap(text) -> float:
 
 
 def upper_bound() -> float:
-    """The upper bound of the window from the environment (inf when unset)."""
+    """Return the upper bound of the window from the environment (inf when unset)."""
 
     return parse_depth_cap(os.environ.get(ENV_VAR))
 
 
 def set_depth_cap(cap) -> float:
-    """Set the upper bound for this process and its workers; returns it.  Also updates the constants of loaded modules."""
+    """Set the upper bound for this process and its workers, and return it.  Also set ``D_MAX`` in the loaded modules."""
 
     value = parse_depth_cap(cap)
     if math.isinf(value):
