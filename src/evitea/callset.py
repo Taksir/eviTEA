@@ -1,8 +1,7 @@
 """Output views of a run, derived from the native callset.
 
 The scientific result of an EviTEA run is the **native callset**: a table of
-15 columns, written byte for byte as ``calls.native.tsv``.  Its SHA-256 is
-reported as ``native_callset_sha256``.  ``calls.tsv``, ``calls.bed`` and
+15 columns, written byte for byte as ``calls.native.tsv``.  ``calls.tsv``, ``calls.bed`` and
 ``unresolved.tsv`` are deterministic *views* of it and of the unresolved events
 of the extension layers.  They add no scientific decision.
 

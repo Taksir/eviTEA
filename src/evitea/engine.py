@@ -11,13 +11,12 @@ and 194 rows for ISO1 on the development samples.
 
 Profiles
 --------
-Only the Bowtie2 query names (they seed Bowtie2's per-read tie-breaking) and the
-sample labels in the extension event identifiers differ between the default
+Only Bowtie2 query names (they seed Bowtie2's per-read tie-breaking) and the
+sample labels in extension event identifiers differ between the default
 profile and a byte-for-byte reproduction of a development sample:
 
 =================  ==========================  ===================  ============
-profile            paired-end anchor host      wide-anchor step     labels
-                   read names                  read names
+profile            paired-end host names       wide-anchor names    labels
 =================  ==========================  ===================  ============
 production         ``P{pid}``                  ``pair_{pid}``       from sample
 AKA017 (repro)     ``p{pid}|h{mate}``          ``pair_{pid}``       fixed
@@ -92,7 +91,7 @@ REPRODUCTION_PROFILES: Mapping[str, RunProfile] = MappingProxyType(
 
 
 def resolve_profile(name: str | None, sample_id: str) -> RunProfile:
-    """Return the production profile or a named reproduction profile."""
+    """Return the default profile (``production``) or a named reproduction profile."""
 
     if not sample_id:
         raise InputContractError("sample_id must be non-empty text")
@@ -164,7 +163,7 @@ class EngineInputs:
         return resolve_profile(self.profile, self.sample_id)
 
     def identity(self) -> dict[str, object]:
-        """Return the scientific identity (inputs and profile), without run-time settings such as threads."""
+        """Return the scientific identity (inputs and profile), without threads and workers."""
 
         profile = self.run_profile
         return {
@@ -186,7 +185,7 @@ class EngineInputs:
                     "internal_codebook", "te_index_prefix",
                 )
             },
-            # recorded only when set to a non-default value, so the identity of a default run does not change
+            # recorded only when not at the default, so default identities do not change
             **({"complete_routing": True} if self.complete_routing else {}),
             **(
                 {"max_rescue_interval_mass": self.max_rescue_interval_mass}
@@ -236,7 +235,7 @@ class EngineResult:
 
     @property
     def layer_sha256(self) -> dict[str, str]:
-        """Return the SHA-256 of the callset after each layer, for layer-by-layer comparison."""
+        """Return the SHA-256 of the callset after each layer."""
 
         hashes = {"incumbent": hashlib.sha256(self.incumbent_bytes).hexdigest()}
         for layer in self.extension.layers:
@@ -254,7 +253,7 @@ class EngineResult:
 
 
 def default_bowtie2_build(bowtie2: Path) -> Path | None:
-    """Return ``bowtie2-build`` next to ``bowtie2`` (same suffix), else the one on PATH."""
+    """Return ``bowtie2-build`` next to ``bowtie2`` (same suffix), else on PATH."""
 
     candidate = Path(bowtie2)
     sibling = candidate.with_name("bowtie2-build" + "".join(candidate.suffixes))
@@ -265,7 +264,7 @@ def default_bowtie2_build(bowtie2: Path) -> Path | None:
 
 
 def _fragment_sizes(inputs: EngineInputs, sample, work: Path, say: Callable[[str], None]) -> FragmentSizes:
-    """Return the fragment-size percentiles of this run: the options, else the sample's estimate (saved for resume)."""
+    """Return the fragment-size percentiles of this run: options, else the sample's estimate (saved for resume)."""
 
     saved = work / "fragment_sizes.json"
     key = {"msbwt_index": str(inputs.msbwt_index), "host_index_prefix": str(inputs.host_index_prefix),
@@ -294,7 +293,7 @@ def run_engine(
     *,
     progress: Callable[[str], None] | None = None,
 ) -> EngineResult:
-    """Run the library layer and the extension layers; stage checkpoints are written under ``work_directory``."""
+    """Run the library layer and the extension layers; checkpoints go under ``work_directory``."""
 
     profile = inputs.run_profile
     work = Path(work_directory)

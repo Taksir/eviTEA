@@ -49,7 +49,7 @@ _B_STATES = ("BILATERAL", "LEFT_ONLY", "RIGHT_ONLY", "NEITHER")
 
 
 # ---------------------------------------------------------------------------
-# The callset, which grows by appending
+# The append-only callset
 # ---------------------------------------------------------------------------
 
 
@@ -343,7 +343,7 @@ def nearest_call(
 
 
 # ---------------------------------------------------------------------------
-# Row construction in the schema of the library-layer callset
+# Row construction in the library-layer schema
 # ---------------------------------------------------------------------------
 
 
@@ -602,7 +602,7 @@ def append_full_memory_layer(
     *,
     sample_id: str,
 ) -> ShadowLayerResult:
-    """Append full-memory events: proposal-memory exact junction evidence plus paired-end anchor support on at least one side."""
+    """Append full-memory events (exact junction evidence, paired-end anchor support on at least one side)."""
 
     layer = "FULL_MEMORY"
     valid = [row for row in events if row.b_state != "NEITHER"]

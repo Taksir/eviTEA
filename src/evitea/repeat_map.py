@@ -66,7 +66,7 @@ def _fasta(path: Path) -> Iterator[tuple[str, str]]:
 
 
 def read_lengths(reference_fasta: Path) -> dict[str, int]:
-    """Return a dict of contig name to length, in reference order."""
+    """Return contig lengths by name, in reference order."""
 
     lengths: dict[str, int] = {}
     for name, seq in _fasta(reference_fasta):
@@ -77,7 +77,7 @@ def read_lengths(reference_fasta: Path) -> dict[str, int]:
 
 
 def default_contigs(reference_fasta: Path) -> tuple[str, ...]:
-    """Return the contigs that ``library-free`` scans by default: those of at least 1 Mb, in reference order."""
+    """Return the contigs ``library-free`` scans by default: those of at least 1 Mb, in reference order."""
 
     from .library_free.runtime import MIN_DEFAULT_CONTIG
 
@@ -85,7 +85,7 @@ def default_contigs(reference_fasta: Path) -> tuple[str, ...]:
 
 
 def window_records(reference_fasta: Path, contigs: Iterable[str]) -> Iterator[tuple[str, int, str]]:
-    """Yield (contig, start, window sequence) for every 500 bp window (step 250) of the chosen contigs, in reference order.
+    """Yield (contig, start, window sequence) of each 500 bp window (step 250) of the chosen contigs, in reference order.
     A window of more than half N is left out."""
 
     chosen = set(contigs)
@@ -130,7 +130,7 @@ def subject_name(subject: str, names: set[str] | None) -> str:
 
 
 def intervals_from_hits(lines: Iterable[str], contigs: Iterable[str], known: Iterable[str] | None = None) -> dict[str, list[tuple[int, int]]]:
-    """Return the repeated intervals (0-based, end exclusive, not yet merged) from blastn lines in ``HIT_FORMAT``.  Query ids are
+    """Return repeated intervals (0-based, end exclusive, not yet merged) from blastn lines in ``HIT_FORMAT``.  Query ids are
     ``<contig>|<window start>``.  ``known`` (all contig names of the reference) turns the subject ids back into the reference's names (see ``subject_name``)."""
 
     chosen = set(contigs)
@@ -169,7 +169,7 @@ def write_bed(path: Path, intervals: dict[str, list[tuple[int, int]]]) -> tuple[
 
 
 def write_bed6(path: Path, intervals: dict[str, list[tuple[int, int]]]) -> None:
-    """Write the intervals of ``write_bed`` as BED6 (name ``repeat``, score 0, no strand), a repeat annotation for prepare-reference."""
+    """Write the intervals of ``write_bed`` as BED6 (name ``repeat``, score 0, no strand): a repeat annotation for prepare-reference."""
 
     with Path(path).open("w", encoding="utf-8") as handle:
         for contig in sorted(intervals):

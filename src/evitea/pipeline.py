@@ -1,4 +1,4 @@
-"""Run orchestration, checkpoints with the completion marker written last, and output finalization."""
+"""Run orchestration, checkpoints (completion marker written last) and output finalization."""
 
 from __future__ import annotations
 
@@ -113,7 +113,7 @@ def _atomic_bytes(path: Path, data: bytes) -> None:
 
 
 def prepare_output_directory(path: str | Path, *, resume: bool) -> Path:
-    """Return the output directory, creating it if absent.  Raise if it holds a completed run, work state without resume, or other files."""
+    """Check the output directory state and return the directory, creating it if absent."""
 
     output = Path(path).expanduser().resolve()
     if not output.exists():
@@ -229,7 +229,7 @@ class CheckpointManager:
 
 
 def prepare_assets(config: EviTEAConfig) -> PreparedAssets:
-    """Load and cross-check the prepared assets.  No scientific step runs here."""
+    """Load and cross-check the prepared assets; no scientific step runs here."""
 
     if config.assets.reference_assets is None or config.assets.te_assets is None:
         raise InputContractError("reference_assets and te_assets are required")
@@ -250,7 +250,7 @@ def prepare_assets(config: EviTEAConfig) -> PreparedAssets:
 
 
 def derive_sample_id(read1: str | Path, sample_id: str | None = None) -> str:
-    """Return ``sample_id`` if given, else the base name of ``read1`` (without ``.gz`` and the extension).  Every sample preparation path uses this rule."""
+    """Return ``sample_id``, else the base name of ``read1`` without ``.gz`` and the extension."""
 
     if sample_id:
         return sample_id
@@ -366,7 +366,7 @@ def run_sample(
     sample_builder: RawSampleBuilder | None = None,
     breakpoint_refiner: Callable[[CallsetState], Sequence[Any]] | None = None,
 ) -> RunResult:
-    """Run the supplied call engine and write the canonical outputs.
+    """Run the given call engine and write the canonical outputs.
 
     ``breakpoint_refiner`` is required exactly when ``refinement.breakpoints``
     is on.  It never changes ``calls.native.tsv``.  Refined ranges go to the
@@ -575,8 +575,8 @@ def default_call_engine(
 ) -> CallsetState:
     """Run the library layer and the extension layers, and return the callset state.
 
-    Stage checkpoints are written under ``<work>/engine``.  An existing engine
-    work directory is reused only with explicit resume.
+    Stage checkpoints go under ``<work>/engine``.  An existing engine work
+    directory is reused only with explicit resume.
     """
 
     from .engine import run_engine

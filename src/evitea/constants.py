@@ -22,7 +22,7 @@ def _require_nonnegative_integer(value: int, name: str) -> None:
 
 
 def repeat_aware_edit_rate_passes(adjusted_nm: int, te_facing_length: int) -> bool:
-    """Return True when the edit rate is at most ``3/35``, using integer arithmetic."""
+    """Return True when the edit rate is at most ``3/35`` (integer arithmetic)."""
 
     _require_nonnegative_integer(adjusted_nm, "adjusted_nm")
     if (
@@ -68,7 +68,7 @@ class ScienceProfile:
         )
         if self.architecture_id == ARCHITECTURE_ID and frozen_values != expected:
             raise ArchitectureInvariantError(
-                "scientific values other than the defaults require a different architecture identity"
+                "non-default scientific values require a different architecture identity"
             )
 
 

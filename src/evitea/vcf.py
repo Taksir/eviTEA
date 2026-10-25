@@ -66,7 +66,7 @@ def _info_value(value: object) -> str:
 
 
 def native_vcf_calls(views: Iterable[Mapping[str, object]]) -> list[VcfCall]:
-    """Return the calls of the library layer, from the ``calls.tsv`` views (``callset._sorted_views``)."""
+    """Return library-layer calls from the ``calls.tsv`` views (``callset._sorted_views``)."""
 
     out = []
     for view in views:
@@ -119,7 +119,7 @@ def fasta_contigs(fasta: str | Path) -> list[tuple[str, int]]:
 
 
 def library_free_vcf_calls(added: bytes) -> list[VcfCall]:
-    """Return the calls of ``calls.library_free.tsv`` (columns event_id, chr, start, end, family, ..., tsd)."""
+    """Return calls of ``calls.library_free.tsv`` (columns event_id, chr, start, end, family, ..., tsd)."""
 
     lines = added.decode("utf-8").splitlines()
     if not lines:
@@ -162,7 +162,7 @@ def vcf_position(call: VcfCall) -> int:
 
 
 def reference_bases(fasta: str | Path, calls: Iterable[VcfCall]) -> dict[tuple[str, int], str]:
-    """Return the REF base of every call, read from the FASTA in one pass without holding whole contigs."""
+    """Return the REF base of each call, read from the FASTA in one pass without holding whole contigs."""
 
     wanted: dict[str, set[int]] = {}
     for call in calls:
@@ -192,8 +192,8 @@ def calls_vcf_bytes(
     bases: Mapping[tuple[str, int], str] | None = None,
     reference_name: str | None = None,
 ) -> bytes:
-    """Return the VCF 4.2 text of ``calls``.  ``contigs`` is (name, length) in reference order.  ``bases`` gives the REF
-    bases (``reference_bases``; ``N`` without it)."""
+    """Return VCF 4.2 text of ``calls``; ``contigs`` is (name, length) in reference order; ``bases`` gives the REF bases
+    (``reference_bases``; ``N`` without it)."""
 
     order = {name: rank for rank, (name, _) in enumerate(contigs)}
     lengths = dict(contigs)

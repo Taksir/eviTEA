@@ -14,7 +14,7 @@ Tiers (1 = most confident; the first rule that applies decides):
 * tier 5 ``RESIDENT``: the call interval overlaps a reference copy of the
   call's own family;
 * tier 4 ``LOW_SUPPORT``: total support below ``MIN_SUPPORT`` (4) fragments;
-* tier 2 ``REPEAT_RESCUE``: calls retained by the repeat-aware step, which credits edits that recur in other junction groups;
+* tier 2 ``REPEAT_RESCUE``: calls retained by the repeat-aware step (credit for recurrent edits);
 * tier 1 ``DIRECT``: every other call (exact junction on one or both sides,
   read pairs on both sides, anchor-pair extension) with support of 4 or more
   that is not inside a copy of its own family.
@@ -80,7 +80,7 @@ LIBRARY_FREE_CLASS = "LIBRARY_FREE"
 
 
 def evidence_class(evidence_type: str) -> str:
-    """Return the stage class of a native ``evidence_type``.  An unknown type raises an error, because a new stage needs a tier."""
+    """Return the stage class of a native ``evidence_type``; an unknown type is an error (a new stage needs a tier)."""
 
     try:
         return EVIDENCE_CLASS[evidence_type]
@@ -119,7 +119,7 @@ class ResidentIndex:
         self.max_len = {chrom: max(e - s for s, e, _ in v) for chrom, v in self.by_chrom.items()}
 
     def context(self, chrom: str, start: int, end: int, family: str | None) -> tuple[bool, bool]:
-        """Return (inside, near): whether the interval overlaps a copy of ``family`` (inclusive ends), and whether any copy lies within the near distance."""
+        """Return (inside, near): overlap with a copy of ``family`` (inclusive ends), and any copy within the near distance."""
 
         copies = self.by_chrom.get(chrom)
         if not copies:
@@ -141,7 +141,7 @@ class ResidentIndex:
 
 
 def _family_map(path: Path) -> dict[str, str]:
-    """Return the family map from a FlyBase table (FBte_ID, FlyBase_Family) or a two-column record<TAB>family table; labels are kept as written."""
+    """Return the family map from a FlyBase table (FBte_ID, FlyBase_Family) or a two-column record<TAB>family table, labels as written."""
 
     return dict(family_pairs(path))
 

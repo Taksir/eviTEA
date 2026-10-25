@@ -23,7 +23,7 @@ __all__ = ["D_MIN", "ENV_VAR", "parse_depth_cap", "set_depth_cap", "upper_bound"
 
 
 def parse_depth_cap(text) -> float:
-    """Return the upper bound for ``text``: ``None``, ``""`` and ``"none"`` give no bound (inf); a positive number gives that bound."""
+    """Return the bound for ``text``: ``None``, ``""`` and ``"none"`` mean no bound (inf); a positive number is the bound."""
 
     if text is None:
         return math.inf
@@ -46,7 +46,7 @@ def upper_bound() -> float:
 
 
 def set_depth_cap(cap) -> float:
-    """Set the upper bound for this process and its workers, and return it.  Also set ``D_MAX`` in the loaded modules."""
+    """Set the upper bound for this process and its workers, and return it.  Also set ``D_MAX`` in loaded modules."""
 
     value = parse_depth_cap(cap)
     if math.isinf(value):
