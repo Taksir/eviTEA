@@ -7,7 +7,7 @@ SET = ("--te-assets", "--output", "--work-dir")
 
 
 def recorded_command_line(document):
-    """Return the command line of a run_manifest.json, found under "values" in a full manifest (architecture_id, schema_version, values)."""
+    """Return the command line of a run_manifest.json (under "values" in a real manifest: architecture_id, schema_version, values)."""
     for holder in (document.get("values"), document):
         if isinstance(holder, dict) and isinstance(holder.get("command_line"), list):
             return holder["command_line"]

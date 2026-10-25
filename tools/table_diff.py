@@ -2,10 +2,10 @@
 
 usage: python table_diff.py A B [--ignore col,col,...] [--key col,col]
 
-Columns named by --ignore are left out of the comparison. Use it for columns that exist in one table only, such as the recorded
-one-site-check inputs. Without --key the rows are compared in file order. With --key they are matched by the key columns first.
-Prints the number of equal rows, differing rows, rows only in A and rows only in B, then the first differences.
-Exit status is 0 when the two are the same, 1 otherwise.
+Columns named by --ignore are left out of the comparison, for example columns that exist in one table only (the recorded
+one-site-check inputs). Without --key the rows are compared in file order; with --key they are matched by the key columns
+first. Prints equal rows, differing rows, rows only in A, rows only in B, and the first differences.
+Exit status 0 means the two are the same, 1 otherwise.
 """
 import argparse
 import csv

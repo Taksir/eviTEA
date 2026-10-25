@@ -1,4 +1,4 @@
-"""Tiny exact multi-string index double shared by the library-layer unit tests."""
+"""Tiny exact multi-string index double shared by library-layer unit tests."""
 
 from __future__ import annotations
 

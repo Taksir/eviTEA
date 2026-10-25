@@ -11,9 +11,8 @@ def rnd(r, n):
 
 
 class SubCounter:
-    """Count a k-mer and its reverse complement in the reads (same semantics as P.Counter).
-
-    Uses an exact table for 30- and 31-mers and an overlapping text search for any other length."""
+    """Count a k-mer and its reverse complement in the reads (same semantics as P.Counter): exact table for 30- and 31-mers,
+    overlapping text search for any other length."""
     def __init__(self, reads):
         self.text = "|".join(reads)
         self.occ = {}

@@ -1,4 +1,4 @@
-"""The widest panel (1,024 rows) is always the one kept, because the pair-aware reselection is built for it."""
+"""The widest panel (1,024 rows) is always kept; the pair-aware reselection is built for it."""
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ def test_rare_words_keep_the_1024_row_panel(monkeypatch: pytest.MonkeyPatch) -> 
     original = coverage_panel._optimize_panel
 
     def every_cap(*args, **kwargs):
-        for cap in coverage_panel.PANEL_CAPS:  # the three caps tie here, so the 256-row panel would win on score alone
+        for cap in coverage_panel.PANEL_CAPS:  # the three caps tie here; score alone would pick the 256-row panel
             scores[cap] = original(cap, *args[1:], **kwargs)[1]
         return original(*args, **kwargs)
 

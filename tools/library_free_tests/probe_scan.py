@@ -1,4 +1,4 @@
-"""Print JSON about a synthetic library-free scan: python probe_scan.py DEPTH [CAP].  Used to compare two source trees."""
+"""Print JSON about a synthetic library-free scan: python probe_scan.py DEPTH [CAP].  Compare the output of two source trees."""
 import hashlib
 import json
 import sys

@@ -1,4 +1,4 @@
-"""Synthetic reference and reads for the library-free tests (the scan itself needs no msBWT or mappy)."""
+"""Synthetic reference and reads for the library-free tests (the scan itself requires no msBWT or mappy)."""
 import random
 
 from evitea.library_free import _p4_lib as P

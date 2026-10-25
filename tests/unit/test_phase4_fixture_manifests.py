@@ -1,4 +1,4 @@
-"""Provenance and cardinality checks for the synthetic evidence fixtures in tests/fixtures/phase4."""
+"""Provenance and cardinality checks for the synthetic evidence fixtures."""
 
 import hashlib
 import json

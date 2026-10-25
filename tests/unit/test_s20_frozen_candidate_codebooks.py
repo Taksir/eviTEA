@@ -1,4 +1,4 @@
-"""Truth-blind checks for building candidate codebooks from the hash-recorded catalogue archive."""
+"""Truth-blind checks for candidate codebook preparation."""
 
 import csv
 import hashlib

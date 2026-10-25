@@ -1,4 +1,4 @@
-"""Tests for the validation-only verifier of fixed reference outputs (row counts and SHA-256)."""
+"""Tests for the validation-only reference-output verifier."""
 
 from __future__ import annotations
 
