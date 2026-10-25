@@ -1,11 +1,12 @@
-"""Pair-aware reselection of the rescue panel (lineage stage G1E).
+"""Reselect the coverage panel, counting cost as newly routed read pairs.
 
-The G1D panel chosen at B = 1024 fixes, per group, a coverage and terminal
-target.  Starting from the sparse-panel and H1 strings, groups (hardest first)
-re-add G1D exact actions: strings already paid for elsewhere are free,
-terminal sides are restored first, then coverage is raised to 99.5% of the G1D
-coverage by choosing the action with the best new windows per *newly routed
-physical pair*.  The routed reads/pairs are the union over selected strings.
+The coverage panel chosen at B = 1024 fixes, per group, a coverage target
+and a terminal target.  Starting from the sparse-panel strings and the Hamming-1
+21-mer strings, groups (hardest first) re-add the panel's exact actions.
+Strings already paid for elsewhere are free.  Terminal sides are restored
+first.  Then coverage is raised to 99.5% of the panel's coverage by choosing
+the action with the most new windows per *newly routed physical pair*.  The
+routed reads and pairs are the union over the selected strings.
 """
 
 from __future__ import annotations
@@ -82,7 +83,7 @@ def select_pair_aware_panel(
 ) -> PairAwarePanel:
     if rescue.cap != FROZEN_RESCUE_CAP:
         raise BackendCompatibilityError(
-            f"pair-aware reselection is frozen for the B={FROZEN_RESCUE_CAP} rescue panel; got B={rescue.cap}"
+            f"pair-aware reselection accepts only the B={FROZEN_RESCUE_CAP} coverage panel; got B={rescue.cap}"
         )
     records = catalogue.records
     family_by_te = catalogue.family_by_te()
@@ -129,7 +130,7 @@ def select_pair_aware_panel(
     exact_actions: dict[Group, list[dict]] = defaultdict(list)
     for (te_id, orientation, _), entry in wanted.items():
         if not entry["loci"]:
-            raise BackendCompatibilityError("could not reconstruct a selected exact rescue action")
+            raise BackendCompatibilityError("could not reconstruct a selected exact action")
         length = lengths[(te_id, orientation)]
         entry["intervals"] = merge_intervals(coverage_interval(length, s, k, read_window) for s, k in entry["loci"])
         entry["terminal5"], entry["terminal3"] = terminal_flags(length, entry["loci"])

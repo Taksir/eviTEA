@@ -1,15 +1,14 @@
-"""Repeat-aware TE-copy divergence rescue and incumbent reaggregation (R9E).
+"""Retain a group's call after credit for recurrent TE-copy edits, and reaggregate loci.
 
-Groups rejected by certification *only* because the unique-best candidate
-family exceeded ``35 * NM <= 3 * length`` may be rescued when their edits are
+Groups rejected by confirmation *only* because the unique-best candidate
+family exceeded ``35 * NM <= 3 * length`` are retained when their edits are
 explained by exact TE-copy variants recurring in >= 2 *other* physical groups
 at the same locus, family and TE record (leave-one-group-out).  Repeat-shift
 equivalent indels need a linked recurrent substitution anchor.  Passing groups
-are reaggregated with the unchanged 2-LEFT + 2-RIGHT physical-pair rule.
+are reaggregated with the 2-LEFT + 2-RIGHT physical-pair rule.
 
-Reaggregation reproduces the frozen lineage exactly, including its pairing of
-each side's linked group hashes (in linking order) with that side's
-representative pair IDs (ascending) when admitting passing groups.
+Reaggregation pairs each side's linked group hashes (in linking order) with
+that side's representative pair IDs (ascending) when admitting passing groups.
 """
 
 from __future__ import annotations

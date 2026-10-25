@@ -1,9 +1,9 @@
-"""Deterministic locus-batch parallelism for the per-locus incumbent layers.
+"""Run the per-locus steps of the library layer in deterministic locus batches.
 
-Split-junction and mate-rescue evidence is computed independently per
+Split-junction and mate-anchored search evidence is computed independently per
 candidate locus.  Contiguous locus batches are evaluated (optionally in worker
 processes) and their results concatenated in locus order, so the downstream
-competitions see exactly the sequential input order.
+competitions see the same order as a sequential run.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Frozen repeat-aware incumbent semantics without legacy stage choreography."""
+"""Credit recurrent edits to retain candidate-family groups, and build repeat-aware events per locus."""
 
 from __future__ import annotations
 
@@ -237,7 +237,7 @@ def indel_haplotype_admissibility(
     operation: RepeatAwareVariant,
     recurrent_operations: Sequence[RepeatAwareVariant],
 ) -> tuple[bool, str, tuple[int, ...], tuple[str, ...]]:
-    """Apply the frozen repeat-shift and linked-substitution safeguard."""
+    """Apply the repeat-shift and linked-substitution safeguard."""
 
     if operation.kind not in {"INS", "DEL"}:
         return True, "NON_INDEL", (operation.ref_pos0,), ()
@@ -653,7 +653,7 @@ def run_repeat_aware_incumbent(
     prepared_assets: RepeatAwarePreparedAssets,
     shared_observations: RepeatAwareObservations,
 ) -> RepeatAwareResult:
-    """Run the frozen repeat-aware core and preserve event ranges."""
+    """Run the repeat-aware core and preserve event ranges."""
 
     if not isinstance(sample_context, RepeatAwareSampleContext):
         raise InputContractError(
@@ -672,7 +672,7 @@ def run_repeat_aware_incumbent(
     if len({locus.locus_id for locus in loci}) != len(loci):
         raise InputContractError("duplicate repeat-aware locus_id")
     if len({locus.legacy_event_id for locus in loci}) != len(loci):
-        raise InputContractError("duplicate legacy incumbent event_id")
+        raise InputContractError("duplicate legacy_event_id")
     if len({group.group_id for group in groups}) != len(groups):
         raise InputContractError("duplicate repeat-aware group_id")
     group_ids = {group.group_id for group in groups}

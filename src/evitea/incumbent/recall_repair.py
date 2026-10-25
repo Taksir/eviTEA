@@ -1,18 +1,17 @@
-"""Candidate-recall repair for under-covered panel groups (lineage stage G1H-R).
+"""Wide-anchor step: add candidate pairs for under-covered panel groups.
 
 Groups whose pair-aware coverage stays below 95% are revisited using wider
-exact G1A anchors of their family (family-unique, not low-complexity,
-nonempty).  Anchors of width <= 1024 act as a geometric proxy for what the
-compact screen already covers; for each group the smallest cap of
-1536..16384 whose anchors can reach 98% window coverage (else 16384) bounds a
-greedy choice by new windows per interval row.  Only pairs not already routed
-by the pair-aware panel are enumerated; new one-mate pairs send their opposite
-mate to Bowtie2 (``pair_{id}``, ``-k 2 --very-sensitive``) and UNIQUE_HIGH
-mates are clustered (gap 500 bp, >= 2 pairs).  Supported pairs are added to the
-working candidate pairs.
+exact anchors of their family (family-unique, not low-complexity, nonempty).
+Anchors of width <= 1024 stand in for what the coverage panel already covers.
+For each group, the smallest cap of 1536..16384 whose anchors reach 98% window
+coverage (else 16384) bounds a greedy choice by new windows per interval row.
+Only pairs not already routed by the pair-aware panel are enumerated.  For a
+new one-mate pair, the opposite mate goes to Bowtie2 (``pair_{id}``,
+``-k 2 --very-sensitive``), and UNIQUE_HIGH mates are clustered (gap 500 bp,
+>= 2 pairs).  Supported pairs are added to the working candidate pairs.
 
 Groups are matched to anchors by family label, so every record of a family
-contributes anchor coordinates to each same-family group, exactly as frozen.
+contributes anchor coordinates to each same-family group.
 """
 
 from __future__ import annotations
@@ -49,19 +48,19 @@ UNDERCOVERAGE_THRESHOLD = 0.95
 RESCUE_TARGET_COVERAGE = 0.98
 BASE_INTERVAL_CAP = 1024
 CAP_LADDER = (1536, 2048, 3072, 4096, 8192, 16384)
-MAX_RESCUE_INTERVAL_MASS = 1_500_000  # frozen default; a resource limit, settable with --max-rescue-interval-mass
+MAX_RESCUE_INTERVAL_MASS = 1_500_000  # default wide-anchor work limit (interval rows); settable with --max-rescue-interval-mass
 READ_WINDOW = 125  # default read length (bp); a run passes the sample's own read length
 RESCUE_MAPQ = 20
 RESCUE_CLUSTER_GAP = 500
 RESCUE_CLUSTER_SUPPORT = 2
 RESCUE_HOST_OPTIONS = ("--very-sensitive", "-k", "2", "--no-unal")
 
-# Bowtie2 seeds its per-read tie-breaking from the query name, so the rescue
-# mapping's names are part of the reproduction identity:
-# * ``pair``    - ``pair_{id}``: production default; the AKA017 historical run.
-# * ``numeric`` - ``{id}``: reproduction only; the ISO1 historical run (Linux /
-#   WSL Bowtie2; the research notes report that native Windows Bowtie2 2.5.5
-#   rejects all-numeric FASTA names).
+# Bowtie2 seeds its per-read tie-breaking from the query name, so the read
+# names of this mapping decide tied alignments and must stay fixed:
+# * ``pair``    - ``pair_{id}``: the default.
+# * ``numeric`` - ``{id}``: matches the read names of one development sample
+#   (Linux / WSL Bowtie2); native Windows Bowtie2 2.5.5 rejects all-numeric
+#   FASTA names.
 RESCUE_READ_NAME_PROFILES = ("pair", "numeric")
 
 
@@ -70,7 +69,7 @@ def rescue_query_name(pair_id: int, profile: str = "pair") -> str:
         return f"pair_{pair_id}"
     if profile == "numeric":
         return str(int(pair_id))
-    raise ValueError(f"unknown rescue read-name profile {profile!r}")
+    raise ValueError(f"unknown wide-anchor read-name profile {profile!r}")
 _CIGAR = re.compile(r"(\d+)([MIDNSHP=X])")
 
 
@@ -102,12 +101,12 @@ def _mean(mask: np.ndarray) -> float:
 
 
 def check_rescue_interval_mass(anchors: Sequence[RescueAnchor], limit: int) -> None:
-    """Fail closed when the selected anchors' msBWT interval rows exceed the limit (a resource limit only)."""
+    """Raise when the selected anchors' msBWT interval rows exceed the limit (a resource limit only)."""
 
     mass = sum(anchor.width for anchor in anchors)
     if mass > limit:
         raise BackendCompatibilityError(
-            f"rescue anchor interval mass {mass:,} exceeds the {limit:,}-row budget (--max-rescue-interval-mass)"
+            f"wide-anchor interval mass {mass:,} exceeds the {limit:,}-row work limit (--max-rescue-interval-mass)"
         )
 
 
@@ -183,7 +182,7 @@ def plan_rescue_anchors(
             if anchor is None:
                 selected[qid] = RescueAnchor(qid, query.query_seq.strip().upper().replace("U", "T"), query.k, query.width, group.family)
             elif anchor.family != group.family:
-                raise BackendCompatibilityError(f"family-unique rescue anchor {qid} selected for two families")
+                raise BackendCompatibilityError(f"family-unique wide anchor {qid} selected for two families")
     anchors = sorted(selected.values(), key=lambda a: (a.family, a.width, a.query_id))
     check_rescue_interval_mass(anchors, max_interval_mass)
     return anchors
@@ -196,7 +195,7 @@ def enumerate_rescue_pairs(anchors: Sequence[RescueAnchor], routed_pairs: np.nda
     for anchor in anchors:
         dollars = index.dollar_ids(anchor.query_seq, cache=False)
         if len(dollars) != anchor.width:
-            raise BackendCompatibilityError(f"interval width changed for rescue anchor {anchor.query_id}")
+            raise BackendCompatibilityError(f"interval width changed for wide anchor {anchor.query_id}")
         files, pairs = index.file_and_pair(dollars)
         for file_id, pair_id in zip(files.tolist(), pairs.tolist()):
             if pair_id in routed:
