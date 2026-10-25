@@ -32,7 +32,8 @@ from .common import (
 __all__ = ["InternalResult", "build_internal21"]
 
 K = 21
-READ_LENGTH = 125  # frozen block size of the ``read_length_block_125`` column
+# Default block size of the ``read_length_block_125`` column (the column keeps its name; ``read_length`` sets the size).
+READ_LENGTH = 125
 
 
 @dataclass(slots=True)
@@ -56,6 +57,7 @@ def build_internal21(
     repeatmasker_bed: str | Path,
     terminal_codebook: bytes,
     progress=None,
+    read_length: int = READ_LENGTH,
 ) -> InternalResult:
     say = progress or (lambda message: None)
     family_by_te: dict[str, str] = {}
@@ -182,7 +184,7 @@ def build_internal21(
         row.update({
             "te_record_length": length,
             "nearest_terminal_distance_bp": min(s["source_start"], length - s["source_end"]),
-            "read_length_block_125": s["source_start"] // READ_LENGTH,
+            "read_length_block_125": s["source_start"] // read_length,
             "source_exact_position_match": int(match),
             "source_te_distinct_occurrence_count": len(positions),
             "reference_exact_occurrence_count": ps["reference_exact_occurrence_count"],

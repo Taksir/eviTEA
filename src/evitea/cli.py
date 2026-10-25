@@ -28,6 +28,7 @@ from .config import (
     merge_config,
 )
 from .constants import ARCHITECTURE_ID
+from .sample_geometry import validate_read_length
 from .errors import (
     ArchitectureInvariantError,
     AssetCompatibilityError,
@@ -224,6 +225,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="build both v3 languages from the TE library, family map, reference and "
         "RepeatMasker annotation (evitea.languages)",
     )
+    te.add_argument(
+        "--read-length",
+        type=int,
+        default=125,
+        help="with --build-languages: read length (bp) of the block column of the internal-21 audit (default 125)",
+    )
     te.add_argument("--reference-assets", type=Path, required=True)
     te.add_argument("--output", type=Path, required=True)
     _add_engineering_options(te)
@@ -285,6 +292,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--max-rescue-interval-mass",
         type=int,
         help="recall-repair resource limit in msBWT interval rows (default 1500000)",
+    )
+    call.add_argument(
+        "--read-length",
+        type=int,
+        help="read length in bp (default: taken from the sample; the value used is written to run_manifest.json)",
     )
     _add_engineering_options(call, use_defaults=False)
 
@@ -466,6 +478,7 @@ def _prepare_te(args: argparse.Namespace) -> None:
         internal_codebook_path=args.internal_codebook,
         allow_unassigned_records=is_flybase_family_table(args.family_map),
         build_languages=args.build_languages,
+        language_read_length=validate_read_length(args.read_length),
         progress=lambda message: print(f"[evitea prepare-te] {message}", file=sys.stderr, flush=True),
     )
 
@@ -634,6 +647,11 @@ def _call_config(args: argparse.Namespace) -> EviTEAConfig:
                 args.max_rescue_interval_mass
                 if getattr(args, "max_rescue_interval_mass", None) is not None
                 else base.runtime.max_rescue_interval_mass
+            ),
+            read_length=(
+                args.read_length
+                if getattr(args, "read_length", None) is not None
+                else base.runtime.read_length
             ),
         ),
         output=OutputConfig(

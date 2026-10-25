@@ -45,6 +45,7 @@ class RunManifestContext:
     started_at: str | None = None
     ended_at: str | None = None
     pair_identity_mode: PairIdentityMode = PairIdentityMode.EVITEA_ORDINAL0
+    run_parameters: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "censor_counts", dict(self.censor_counts))
@@ -80,6 +81,7 @@ def build_run_manifest(context: RunManifestContext) -> ProvenanceRecord:
         "pair_identity_mode": context.pair_identity_mode,
         "pairing_contract_version": "evitea.paired-fastq.v1",
         "resolved_threads": context.resolved_threads,
+        "run_parameters": dict(context.run_parameters),
         "stage_history": context.stage_history,
         "censor_counts": context.censor_counts,
         "warning_counts": context.warning_counts,

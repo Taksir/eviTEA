@@ -21,7 +21,7 @@ from pathlib import Path
 
 from ..incumbent.anchor_census import build_anchor_catalogue, load_te_family_map, parse_te_consensus
 from .common import canonical_seq
-from .internal import InternalResult, build_internal21
+from .internal import READ_LENGTH, InternalResult, build_internal21
 from .terminal import (
     FinalTerminalResult,
     GapFillResult,
@@ -110,6 +110,7 @@ def build_languages(
     reference_fasta: str | Path,
     repeatmasker_bed: str | Path,
     progress: Callable[[str], None] | None = None,
+    read_length: int = READ_LENGTH,
 ) -> LanguageBuild:
     say = progress or (lambda message: None)
     say("languages: G1A anchor catalogue")
@@ -125,5 +126,7 @@ def build_languages(
     terminal = finalize_terminal(hybrid_codebook=gap_fill.hybrid_codebook, rebuilt_source_audit=rebuild.source_audit,
                                  gapfill_source_audit=gap_fill.source_audit, rebuilt_te_summary=rebuild.te_record_summary)
     say("languages: internal-21 gate")
-    internal = build_internal21(catalogue=catalogue, provenance=provenance, terminal_codebook=terminal.codebook, **assets)
+    internal = build_internal21(
+        catalogue=catalogue, provenance=provenance, terminal_codebook=terminal.codebook, read_length=read_length, **assets
+    )
     return LanguageBuild(rebuild, gap_fill, terminal, internal)

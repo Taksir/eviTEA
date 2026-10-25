@@ -77,6 +77,7 @@ def select_pair_aware_panel(
     short: Sequence[ShortLocus],
     rescue: RescuePanel,
     index,
+    read_window: int = READ_WINDOW,
 ) -> PairAwarePanel:
     if rescue.cap != FROZEN_RESCUE_CAP:
         raise BackendCompatibilityError(
@@ -95,10 +96,10 @@ def select_pair_aware_panel(
     masks: dict[Group, np.ndarray] = {}
     terms: dict[Group, tuple[bool, bool]] = {}
     for key, length in lengths.items():
-        mask = np.zeros(max(0, length - READ_WINDOW + 1), dtype=bool)
+        mask = np.zeros(max(0, length - read_window + 1), dtype=bool)
         loci = [(s, k) for s, k, _, _ in baseline.get(key, ())]
         for s, k in loci:
-            iv = coverage_interval(length, s, k)
+            iv = coverage_interval(length, s, k, read_window)
             if iv is not None:
                 mask[iv[0] : iv[1] + 1] = True
         masks[key] = mask
@@ -116,7 +117,7 @@ def select_pair_aware_panel(
             length = lengths[key]
             t5, t3 = terminal_flags(length, [(start, action.anchor_k)])
             h1_fixed[key].append({
-                "intervals": merge_intervals([coverage_interval(length, start, action.anchor_k)]),
+                "intervals": merge_intervals([coverage_interval(length, start, action.anchor_k, read_window)]),
                 "terminal5": t5,
                 "terminal3": t3,
             })
@@ -129,7 +130,7 @@ def select_pair_aware_panel(
         if not entry["loci"]:
             raise BackendCompatibilityError("could not reconstruct a selected exact rescue action")
         length = lengths[(te_id, orientation)]
-        entry["intervals"] = merge_intervals(coverage_interval(length, s, k) for s, k in entry["loci"])
+        entry["intervals"] = merge_intervals(coverage_interval(length, s, k, read_window) for s, k in entry["loci"])
         entry["terminal5"], entry["terminal3"] = terminal_flags(length, entry["loci"])
         exact_actions[(te_id, orientation)].append(entry)
 

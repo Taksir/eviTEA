@@ -23,6 +23,7 @@ from .backends.exact_query import (
 )
 from .backends.msbwt import build_prepared_msbwt_sample
 from .config import EviTEAConfig
+from .sample_geometry import resolve_read_length
 from .constants import ARCHITECTURE_ID
 from .contracts import ProvenanceRecord, stable_json_dumps
 from .errors import (
@@ -434,6 +435,7 @@ def run_sample(
     )
     finalized_context = replace(
         finalized_manifest_context,
+        run_parameters={**finalized_manifest_context.run_parameters, **state.run_parameters},
         stage_history=stage_history,
         started_at=started_at,
         ended_at=ended_at,
@@ -524,6 +526,11 @@ def engine_inputs(config: EviTEAConfig, assets: PreparedAssets) -> "EngineInputs
 
         raise OperationalResourceError("bowtie2 executable is unavailable")
     reference, te = assets.reference, assets.te
+    read_length = resolve_read_length(
+        config.runtime.read_length,
+        assets.sample.backend_profile if assets.sample is not None and config.inputs.msbwt_index is None else None,
+        msbwt_index,
+    )
     return EngineInputs(
         sample_id=str(sample_id),
         msbwt_index=Path(msbwt_index),
@@ -542,6 +549,8 @@ def engine_inputs(config: EviTEAConfig, assets: PreparedAssets) -> "EngineInputs
         edlib_python=config.runtime.edlib_python,
         complete_routing=config.refinement.complete_routing,
         max_rescue_interval_mass=config.runtime.max_rescue_interval_mass,
+        read_length=read_length.length,
+        read_length_source=read_length.source,
     )
 
 
@@ -582,6 +591,7 @@ def default_call_engine(
         layer_sha256=result.layer_sha256,
         counts=result.counts,
         profile=result.profile.name,
+        run_parameters=inputs.run_parameters(),
     )
     record = {
         "native_callset_sha256": state.native_sha256,

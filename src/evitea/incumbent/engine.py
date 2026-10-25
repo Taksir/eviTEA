@@ -45,7 +45,7 @@ from .mate_rescue import (
     route_one_sided_targets,
 )
 from .parallel import map_locus_batches
-from .recall_repair import MAX_RESCUE_INTERVAL_MASS
+from .recall_repair import MAX_RESCUE_INTERVAL_MASS, READ_WINDOW
 from .repeat_rescue import crossvalidate, reaggregate, rescue_calls
 from .sequence import fasta_records_full_header, load_reference_contigs
 from .split_junction import SplitJunctionResult, finalize_split_junctions
@@ -84,6 +84,8 @@ class IncumbentInputs:
     complete_routing: bool = False
     # Recall-repair resource limit (``recall_repair.MAX_RESCUE_INTERVAL_MASS`` by default).
     max_rescue_interval_mass: int = 1_500_000
+    # Read length of the sample (bp): the window of the coverage panels and of recall repair.
+    read_length: int = 125
 
     def __post_init__(self) -> None:
         from .recall_repair import RESCUE_READ_NAME_PROFILES
@@ -136,6 +138,8 @@ def _fingerprint(inputs: IncumbentInputs) -> dict[str, object]:
         identity["complete_routing"] = True
     if inputs.max_rescue_interval_mass != MAX_RESCUE_INTERVAL_MASS:
         identity["max_rescue_interval_mass"] = inputs.max_rescue_interval_mass
+    if inputs.read_length != READ_WINDOW:
+        identity["read_length"] = inputs.read_length
     return identity
 
 
@@ -212,6 +216,7 @@ def run_incumbent_caller(
         rescue_read_names=inputs.rescue_read_names,
         complete_routing=inputs.complete_routing,
         max_rescue_interval_mass=inputs.max_rescue_interval_mass,
+        read_length=inputs.read_length,
     ))
     loci = acquisition.loci
     families = {locus.family for locus in loci}

@@ -159,6 +159,7 @@ def prepare_te_assets(
     allow_unassigned_records: bool = False,
     build_languages: bool = False,
     progress=None,
+    language_read_length: int = 125,
 ) -> PreparedTEAssets:
     """Copy TE/family sources and bind them to one prepared reference."""
 
@@ -291,6 +292,7 @@ def prepare_te_assets(
             reference_fasta=prepared_reference.reference_fasta_path,
             repeatmasker_bed=prepared_reference.repeat_annotation_path,
             progress=progress,
+            read_length=language_read_length,
         )
         (root / "languages" / "audit").mkdir(parents=True, exist_ok=True)
         (root / LANGUAGE_PATHS["terminal_final"]).write_bytes(built.terminal_codebook)
@@ -304,7 +306,8 @@ def prepare_te_assets(
             languages[key] = {
                 "path": LANGUAGE_PATHS[key],
                 "sha256": sha256_file(root / LANGUAGE_PATHS[key]),
-                "source": f"built:{BUILDER_VERSION}",
+                "source": f"built:{BUILDER_VERSION}"
+                + (f";read_length={language_read_length}" if language_read_length != 125 else ""),
             }
             additional_paths.append(LANGUAGE_PATHS[key])
     elif terminal_codebook_path is not None and internal_codebook_path is not None:

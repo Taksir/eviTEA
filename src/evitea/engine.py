@@ -41,6 +41,7 @@ from .anchor_pe.alignments import PRODUCTION_HOST_READ_NAMES
 from .anchor_pe.engine import AnchorPEInputs
 from .errors import InputContractError
 from .extension_engine import ExtensionRun, run_extension
+from .sample_geometry import DEFAULT_READ_LENGTH, validate_read_length
 from .incumbent import IncumbentInputs, IncumbentResult, MsbwtSample, run_incumbent_caller
 from .shadow_layers import ShadowCallset, ShadowLabels, UnresolvedShadowEvent
 
@@ -124,8 +125,12 @@ class EngineInputs:
     edlib_python: Path | None = None
     complete_routing: bool = False
     max_rescue_interval_mass: int = 1_500_000
+    read_length: int = DEFAULT_READ_LENGTH
+    # where the read length came from (see ``sample_geometry.resolve_read_length``); not part of the identity
+    read_length_source: str = "default"
 
     def __post_init__(self) -> None:
+        validate_read_length(self.read_length)
         for name in ("threads", "workers"):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
@@ -166,7 +171,13 @@ class EngineInputs:
                 if self.max_rescue_interval_mass != 1_500_000
                 else {}
             ),
+            **({"read_length": self.read_length} if self.read_length != DEFAULT_READ_LENGTH else {}),
         }
+
+    def run_parameters(self) -> dict[str, object]:
+        """Sample-derived values used by this run (recorded in the run manifest)."""
+
+        return {"read_length": self.read_length, "read_length_source": self.read_length_source}
 
 
 @dataclass(slots=True)
@@ -261,6 +272,7 @@ def run_engine(
             rescue_read_names=profile.rescue_read_names,
             complete_routing=inputs.complete_routing,
             max_rescue_interval_mass=inputs.max_rescue_interval_mass,
+            read_length=inputs.read_length,
         ),
         sample,
         work / "incumbent",

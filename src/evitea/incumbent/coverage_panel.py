@@ -49,6 +49,7 @@ __all__ = [
     "terminal_flags",
 ]
 
+# Default read length (bp) of the window geometry; a run passes the sample's own read length.
 READ_WINDOW = 125
 TERMINAL_SEGMENT = 35
 SHORT_K_VALUES = (19, 17, 15)
@@ -119,11 +120,13 @@ class RescuePanel:
 
 
 # -- geometry ------------------------------------------------------------
-def coverage_interval(length: int, start: int, k: int) -> tuple[int, int] | None:
-    n = max(0, length - READ_WINDOW + 1)
+def coverage_interval(length: int, start: int, k: int, read_window: int = READ_WINDOW) -> tuple[int, int] | None:
+    """Read windows (start offsets of a read of ``read_window`` bp) that contain the k-mer at ``start``."""
+
+    n = max(0, length - read_window + 1)
     if n <= 0:
         return None
-    lo = max(0, start + k - READ_WINDOW)
+    lo = max(0, start + k - read_window)
     hi = min(start, n - 1)
     return (lo, hi) if lo <= hi else None
 
@@ -164,10 +167,10 @@ def _mean(mask: np.ndarray) -> float:
     return float(mask.mean()) if len(mask) else 1.0
 
 
-def _window_mask(length: int, loci) -> np.ndarray:
-    mask = np.zeros(max(0, length - READ_WINDOW + 1), dtype=bool)
+def _window_mask(length: int, loci, read_window: int = READ_WINDOW) -> np.ndarray:
+    mask = np.zeros(max(0, length - read_window + 1), dtype=bool)
     for start, k in loci:
-        iv = coverage_interval(length, start, k)
+        iv = coverage_interval(length, start, k, read_window)
         if iv is not None:
             mask[iv[0] : iv[1] + 1] = True
     return mask
@@ -239,6 +242,7 @@ def hard_gap_h1_loci(
     family_by_te: Mapping[str, str],
     baseline: Mapping[Group, list[tuple[int, int, str, int]]],
     short: Sequence[ShortLocus],
+    read_window: int = READ_WINDOW,
 ) -> list[H1Locus]:
     admitted: dict[Group, list[tuple[int, int]]] = defaultdict(list)
     for key, loci in baseline.items():
@@ -260,10 +264,10 @@ def hard_gap_h1_loci(
             if not _terminal_hit(length, current, "3p"):
                 for start in range(max(0, length - TERMINAL_SEGMENT), length - H1_K + 1):
                     chosen.add((te_id, family, orientation, start))
-            mask = _window_mask(length, current)
+            mask = _window_mask(length, current, read_window)
             for run_start, run_end in _uncovered_runs(mask):
                 for window_start in range(run_start, run_end, H1_INTERNAL_LOCUS_STRIDE):
-                    start = max(0, min(length - H1_K, window_start + (READ_WINDOW - H1_K) // 2))
+                    start = max(0, min(length - H1_K, window_start + (read_window - H1_K) // 2))
                     chosen.add((te_id, family, orientation, start))
     out: list[H1Locus] = []
     variants: set[str] = set()
@@ -290,7 +294,9 @@ def _h1_family(source: str) -> list[str]:
 
 
 # -- G1D -----------------------------------------------------------------
-def _short_actions(short: Sequence[ShortLocus], lengths, family_by_group) -> dict[Group, list[PanelAction]]:
+def _short_actions(
+    short: Sequence[ShortLocus], lengths, family_by_group, read_window: int = READ_WINDOW
+) -> dict[Group, list[PanelAction]]:
     grouped: dict[Group, dict[str, dict]] = defaultdict(dict)
     for locus in short:
         if locus.width <= 0:
@@ -310,14 +316,16 @@ def _short_actions(short: Sequence[ShortLocus], lengths, family_by_group) -> dic
             actions[key].append(
                 PanelAction(
                     f"EXACT:{key[0]}:{key[1]}:{seq}", "SHORT_EXACT", key[0], family, key[1],
-                    merge_intervals(coverage_interval(length, s, k) for s, k in loci),
+                    merge_intervals(coverage_interval(length, s, k, read_window) for s, k in loci),
                     t5, t3, ((seq, int(entry["width"])),), int(entry["k"]),
                 )
             )
     return actions
 
 
-def _h1_actions(h1: Sequence[H1Locus], lengths, family_by_group, index) -> dict[int, dict[Group, list[PanelAction]]]:
+def _h1_actions(
+    h1: Sequence[H1Locus], lengths, family_by_group, index, read_window: int = READ_WINDOW
+) -> dict[int, dict[Group, list[PanelAction]]]:
     members_by_locus = [(locus, _h1_family(locus.source_21mer)) for locus in h1]
     widths = {seq: index.width(seq) for seq in sorted({m for _, ms in members_by_locus for m in ms})}
     by_cap: dict[int, dict[Group, list[PanelAction]]] = {cap: defaultdict(list) for cap in PANEL_CAPS}
@@ -334,7 +342,7 @@ def _h1_actions(h1: Sequence[H1Locus], lengths, family_by_group, index) -> dict[
                     PanelAction(
                         f"H1:{locus.te_id}:{locus.orientation}:{locus.start}", "H1_COMPLETE",
                         locus.te_id, family, locus.orientation,
-                        merge_intervals([coverage_interval(length, locus.start, H1_K)]),
+                        merge_intervals([coverage_interval(length, locus.start, H1_K, read_window)]),
                         t5, t3, nonempty, H1_K,
                     )
                 )
@@ -345,9 +353,11 @@ def _cost(action: PanelAction, selected: set[str]) -> int:
     return sum(w for seq, w in action.members if seq not in selected)
 
 
-def _optimize_group(key, length, baseline, actions, selected_sequences, selected_sources, selected_actions):
+def _optimize_group(
+    key, length, baseline, actions, selected_sequences, selected_sources, selected_actions, read_window=READ_WINDOW
+):
     base_loci = baseline.get(key, ())
-    base_mask = _window_mask(length, [(s, k) for s, k, _, _ in base_loci])
+    base_mask = _window_mask(length, [(s, k) for s, k, _, _ in base_loci], read_window)
     base_t5, base_t3 = terminal_flags(length, [(s, k) for s, k, _, _ in base_loci])
     full_mask = base_mask.copy()
     full_t5, full_t3 = base_t5, base_t3
@@ -430,7 +440,7 @@ def _optimize_group(key, length, baseline, actions, selected_sequences, selected
     return GroupTarget(_mean(mask), cur_t5, cur_t3, len(mask)), full_t5, full_t3
 
 
-def _optimize_panel(cap, lengths, baseline, baseline_widths, short_actions, h1_actions):
+def _optimize_panel(cap, lengths, baseline, baseline_widths, short_actions, h1_actions, read_window=READ_WINDOW):
     selected_sequences = dict(baseline_widths)
     selected_sources = {seq: {"G1B_BASELINE"} for seq in baseline_widths}
     selected_actions: list[PanelAction] = []
@@ -440,7 +450,7 @@ def _optimize_panel(cap, lengths, baseline, baseline_widths, short_actions, h1_a
         actions = [a for a in short_actions.get(key, ()) if a.members[0][1] <= cap]
         actions.extend(h1_actions.get(key, ()))
         group_actions[key] = actions
-        full = _window_mask(length, [(s, k) for s, k, _, _ in baseline.get(key, ())])
+        full = _window_mask(length, [(s, k) for s, k, _, _ in baseline.get(key, ())], read_window)
         for action in actions:
             _apply(full, action.intervals)
         ordering.append((_mean(full), -len(full), key))
@@ -448,7 +458,8 @@ def _optimize_panel(cap, lengths, baseline, baseline_widths, short_actions, h1_a
     terminal_selected = 0
     for _, _, key in sorted(ordering):
         target, _, _ = _optimize_group(
-            key, lengths[key], baseline, group_actions[key], selected_sequences, selected_sources, selected_actions
+            key, lengths[key], baseline, group_actions[key], selected_sequences, selected_sources, selected_actions,
+            read_window,
         )
         targets[key] = target
         terminal_selected += int(target.selected_terminal5) + int(target.selected_terminal3)
@@ -468,6 +479,7 @@ def optimize_rescue_panel(
     short: Sequence[ShortLocus],
     h1: Sequence[H1Locus],
     index,
+    read_window: int = READ_WINDOW,
 ) -> RescuePanel:
     records = catalogue.records
     family_by_te = catalogue.family_by_te()
@@ -479,9 +491,12 @@ def optimize_rescue_panel(
         for orientation in ("F", "RC"):
             lengths[(te_id, orientation)] = len(sequence)
             family_by_group[(te_id, orientation)] = family_by_te.get(te_id, te_id)
-    short_actions = _short_actions(short, lengths, family_by_group)
-    h1_actions = _h1_actions(h1, lengths, family_by_group, index)
-    results = {cap: _optimize_panel(cap, lengths, baseline, baseline_widths, short_actions, h1_actions[cap]) for cap in PANEL_CAPS}
+    short_actions = _short_actions(short, lengths, family_by_group, read_window)
+    h1_actions = _h1_actions(h1, lengths, family_by_group, index, read_window)
+    results = {
+        cap: _optimize_panel(cap, lengths, baseline, baseline_widths, short_actions, h1_actions[cap], read_window)
+        for cap in PANEL_CAPS
+    }
     safe = [cap for cap in PANEL_CAPS if -results[cap][1][3] <= MATERIALIZE_ROW_HARD_CAP]
     if not safe:
         raise BackendCompatibilityError("no rescue panel fits the frozen 5,000,000-row materialization cap")

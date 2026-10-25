@@ -113,6 +113,8 @@ class CallsetState:
     layer_sha256: Mapping[str, str] = field(default_factory=dict)
     counts: Mapping[str, Any] = field(default_factory=dict)
     profile: str = "production"
+    # sample-derived values the engine used (read length, ...); written to the run manifest, not the summary
+    run_parameters: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.sample_id:

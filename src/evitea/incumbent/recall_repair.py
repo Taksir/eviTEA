@@ -50,7 +50,7 @@ RESCUE_TARGET_COVERAGE = 0.98
 BASE_INTERVAL_CAP = 1024
 CAP_LADDER = (1536, 2048, 3072, 4096, 8192, 16384)
 MAX_RESCUE_INTERVAL_MASS = 1_500_000  # frozen default; a resource limit, settable with --max-rescue-interval-mass
-READ_WINDOW = 125
+READ_WINDOW = 125  # default read length (bp); a run passes the sample's own read length
 RESCUE_MAPQ = 20
 RESCUE_CLUSTER_GAP = 500
 RESCUE_CLUSTER_SUPPORT = 2
@@ -91,8 +91,8 @@ class RescuePairEvidence:
     families: tuple[str, ...]
 
 
-def _window_interval(start: int, k: int, n_windows: int) -> tuple[int, int] | None:
-    lo = max(0, start + k - READ_WINDOW)
+def _window_interval(start: int, k: int, n_windows: int, read_window: int = READ_WINDOW) -> tuple[int, int] | None:
+    lo = max(0, start + k - read_window)
     hi = min(n_windows - 1, start)
     return None if lo > hi else (lo, hi)
 
@@ -116,6 +116,7 @@ def plan_rescue_anchors(
     groups: Sequence[PairAwareGroup],
     *,
     max_interval_mass: int = MAX_RESCUE_INTERVAL_MASS,
+    read_window: int = READ_WINDOW,
 ) -> list[RescueAnchor]:
     queries = catalogue.by_id()
     eligible: dict[tuple[str, str], list[tuple[int, int, object]]] = defaultdict(list)
@@ -135,7 +136,7 @@ def plan_rescue_anchors(
         covered = np.zeros(n, dtype=np.bool_)
         for start, k, query in rows:
             if query.width <= BASE_INTERVAL_CAP:
-                iv = _window_interval(start, k, n)
+                iv = _window_interval(start, k, n, read_window)
                 if iv is not None:
                     covered[iv[0] : iv[1] + 1] = True
         selected_cap = CAP_LADDER[-1]
@@ -144,7 +145,7 @@ def plan_rescue_anchors(
             trial = covered.copy()
             for start, k, query in rows:
                 if BASE_INTERVAL_CAP < query.width <= cap:
-                    iv = _window_interval(start, k, n)
+                    iv = _window_interval(start, k, n, read_window)
                     if iv is not None:
                         trial[iv[0] : iv[1] + 1] = True
             achievable = _mean(trial)
@@ -158,7 +159,7 @@ def plan_rescue_anchors(
             if not BASE_INTERVAL_CAP < query.width <= selected_cap:
                 continue
             first.setdefault(query.query_id, query)
-            iv = _window_interval(start, k, n)
+            iv = _window_interval(start, k, n, read_window)
             if iv is not None:
                 windows.setdefault(query.query_id, []).append(np.arange(iv[0], iv[1] + 1, dtype=np.int32))
         options = [

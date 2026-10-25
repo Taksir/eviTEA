@@ -88,6 +88,8 @@ class RuntimeConfig:
     workers: int = 0
     # recall-repair resource limit in msBWT interval rows (frozen default 1,500,000)
     max_rescue_interval_mass: int = 1_500_000
+    # read length of the sample; None = taken from the sample (see ``sample_geometry``)
+    read_length: int | None = None
 
     def __post_init__(self) -> None:
         for name in ("threads", "workers"):
@@ -99,6 +101,10 @@ class RuntimeConfig:
         value = self.max_rescue_interval_mass
         if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
             raise InputContractError("max_rescue_interval_mass must be a positive integer")
+        if self.read_length is not None:
+            from .sample_geometry import validate_read_length
+
+            validate_read_length(self.read_length)
         if self.exact_query_backend != "msbwt":
             raise InputContractError("the frozen profile supports only msbwt")
         if not isinstance(self.resume, bool):
@@ -188,6 +194,7 @@ _SECTION_KEYS = {
             "edlib_python",
             "workers",
             "max_rescue_interval_mass",
+            "read_length",
         }
     ),
     "output": frozenset({"directory", "log_level"}),
@@ -270,6 +277,7 @@ def load_config(path: str | Path) -> EviTEAConfig:
             edlib_python=_optional_path(runtime.get("edlib_python"), "edlib_python", base),
             workers=runtime.get("workers", 0),
             max_rescue_interval_mass=runtime.get("max_rescue_interval_mass", 1_500_000),
+            read_length=runtime.get("read_length"),
         ),
         output=OutputConfig(
             directory=_optional_path(output.get("directory"), "directory", base),
