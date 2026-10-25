@@ -1,4 +1,4 @@
-"""Fail-closed raw FASTQ, FASTA, family-map, and repeat parsers."""
+"""Strict parsers for raw FASTQ, FASTA, family-map and repeat annotation files."""
 
 from __future__ import annotations
 
@@ -155,7 +155,7 @@ def iter_paired_fastq(
     read1: str | Path,
     read2: str | Path,
 ) -> Iterator[RawReadPair]:
-    """Yield synchronized read pairs without resynchronization or search-ahead."""
+    """Yield read pairs from two FASTQ files in lockstep; raise at the first mismatch."""
 
     read1_path = _path(read1)
     read2_path = _path(read2)
@@ -255,7 +255,7 @@ def _validated_fasta(path: str | Path) -> tuple[Path, tuple[FastaRecord, ...], s
 
 
 def validate_reference_fasta(path: str | Path) -> ReferenceInput:
-    """Validate a host FASTA and bind raw plus canonical semantic identities."""
+    """Validate a host FASTA; record the SHA-256 of the file and of its record ids and sequences."""
 
     fasta_path, records, raw_sha256, semantic_sha256 = _validated_fasta(path)
     return ReferenceInput(
@@ -268,7 +268,7 @@ def validate_reference_fasta(path: str | Path) -> ReferenceInput:
 
 
 def validate_te_fasta(path: str | Path) -> TELibraryInput:
-    """Validate a TE FASTA and bind raw plus canonical semantic identities."""
+    """Validate a TE FASTA; record the SHA-256 of the file and of its record ids and sequences."""
 
     fasta_path, records, raw_sha256, semantic_sha256 = _validated_fasta(path)
     return TELibraryInput(fasta_path, records, raw_sha256, semantic_sha256)
@@ -278,13 +278,13 @@ FLYBASE_FAMILY_COLUMNS = FLYBASE_COLUMNS
 
 
 def is_flybase_family_table(path: str | Path) -> bool:
-    """True for a FlyBase-style table with ``FBte_ID`` and ``FlyBase_Family`` columns."""
+    """Return True for a FlyBase-style table with ``FBte_ID`` and ``FlyBase_Family`` columns."""
 
     return family_table_kind(_path(path)) == FLYBASE
 
 
 def load_family_map(path: str | Path) -> FamilyMap:
-    """Load a TE-record/family relation with frozen alias handling.
+    """Load a TE-record/family relation, mapping the built-in family aliases to one name.
 
     Accepts the two-column ``te_record_id<TAB>family`` form (any record names) or a FlyBase-style table
     (``FBte_ID`` / ``FlyBase_Family`` columns, as the engines read it); see ``evitea.family_table``.
@@ -305,7 +305,7 @@ def load_repeat_annotation(
     path: str | Path,
     reference: ReferenceInput,
 ) -> RepeatContext:
-    """Load BED6-compatible repeat context against prepared reference bounds."""
+    """Load a BED6 repeat annotation and check it against the reference contig lengths."""
 
     bed_path = _path(path)
     records: list[RepeatRecord] = []
