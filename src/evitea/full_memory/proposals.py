@@ -2,8 +2,9 @@
 
 Population: uncensored ``ELIGIBLE`` + ``REFERENCE_UNEXPLAINED`` +
 ``UNIQUE_HIGH`` pairs with a family, placed by their rank-1 finite host
-alternative.  Each contributes the q99 interval ``[end, end + 805]`` (``+``) or
-``[max(0, start - 805), start]`` (``-``) — not clipped at contig ends.  On the
+alternative.  Each contributes the q99 interval ``[end, end + q99]`` (``+``) or
+``[max(0, start - q99), start]`` (``-``) — not clipped at contig ends; q99 is
+the fragment-size 99th percentile (805 bp by default).  On the
 primary chromosomes only, a sweep keeps every elementary segment covered by
 >= 2 pairs over >= 2 folds; adjacent/overlapping segments merge into regions.
 A rotation's regions come from its three discovery folds and are *confirmed*
@@ -35,7 +36,7 @@ class ProposalRecord:
 
 
 def load_proposal_records(accounting: Iterable[Mapping[str, str]],
-                          host_alternatives: Iterable[Mapping[str, str]]) -> list[ProposalRecord]:
+                          host_alternatives: Iterable[Mapping[str, str]], q99: int = Q99) -> list[ProposalRecord]:
     selected: dict[int, tuple[int, str]] = {}
     for row in accounting:
         pid, fold = as_int(row.get("pair_id")), as_int(row.get("fold"))
@@ -70,7 +71,7 @@ def load_proposal_records(accounting: Iterable[Mapping[str, str]],
     for pid in sorted(selected):
         fold, family = selected[pid]
         chrom, start, end, strand = rank1[pid]
-        lo, hi = (end, end + Q99) if strand == "+" else (max(0, start - Q99), start)
+        lo, hi = (end, end + q99) if strand == "+" else (max(0, start - q99), start)
         records.append(ProposalRecord(pid, fold, family, chrom, lo, hi))
     return records
 

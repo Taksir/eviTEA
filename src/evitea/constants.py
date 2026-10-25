@@ -8,7 +8,7 @@ from .errors import ArchitectureInvariantError
 
 ARCHITECTURE_ID = "EVITEA_V1_REPEAT_AWARE_EVIDENCE_ARCHITECTURE_20260928_REVISION_1"
 N_FOLDS = 5
-Q99 = 805
+Q99 = 805  # default fragment-size 99th percentile (bp); a run uses the sample's own (``sample_geometry``)
 MIN_PAIRS = 2
 MIN_FOLDS = 2
 EVENT_EQUIV_DISTANCE = 500
@@ -48,9 +48,10 @@ class ScienceProfile:
     certifying_paired_end_states: tuple[str, ...] = CERTIFYING_PAIRED_END_STATES
 
     def __post_init__(self) -> None:
+        # q99 (the fragment-size 99th percentile) is not frozen: each run estimates it from the sample (805 is the
+        # default) and records the value used in the run manifest; see ``sample_geometry``.
         frozen_values = (
             self.n_folds,
-            self.q99,
             self.min_pairs,
             self.min_folds,
             self.event_equiv_distance,
@@ -59,7 +60,6 @@ class ScienceProfile:
         )
         expected = (
             N_FOLDS,
-            Q99,
             MIN_PAIRS,
             MIN_FOLDS,
             EVENT_EQUIV_DISTANCE,

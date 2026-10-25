@@ -14,6 +14,7 @@ from evitea.anchor_pe.alignments import PRODUCTION_HOST_READ_NAMES
 from evitea.callset import CallsetState
 from evitea.config import EviTEAConfig, InputConfig, OutputConfig, RuntimeConfig
 from evitea.engine import EngineInputs, resolve_profile, run_engine
+from evitea.sample_geometry import FragmentSizes
 from evitea.errors import AssetCompatibilityError, InputContractError, ResumeStateError
 from evitea.pipeline import CheckpointManager, PreparedAssets, default_call_engine, engine_inputs
 from evitea.shadow_layers import ShadowCallset, ShadowLabels
@@ -93,9 +94,18 @@ def test_run_engine_wires_incumbent_bytes_codebooks_and_profile(tmp_path, monkey
     monkeypatch.setattr(engine_module, "MsbwtSample", lambda path: ("msbwt", path))
     monkeypatch.setattr(engine_module, "run_incumbent_caller", incumbent)
     monkeypatch.setattr(engine_module, "run_extension", extension)
+    monkeypatch.setattr(
+        engine_module, "estimate_fragment_sizes", lambda *a, **k: FragmentSizes(300.0, 420, 5000, "estimate")
+    )
     inputs = _inputs(tmp_path, profile, sample)
     result = run_engine(inputs, tmp_path / "work")
     anchor_inputs, internal_codebook, incumbent_bytes, labels, work = seen["extension"]
+    # the sample's fragment-size estimate reaches both layers
+    assert (seen["incumbent"][0].fragment_q95, seen["incumbent"][0].fragment_q99) == (300.0, 420)
+    assert anchor_inputs.fragment_q99 == 420
+    assert result.fragment.record() == {
+        "fragment_q95": 300.0, "fragment_q99": 420, "fragment_pairs": 5000, "fragment_source": "estimate",
+    }
     assert anchor_inputs.host_read_names == names
     assert anchor_inputs.safe_codebook == inputs.terminal_codebook
     assert internal_codebook == inputs.internal_codebook
@@ -162,6 +172,7 @@ def test_default_call_engine_records_and_rechecks_the_native_callset(tmp_path, m
             final=ShadowCallset.from_bytes(INCUMBENT), unresolved=(), layer_rows={"incumbent": 1},
             layer_sha256={"incumbent": hashlib.sha256(INCUMBENT).hexdigest()},
             counts={"incumbent": {"x": 1}}, profile=SimpleNamespace(name="production"),
+            fragment=FragmentSizes(494.0, 805, 0, "option"),
         )
 
     monkeypatch.setattr(engine_module, "run_engine", fake_run)
@@ -170,6 +181,8 @@ def test_default_call_engine_records_and_rechecks_the_native_callset(tmp_path, m
     assert isinstance(state, CallsetState)
     assert state.native_sha256 == hashlib.sha256(INCUMBENT).hexdigest()
     assert runs == [tmp_path / "w" / "engine" / "work"]
+    assert state.run_parameters["fragment_q99"] == 805
+    assert state.run_parameters["fragment_source"] == "option"
     with pytest.raises(ResumeStateError, match="explicit resume"):
         default_call_engine(_config(tmp_path), assets, CheckpointManager(tmp_path / "w", resume=False))
     resumed = default_call_engine(_config(tmp_path, resume=True), assets, CheckpointManager(tmp_path / "w", resume=True))

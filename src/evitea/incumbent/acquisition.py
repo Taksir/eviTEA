@@ -16,6 +16,7 @@ from pathlib import Path
 
 import numpy as np
 
+from ..constants import Q99
 from .anchor_census import build_anchor_catalogue, census_anchor_intervals
 from .candidates import (
     CandidateLocus,
@@ -77,6 +78,7 @@ def acquire_candidate_loci(
     complete_routing: bool = False,
     max_rescue_interval_mass: int = MAX_RESCUE_INTERVAL_MASS,
     read_length: int = READ_WINDOW,
+    fragment_q99: int = Q99,
 ) -> CandidateAcquisition:
     def say(message: str) -> None:
         if progress is not None:
@@ -117,7 +119,7 @@ def acquire_candidate_loci(
         say(f"complete routing: {len(extra)} words, {len(te_file)} extra one-mate pairs; partner-read gate")
         kept = gate_extra_pairs(
             te_file, index, bowtie2=bowtie2, host_index_prefix=host_index_prefix,
-            work_directory=work_directory / "complete_routing", threads=threads, progress=say,
+            work_directory=work_directory / "complete_routing", threads=threads, q99=fragment_q99, progress=say,
         )
         pair_panel = augment_panel(pair_panel, kept, extra, extra_sets, te_dollars)
         counts["complete_routing_words"] = len(extra)

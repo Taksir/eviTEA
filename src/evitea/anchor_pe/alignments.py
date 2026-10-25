@@ -24,6 +24,7 @@ from collections import defaultdict
 from collections.abc import Mapping
 from pathlib import Path
 
+from ..constants import Q99
 from ..errors import InputContractError
 from ..incumbent.external import run_bowtie2
 from .codebook import CodeUnit, revcomp
@@ -34,6 +35,7 @@ __all__ = [
     "REPRODUCTION_ONLY_HOST_READ_NAMES",
     "HOST_OPTIONS",
     "REFERENCE_OPTIONS",
+    "reference_options",
     "host_query_name",
     "write_host_fasta",
     "write_pair_fastas",
@@ -51,8 +53,16 @@ PRODUCTION_HOST_READ_NAMES = "pid"
 REPRODUCTION_ONLY_HOST_READ_NAMES = ("aka-historical",)
 HOST_READ_NAME_PROFILES = (PRODUCTION_HOST_READ_NAMES, *REPRODUCTION_ONLY_HOST_READ_NAMES)
 HOST_OPTIONS = ("-k", "2", "--very-sensitive", "--no-unal", "--no-hd", "--no-sq")
-REFERENCE_OPTIONS = ("--very-sensitive-local", "--no-mixed", "--no-discordant", "-I", "0", "-X", "805",
+REFERENCE_OPTIONS = ("--very-sensitive-local", "--no-mixed", "--no-discordant", "-I", "0", "-X", str(Q99),
                      "-k", "20", "--no-unal", "--reorder", "--no-hd", "--no-sq")
+
+
+def reference_options(fragment_q99: int = Q99) -> tuple[str, ...]:
+    """``REFERENCE_OPTIONS`` with the sample's fragment-size 99th percentile as the maximum fragment length."""
+
+    options = list(REFERENCE_OPTIONS)
+    options[options.index("-X") + 1] = str(fragment_q99)
+    return tuple(options)
 _NAME = re.compile(r"[Pp](\d+)(?:\|h[12])?")
 _CIGAR = re.compile(r"(\d+)([MIDNSHP=X])")
 
@@ -92,8 +102,10 @@ def map_host_mates(bowtie2: Path, index_prefix: Path, fasta: Path, sam: Path, th
                           "-S", str(sam), "-p", str(max(1, threads))])
 
 
-def map_reference_pairs(bowtie2: Path, index_prefix: Path, fasta1: Path, fasta2: Path, sam: Path, threads: int) -> None:
-    run_bowtie2(bowtie2, ["-x", str(index_prefix), "-f", "-1", str(fasta1), "-2", str(fasta2), *REFERENCE_OPTIONS,
+def map_reference_pairs(bowtie2: Path, index_prefix: Path, fasta1: Path, fasta2: Path, sam: Path, threads: int,
+                        fragment_q99: int = Q99) -> None:
+    run_bowtie2(bowtie2, ["-x", str(index_prefix), "-f", "-1", str(fasta1), "-2", str(fasta2),
+                          *reference_options(fragment_q99),
                           "-S", str(sam), "-p", str(max(1, threads))])
 
 

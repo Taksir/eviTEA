@@ -19,12 +19,14 @@ def channel_a(
     ledger: Mapping[int, dict],
     te_records: Mapping[int, list[dict]],
     by_family: Mapping[str, list[CodeUnit]],
+    q99: int = Q99,
 ) -> tuple[list[dict], list[dict]]:
     """Witnesses and one replicated anchor per target cluster.
 
     Only ``LOCAL_PROPER_TE_UNEXPLAINED`` pairs of a target cluster contribute.
     A terminal soft clip of a proper TE-mate record, on the cluster's
-    chromosome, within ``[start - 805, end + 805]``, that overlaps a
+    chromosome, within ``[start - q99, end + q99]`` (q99: the fragment-size
+    99th percentile, 805 bp by default), that overlaps a
     candidate-family safe-probe occurrence by >= 1 query base, witnesses the
     interbase breakpoint at its clip edge (leading clip -> RIGHT at record
     start; trailing clip -> LEFT at record end).  Anchors need >= 2 pairs over
@@ -40,7 +42,7 @@ def channel_a(
             continue
         cluster = target_by[cid]
         family = meta["family"]
-        lo, hi = max(0, int(cluster["start"]) - Q99), int(cluster["end"]) + Q99
+        lo, hi = max(0, int(cluster["start"]) - q99), int(cluster["end"]) + q99
         seen: set[tuple] = set()
         for rec in te_records.get(pid, []):
             if rec["chrom"] != cluster["chrom"]:
@@ -102,11 +104,13 @@ def channel_b_universe(ledger: Mapping[int, dict], host: Mapping[int, dict]) -> 
     return rows
 
 
-def score_candidates(anchors: list[dict], b_rows: list[dict]) -> tuple[list[dict], tuple[AnchorPECandidate, ...]]:
+def score_candidates(
+    anchors: list[dict], b_rows: list[dict], q99: int = Q99
+) -> tuple[list[dict], tuple[AnchorPECandidate, ...]]:
     """Directional q99 completion at the fixed A coordinate.
 
-    ``+`` host mate: LEFT side when ``end <= bp <= end + 805``; ``-``: RIGHT
-    side when ``start - 805 <= bp <= start``.  The union of all Channel-A
+    ``+`` host mate: LEFT side when ``end <= bp <= end + q99``; ``-``: RIGHT
+    side when ``start - q99 <= bp <= start`` (q99 805 bp by default).  The union of all Channel-A
     pairs is excluded from Channel B.
     """
 
@@ -122,9 +126,9 @@ def score_candidates(anchors: list[dict], b_rows: list[dict]) -> tuple[list[dict
         left, right = [], []
         for r in index[(a["family"], a["chrom"])]:
             s, e = int(r["start"]), int(r["end"])
-            if r["strand"] == "+" and e <= bp <= e + Q99:
+            if r["strand"] == "+" and e <= bp <= e + q99:
                 left.append(r)
-            elif r["strand"] == "-" and s - Q99 <= bp <= s:
+            elif r["strand"] == "-" and s - q99 <= bp <= s:
                 right.append(r)
         lp = sorted({int(r["pair_id"]) for r in left})
         rp = sorted({int(r["pair_id"]) for r in right})

@@ -72,7 +72,8 @@ def run_full_memory(
         if not reference_sam.is_file():
             r1, r2 = work / "pairs_R1.fa", work / "pairs_R2.fa"
             write_pair_fastas(r1, r2, eligible, reads)
-            map_reference_pairs(inputs.bowtie2, inputs.host_index_prefix, r1, r2, reference_sam, inputs.threads)
+            map_reference_pairs(inputs.bowtie2, inputs.host_index_prefix, r1, r2, reference_sam, inputs.threads,
+                                inputs.fragment_q99)
 
     def finite_state():
         host_rows, host_summary = finite_host_alternatives(Path(host_sam), eligible)
@@ -86,11 +87,11 @@ def run_full_memory(
 
     accounting, host_rows, ref_rows = store.get("finite_state", finite_state)
     say(f"finite state: {len(accounting):,} accounted pairs, {len(host_rows):,} host alternatives")
-    records = load_proposal_records(accounting, host_rows)
+    records = load_proposal_records(accounting, host_rows, inputs.fragment_q99)
     full = full_data_proposals(inputs.sample_id, records)
     rotations = rotation_proposals(inputs.sample_id, records)
     witnesses = derive_witnesses(allowed_pairs(accounting), ref_rows)
-    index, _ = build_b_index(anchor_pe.b_universe)
+    index, _ = build_b_index(anchor_pe.b_universe, inputs.fragment_q99)
     ledger = full_data_events(inputs.sample_id, full, a_groups(witnesses), index, historical_keys(anchor_pe.witnesses))
     events = full_memory_events(select_anchors(ledger, inputs.sample_id), index)
     counts = {

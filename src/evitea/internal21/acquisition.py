@@ -159,7 +159,7 @@ def run_internal21_acquisition(
         _, host_summary = finite_host_alternatives(host_sam, meta)
         r1, r2, ref_sam = work / "pairs_R1.fa", work / "pairs_R2.fa", work / "local_reference.sam"
         write_pair_fastas(r1, r2, meta, reads)
-        map_reference_pairs(inputs.bowtie2, inputs.host_index_prefix, r1, r2, ref_sam, inputs.threads)
+        map_reference_pairs(inputs.bowtie2, inputs.host_index_prefix, r1, r2, ref_sam, inputs.threads, inputs.fragment_q99)
         ref_rows, ref_summary = finite_reference_alternatives(
             ref_sam, meta, {}, reads, pair_probes={p: pair_probe_sequences(m) for p, m in meta.items()})
         accounting = internal_accounting(meta, host_summary, ref_summary)

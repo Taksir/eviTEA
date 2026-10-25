@@ -298,6 +298,18 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         help="read length in bp (default: taken from the sample; the value used is written to run_manifest.json)",
     )
+    call.add_argument(
+        "--fragment-q95",
+        type=float,
+        help="95th percentile of the fragment size in bp (default: estimated from the sample's properly paired "
+        "reads, 494 when too few; the value used is written to run_manifest.json)",
+    )
+    call.add_argument(
+        "--fragment-q99",
+        type=int,
+        help="99th percentile of the fragment size in bp, also Bowtie2's maximum fragment length (default: "
+        "estimated from the sample, 805 when too few pairs)",
+    )
     _add_engineering_options(call, use_defaults=False)
 
     refine = commands.add_parser(
@@ -652,6 +664,16 @@ def _call_config(args: argparse.Namespace) -> EviTEAConfig:
                 args.read_length
                 if getattr(args, "read_length", None) is not None
                 else base.runtime.read_length
+            ),
+            fragment_q95=(
+                args.fragment_q95
+                if getattr(args, "fragment_q95", None) is not None
+                else base.runtime.fragment_q95
+            ),
+            fragment_q99=(
+                args.fragment_q99
+                if getattr(args, "fragment_q99", None) is not None
+                else base.runtime.fragment_q99
             ),
         ),
         output=OutputConfig(

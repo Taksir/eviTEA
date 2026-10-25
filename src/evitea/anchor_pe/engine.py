@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ..constants import Q99
 from ..errors import InputContractError
 from ..incumbent.engine import StageStore
 from ..shadow_layers import AnchorPECandidate
@@ -52,6 +53,8 @@ class AnchorPEInputs:
     host_read_names: str = PRODUCTION_HOST_READ_NAMES
     threads: int = 1
     edlib_python: Path | None = None
+    # 99th percentile of the sample's fragment size (bp); see ``sample_geometry``.
+    fragment_q99: int = Q99
 
     def __post_init__(self) -> None:
         if self.host_read_names not in HOST_READ_NAME_PROFILES:
@@ -88,6 +91,8 @@ def _fingerprint(inputs: AnchorPEInputs) -> dict[str, object]:
         "repeatmasker_bed": stat(inputs.repeatmasker_bed),
         "host_index_prefix": str(inputs.host_index_prefix),
         "host_read_names": inputs.host_read_names,
+        # recorded only when not the default, so earlier work directories stay resumable
+        **({"fragment_q99": inputs.fragment_q99} if inputs.fragment_q99 != Q99 else {}),
     }
 
 
@@ -155,7 +160,7 @@ def run_anchor_pe(
     def reference():
         r1, r2, sam = work / "pairs_R1.fa", work / "pairs_R2.fa", work / "local_reference.sam"
         write_pair_fastas(r1, r2, eligible, reads)
-        map_reference_pairs(inputs.bowtie2, inputs.host_index_prefix, r1, r2, sam, inputs.threads)
+        map_reference_pairs(inputs.bowtie2, inputs.host_index_prefix, r1, r2, sam, inputs.threads, inputs.fragment_q99)
         ledger, te_records = parse_reference_sam(sam, eligible, reads, by_family)
         # Only LOCAL_PROPER_TE_UNEXPLAINED records can witness Channel A.
         kept = {pid: recs for pid, recs in te_records.items()
@@ -170,6 +175,7 @@ def run_anchor_pe(
     result = derive_candidates(
         ledger=ledger, te_records=te_records, host=host, decoded_host=decoded_host, strict_new=strict_new,
         by_family=by_family, family_map_rows=_tsv(inputs.te_family_map), repeatmasker_bed=inputs.repeatmasker_bed,
+        q99=inputs.fragment_q99,
     )
     result.counts = {
         "codebook_hit_pairs": len(pair_hits), "one_mate_family_resolved": len(eligible),
@@ -192,6 +198,7 @@ def derive_candidates(
     by_family,
     family_map_rows: list[dict[str, str]],
     repeatmasker_bed: Path,
+    q99: int = Q99,
 ) -> AnchorPEResult:
     """Clusters, novelty/residency, Channel A, Channel B and candidates."""
 
@@ -212,9 +219,9 @@ def derive_candidates(
                                             parse_repeatmasker(repeatmasker_bed, fbmap, known))
     targets = [c for c in corrected if c["novel_nonresident"] and int(c.get("event_2p2fold", 0)) == 1]
     pair_to_cluster = {int(p): int(c["cluster_id"]) for c in corrected for p in str(c["pair_ids"]).split(";") if p}
-    witnesses, anchors = channel_a(targets, pair_to_cluster, ledger, te_records, by_family)
+    witnesses, anchors = channel_a(targets, pair_to_cluster, ledger, te_records, by_family, q99)
     b_rows = channel_b_universe(ledger, host)
-    rows, candidates = score_candidates(anchors, b_rows)
+    rows, candidates = score_candidates(anchors, b_rows, q99)
     counts = {
         "strict_decoded_outside_primary": len(strict_new),
         "primary_clusters": len(primary_clusters), "relaxed_provisional_clusters": len(relaxed),

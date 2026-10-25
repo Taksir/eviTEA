@@ -15,6 +15,7 @@ from ..errors import AssetCompatibilityError, BackendCompatibilityError, InputCo
 from .protocols import MapperRead, RawAlignment, ReadIdentity
 
 CANDIDATE_STATUS = "CANDIDATE_UNAPPROVED"
+# Default maximum fragment length (-X): the fragment-size 99th percentile; a run passes the sample's own.
 FROZEN_REFERENCE_MAX_INSERT = 805
 FROZEN_REFERENCE_MAX_REPORTED = 20
 
@@ -202,11 +203,14 @@ def build_paired_reference_command(
     output_sam: str | Path,
     *,
     threads: int = 1,
+    max_insert: int = FROZEN_REFERENCE_MAX_INSERT,
 ) -> list[str]:
-    """Build the frozen evidence-complete paired-reference command."""
+    """Build the evidence-complete paired-reference command (``max_insert``: the fragment-size 99th percentile)."""
 
     if isinstance(threads, bool) or not isinstance(threads, int) or threads < 1:
         raise InputContractError("threads must be a positive integer")
+    if isinstance(max_insert, bool) or not isinstance(max_insert, int) or max_insert < 1:
+        raise InputContractError("max_insert must be a positive integer")
     return [
         str(executable),
         "-x",
@@ -222,7 +226,7 @@ def build_paired_reference_command(
         "-I",
         "0",
         "-X",
-        str(FROZEN_REFERENCE_MAX_INSERT),
+        str(max_insert),
         "-k",
         str(FROZEN_REFERENCE_MAX_REPORTED),
         "--no-unal",
@@ -242,6 +246,7 @@ def map_paired_reference_reads(
     work_dir: str | Path,
     *,
     threads: int = 1,
+    max_insert: int = FROZEN_REFERENCE_MAX_INSERT,
 ) -> PairedReferenceBatch:
     """Run the frozen paired-reference producer over selected physical pairs."""
 
@@ -300,6 +305,7 @@ def map_paired_reference_reads(
         read2,
         sam,
         threads=threads,
+        max_insert=max_insert,
     )
     try:
         completed = subprocess.run(

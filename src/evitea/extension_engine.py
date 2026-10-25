@@ -56,7 +56,7 @@ def run_extension(
     anchor_pe = run_anchor_pe(inputs, sample, work, progress=progress)
     full_memory = run_full_memory(inputs, anchor_pe, work / "full_memory", progress=progress)
     internal = run_internal21_acquisition(inputs, internal_codebook, sample, work / "internal21", progress=progress)
-    index, _ = build_b_index(anchor_pe.b_universe)
+    index, _ = build_b_index(anchor_pe.b_universe, inputs.fragment_q99)
     events, loci = observe_increment(inputs.sample_id, full_memory.rotation_proposals, full_memory.witnesses,
                                      internal.witnesses, index, full_memory.event_ledger)
     base = ShadowCallset.from_bytes(incumbent)

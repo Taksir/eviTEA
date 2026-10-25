@@ -551,6 +551,8 @@ def engine_inputs(config: EviTEAConfig, assets: PreparedAssets) -> "EngineInputs
         max_rescue_interval_mass=config.runtime.max_rescue_interval_mass,
         read_length=read_length.length,
         read_length_source=read_length.source,
+        fragment_q95=config.runtime.fragment_q95,
+        fragment_q99=config.runtime.fragment_q99,
     )
 
 
@@ -591,7 +593,7 @@ def default_call_engine(
         layer_sha256=result.layer_sha256,
         counts=result.counts,
         profile=result.profile.name,
-        run_parameters=inputs.run_parameters(),
+        run_parameters={**inputs.run_parameters(), **(result.fragment.record() if result.fragment else {})},
     )
     record = {
         "native_callset_sha256": state.native_sha256,

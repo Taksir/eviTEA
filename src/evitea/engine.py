@@ -31,6 +31,7 @@ No scientific threshold is a profile setting.
 from __future__ import annotations
 
 import hashlib
+import json
 import shutil
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -41,7 +42,14 @@ from .anchor_pe.alignments import PRODUCTION_HOST_READ_NAMES
 from .anchor_pe.engine import AnchorPEInputs
 from .errors import InputContractError
 from .extension_engine import ExtensionRun, run_extension
-from .sample_geometry import DEFAULT_READ_LENGTH, validate_read_length
+from .sample_geometry import (
+    DEFAULT_READ_LENGTH,
+    FragmentSizes,
+    estimate_fragment_sizes,
+    resolve_fragment_sizes,
+    validate_fragment_size,
+    validate_read_length,
+)
 from .incumbent import IncumbentInputs, IncumbentResult, MsbwtSample, run_incumbent_caller
 from .shadow_layers import ShadowCallset, ShadowLabels, UnresolvedShadowEvent
 
@@ -128,9 +136,18 @@ class EngineInputs:
     read_length: int = DEFAULT_READ_LENGTH
     # where the read length came from (see ``sample_geometry.resolve_read_length``); not part of the identity
     read_length_source: str = "default"
+    # fragment-size 95th / 99th percentile overrides; None = estimated from the sample (``sample_geometry``)
+    fragment_q95: float | None = None
+    fragment_q99: int | None = None
 
     def __post_init__(self) -> None:
         validate_read_length(self.read_length)
+        if self.fragment_q95 is not None:
+            validate_fragment_size(self.fragment_q95, "fragment_q95")
+        if self.fragment_q99 is not None:
+            validate_fragment_size(self.fragment_q99, "fragment_q99")
+            if not isinstance(self.fragment_q99, int):
+                raise InputContractError("fragment_q99 must be an integer")
         for name in ("threads", "workers"):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
@@ -172,6 +189,8 @@ class EngineInputs:
                 else {}
             ),
             **({"read_length": self.read_length} if self.read_length != DEFAULT_READ_LENGTH else {}),
+            **({"fragment_q95": self.fragment_q95} if self.fragment_q95 is not None else {}),
+            **({"fragment_q99": self.fragment_q99} if self.fragment_q99 is not None else {}),
         }
 
     def run_parameters(self) -> dict[str, object]:
@@ -186,6 +205,7 @@ class EngineResult:
     profile: RunProfile
     incumbent: IncumbentResult
     extension: ExtensionRun
+    fragment: FragmentSizes | None = None
 
     @property
     def incumbent_bytes(self) -> bytes:
@@ -236,6 +256,30 @@ def default_bowtie2_build(bowtie2: Path) -> Path | None:
     return Path(found) if found else None
 
 
+def _fragment_sizes(inputs: EngineInputs, sample, work: Path, say: Callable[[str], None]) -> FragmentSizes:
+    """The fragment-size percentiles of this run: options, else the sample's estimate (saved for resume)."""
+
+    saved = work / "fragment_sizes.json"
+    key = {"msbwt_index": str(inputs.msbwt_index), "host_index_prefix": str(inputs.host_index_prefix),
+           "fragment_q95": inputs.fragment_q95, "fragment_q99": inputs.fragment_q99}
+    if saved.is_file():
+        record = json.loads(saved.read_text(encoding="utf-8"))
+        if record.get("key") == key:
+            return FragmentSizes(**record["value"])
+
+    def estimate() -> FragmentSizes:
+        say("fragment size: mapping evenly spaced read pairs to the reference")
+        return estimate_fragment_sizes(
+            sample, bowtie2=inputs.bowtie2, host_index_prefix=inputs.host_index_prefix,
+            work_directory=work / "fragment_sizes", threads=inputs.threads,
+        )
+
+    fragment = resolve_fragment_sizes(inputs.fragment_q95, inputs.fragment_q99, estimate, warn=say)
+    value = {"q95": fragment.q95, "q99": fragment.q99, "pairs": fragment.pairs, "source": fragment.source}
+    saved.write_text(json.dumps({"key": key, "value": value}, sort_keys=True), encoding="utf-8")
+    return fragment
+
+
 def run_engine(
     inputs: EngineInputs,
     work_directory: str | Path,
@@ -256,6 +300,9 @@ def run_engine(
         if progress is not None:
             progress(message)
 
+    fragment = _fragment_sizes(inputs, sample, work, say)
+    say(f"read length {inputs.read_length} bp ({inputs.read_length_source}); fragment size 95th / 99th percentile "
+        f"{fragment.q95:g} / {fragment.q99} bp ({fragment.source}, {fragment.pairs} pairs)")
     say(f"incumbent: sample {inputs.sample_id}, profile {profile.name}")
     incumbent = run_incumbent_caller(
         IncumbentInputs(
@@ -273,6 +320,8 @@ def run_engine(
             complete_routing=inputs.complete_routing,
             max_rescue_interval_mass=inputs.max_rescue_interval_mass,
             read_length=inputs.read_length,
+            fragment_q95=fragment.q95,
+            fragment_q99=fragment.q99,
         ),
         sample,
         work / "incumbent",
@@ -291,6 +340,7 @@ def run_engine(
             host_read_names=profile.host_read_names,
             threads=inputs.threads,
             edlib_python=inputs.edlib_python,
+            fragment_q99=fragment.q99,
         ),
         inputs.internal_codebook,
         sample,
@@ -299,7 +349,7 @@ def run_engine(
         work / "extension",
         progress=progress,
     )
-    result = EngineResult(inputs.sample_id, profile, incumbent, extension)
+    result = EngineResult(inputs.sample_id, profile, incumbent, extension, fragment)
     say(f"layers: {result.layer_rows}")
     say(f"layer sha256: {result.layer_sha256}")
     return result

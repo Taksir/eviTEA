@@ -43,6 +43,16 @@ def test_frozen_science_constants_and_profile_are_present():
         SCIENCE_PROFILE.q99 = 806
 
 
+def test_q99_is_a_default_that_a_run_may_override():
+    from evitea.constants import ScienceProfile
+    from evitea.errors import ArchitectureInvariantError
+
+    assert ScienceProfile().q99 == 805
+    assert ScienceProfile(q99=1_100).q99 == 1_100
+    with pytest.raises(ArchitectureInvariantError):
+        ScienceProfile(min_pairs=3)
+
+
 def test_repeat_aware_edit_rate_uses_exact_integer_boundary():
     assert repeat_aware_edit_rate_passes(3, 35)
     assert repeat_aware_edit_rate_passes(6, 70)

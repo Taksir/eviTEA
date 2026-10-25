@@ -90,6 +90,9 @@ class RuntimeConfig:
     max_rescue_interval_mass: int = 1_500_000
     # read length of the sample; None = taken from the sample (see ``sample_geometry``)
     read_length: int | None = None
+    # fragment-size 95th / 99th percentiles; None = estimated from the sample (see ``sample_geometry``)
+    fragment_q95: float | None = None
+    fragment_q99: int | None = None
 
     def __post_init__(self) -> None:
         for name in ("threads", "workers"):
@@ -105,6 +108,14 @@ class RuntimeConfig:
             from .sample_geometry import validate_read_length
 
             validate_read_length(self.read_length)
+        from .sample_geometry import validate_fragment_size
+
+        if self.fragment_q95 is not None:
+            validate_fragment_size(self.fragment_q95, "fragment_q95")
+        if self.fragment_q99 is not None:
+            validate_fragment_size(self.fragment_q99, "fragment_q99")
+            if not isinstance(self.fragment_q99, int):
+                raise InputContractError("fragment_q99 must be an integer")
         if self.exact_query_backend != "msbwt":
             raise InputContractError("the frozen profile supports only msbwt")
         if not isinstance(self.resume, bool):
@@ -195,6 +206,8 @@ _SECTION_KEYS = {
             "workers",
             "max_rescue_interval_mass",
             "read_length",
+            "fragment_q95",
+            "fragment_q99",
         }
     ),
     "output": frozenset({"directory", "log_level"}),
@@ -278,6 +291,8 @@ def load_config(path: str | Path) -> EviTEAConfig:
             workers=runtime.get("workers", 0),
             max_rescue_interval_mass=runtime.get("max_rescue_interval_mass", 1_500_000),
             read_length=runtime.get("read_length"),
+            fragment_q95=runtime.get("fragment_q95"),
+            fragment_q99=runtime.get("fragment_q99"),
         ),
         output=OutputConfig(
             directory=_optional_path(output.get("directory"), "directory", base),

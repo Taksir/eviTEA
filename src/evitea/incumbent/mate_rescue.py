@@ -17,7 +17,8 @@ Reference-discriminative pair evidence (frozen R6)
     One-sided non-passing loci are routed with bounded exact msBWT host seeds
     on the missing flank, locally prefiltered, globally host-mapped with
     Bowtie2, rejected when an ordinary inward concordant pair within the frozen
-    fragment q95 (494 bp) explains the pair, and TE-certified with
+    fragment-size 95th percentile (the sample's own; 494 bp by default) explains
+    the pair, and TE-certified with
     strand-symmetric local-reference rejection.  Only kept per-pair winners are
     emitted; they feed junction completion as strict side support.
 """
@@ -58,6 +59,7 @@ MAX_TE_WINDOWS_PER_MATE = 6
 TE_LOCAL_REF_MAX_EDITS = 3
 TE_FULL_READ_REF_MAX_EDITS = 8
 MIN_SIDE_FRAGMENTS = 2
+# Default 95th percentile of the fragment size (bp); a run passes the sample's own (``sample_geometry``).
 FRAGMENT_Q95 = 494.0
 EXISTING_GUARD_BP = 50
 HOST_SEED_K = 25
@@ -612,7 +614,8 @@ def route_one_sided_targets(
 
 
 def ordinary_reference_pair_possible(
-    te_read: str, scope: str, scope_start: int, host_start: int, host_end: int, host_view: str
+    te_read: str, scope: str, scope_start: int, host_start: int, host_end: int, host_view: str,
+    fragment_q95: float = FRAGMENT_Q95,
 ) -> bool:
     for view, sequence in (("FWD", te_read.upper()), ("RC", revcomp(te_read.upper()))):
         distance, locations = hw_locations(sequence, scope, TE_FULL_READ_REF_MAX_EDITS)
@@ -621,7 +624,9 @@ def ordinary_reference_pair_possible(
         for start, end in locations:
             target_start = scope_start + start
             target_end = scope_start + end + 1
-            if max(host_end, target_end) - min(host_start, target_start) > FRAGMENT_Q95:
+            # The 95th percentile of the fragment size: a pair whose span is above it is unlikely to be a
+            # normal pair, so it cannot explain the read pair as an ordinary reference pair.
+            if max(host_end, target_end) - min(host_start, target_start) > fragment_q95:
                 continue
             if host_start <= target_start:
                 inward = host_view == "FWD" and view == "RC"
@@ -669,6 +674,7 @@ def certify_strict_pairs(
     bowtie2: str | Path,
     host_index_prefix: str | Path,
     work_directory: Path,
+    fragment_q95: float = FRAGMENT_Q95,
 ) -> StrictPairResult:
     targets = {target.locus_id: target for target in routing.targets}
     counts: Counter[str] = Counter()
@@ -747,7 +753,7 @@ def certify_strict_pairs(
         center = int(round(midpoint))
         scope_start = max(0, center - SCOPE_RADIUS)
         scope = contig[scope_start : min(len(contig), center + SCOPE_RADIUS + 1)]
-        if ordinary_reference_pair_possible(te_read, scope, scope_start, host_start, host_end, host_view):
+        if ordinary_reference_pair_possible(te_read, scope, scope_start, host_start, host_end, host_view, fragment_q95):
             counts["REJECT_ORDINARY_CONCORDANT_REFERENCE_PAIR"] += 1
             continue
         kmers = family_kmers.get(target.family, set())

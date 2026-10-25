@@ -130,7 +130,8 @@ def exact_anchors(groups: Mapping[tuple[str, str, int, str], set[int]], folds: s
 class BIndex:
     """Directional q99 intervals keyed by (family, chrom, side)."""
 
-    def __init__(self) -> None:
+    def __init__(self, q99: int = Q99) -> None:
+        self.q99 = q99
         self._raw: dict[tuple[str, str, str], list[tuple[int, int, int, int]]] = defaultdict(list)
         self._idx: dict[tuple[str, str, str], tuple[list[int], list[tuple[int, int, int, int]]]] = {}
 
@@ -150,23 +151,23 @@ class BIndex:
         if item is None:
             return []
         los, xs = item
-        a, z = bisect.bisect_left(los, bp - Q99), bisect.bisect_right(los, bp)
+        a, z = bisect.bisect_left(los, bp - self.q99), bisect.bisect_right(los, bp)
         return [x for x in xs[a:z] if (folds is None or x[3] in folds) and x[2] not in excluded and x[0] <= bp <= x[1]]
 
 
-def build_b_index(b_universe: Iterable[Mapping]) -> tuple[BIndex, set[int]]:
-    """From the AnchorPE Channel-B universe rows (host strand geometry)."""
+def build_b_index(b_universe: Iterable[Mapping], q99: int = Q99) -> tuple[BIndex, set[int]]:
+    """From the AnchorPE Channel-B universe rows (host strand geometry); q99: the fragment-size 99th percentile."""
 
-    index, pids = BIndex(), set()
+    index, pids = BIndex(q99), set()
     for r in b_universe:
         pid, fold = int(r["pair_id"]), int(r["fold"])
         if fold != pid % N_FOLDS:
             raise InputContractError("B fold drift")
         strand, start, end = str(r["strand"]), int(r["start"]), int(r["end"])
         if strand == "+":
-            side, lo, hi = "LEFT", end, end + Q99
+            side, lo, hi = "LEFT", end, end + q99
         elif strand == "-":
-            side, lo, hi = "RIGHT", max(0, start - Q99), start
+            side, lo, hi = "RIGHT", max(0, start - q99), start
         else:
             continue
         index.add(normfam(r["family"]), str(r["chrom"]), side, lo, hi, pid, fold)

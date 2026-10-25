@@ -120,4 +120,8 @@ def test_frozen_paired_reference_command_is_exact_and_ordered():
         "-I", "0", "-X", "805", "-k", "20", "--no-unal", "--reorder",
         "-p", "3", "-S", "out.sam",
     ]
+    wider = build_paired_reference_command(
+        "bowtie2", "ref/index", "r1.fa", "r2.fa", "out.sam", threads=3, max_insert=1_100
+    )
+    assert wider[wider.index("-X") + 1] == "1100"
 

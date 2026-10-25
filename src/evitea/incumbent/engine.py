@@ -28,6 +28,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ..constants import Q99
 from ..errors import ResumeStateError
 from .acquisition import CandidateAcquisition, acquire_candidate_loci
 from .anchor_census import load_te_family_map, parse_te_consensus
@@ -35,6 +36,7 @@ from .events import IncumbentCall, legacy_tsv_bytes
 from .external import run_bowtie2_build
 from .junction_groups import JunctionGroupsResult, run_junction_groups
 from .mate_rescue import (
+    FRAGMENT_Q95,
     MateRescueResult,
     RoutingResult,
     StrictPairResult,
@@ -86,6 +88,9 @@ class IncumbentInputs:
     max_rescue_interval_mass: int = 1_500_000
     # Read length of the sample (bp): the window of the coverage panels and of recall repair.
     read_length: int = 125
+    # 95th and 99th percentiles of the sample's fragment size (bp); see ``sample_geometry``.
+    fragment_q95: float = FRAGMENT_Q95
+    fragment_q99: int = Q99
 
     def __post_init__(self) -> None:
         from .recall_repair import RESCUE_READ_NAME_PROFILES
@@ -140,6 +145,10 @@ def _fingerprint(inputs: IncumbentInputs) -> dict[str, object]:
         identity["max_rescue_interval_mass"] = inputs.max_rescue_interval_mass
     if inputs.read_length != READ_WINDOW:
         identity["read_length"] = inputs.read_length
+    if inputs.fragment_q95 != FRAGMENT_Q95:
+        identity["fragment_q95"] = inputs.fragment_q95
+    if inputs.fragment_q99 != Q99:
+        identity["fragment_q99"] = inputs.fragment_q99
     return identity
 
 
@@ -217,6 +226,7 @@ def run_incumbent_caller(
         complete_routing=inputs.complete_routing,
         max_rescue_interval_mass=inputs.max_rescue_interval_mass,
         read_length=inputs.read_length,
+        fragment_q99=inputs.fragment_q99,
     ))
     loci = acquisition.loci
     families = {locus.family for locus in loci}
@@ -274,7 +284,7 @@ def run_incumbent_caller(
         return certify_strict_pairs(
             routing=routing, reads=routed_reads, reference=reference, family_kmers=family_kmers,
             te_index=te_index, bowtie2=inputs.bowtie2, host_index_prefix=inputs.host_index_prefix,
-            work_directory=work / "strict_pairs",
+            work_directory=work / "strict_pairs", fragment_q95=inputs.fragment_q95,
         )
 
     strict = store.get("strict_pairs", run_strict)
