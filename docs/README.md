@@ -6,21 +6,21 @@
 - [`REPEAT_ANNOTATION.md`](REPEAT_ANNOTATION.md): making the repeat annotation with RepeatMasker, and runs without a TE
   library (`build-repeat-map`, `evitea run --no-library`).
 - [`LIBRARY_FREE_OPTIONS.md`](LIBRARY_FREE_OPTIONS.md): the switches of the library-free layer.
-- [`NAMING.md`](NAMING.md): the production names of the research-stage components.
+- [`NAMING.md`](NAMING.md): the plain names for the shorthand labels of the research code.
 - [`../examples/README.md`](../examples/README.md): a worked example on synthetic data.
 
 Commands, in the order of a run:
 
 | command | what it does |
 |---|---|
-| `prepare-reference` | validates the reference FASTA and its repeat annotation, builds (or adopts) the Bowtie2 index |
-| `prepare-te` | validates the TE library and family map, builds the TE word languages (`--build-languages`) |
-| `prepare-sample` | validates paired FASTQ and builds the sample's msBWT |
+| `prepare-reference` | checks the reference FASTA and its repeat annotation, builds (or adopts) the Bowtie2 index |
+| `prepare-te` | checks the TE library and family map, builds the TE codebooks (`--build-languages`) |
+| `prepare-sample` | checks paired FASTQ and builds the sample's msBWT |
 | `call` | the library calls |
 | `library-free` | the library-free calls, added to the library calls (Linux/WSL) |
 | `build-repeat-map`, `build-family-records`, `add-record-calls` | the steps of a run without a TE library |
 | `run` | all of the above as one command, with a library or `--no-library` |
 | `refine-breakpoints`, `call-tiers`, `filter-resident-copies` | optional views of a finished run |
-| `validate`, `check-install`, `version` | checks of prepared assets, finished runs and the installation |
+| `validate`, `check-install`, `version` | check the prepared assets, finished runs and the installation |
 
 What has been validated is in [`../validation/EVITEA_V1_VALIDATION_STATUS.md`](../validation/EVITEA_V1_VALIDATION_STATUS.md).
