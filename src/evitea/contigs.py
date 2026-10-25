@@ -1,4 +1,14 @@
-"""Contig names of the reference: the primary contigs.
+"""Contig names of the reference: bare names, the mitochondrial contig and the primary contigs.
+
+Bare names
+    An annotation may name a contig without the ``chr`` prefix the reference uses (``2L`` for ``chr2L``, ``1`` for ``chr1``).
+    ``match_contig_name`` maps a bare name to ``chr`` + name only when that contig exists in the reference and the bare name
+    itself does not; every other name is kept as it is.
+
+Mitochondrial contig
+    The library-free layer's segment firewall tests segments against the mitochondrial sequence (nuclear copies of
+    mitochondrial DNA).  ``--mito-contig`` names that contig; without it the first of ``MITO_CONTIG_NAMES`` (``chrM``, ``MT``,
+    ``M``, ``chrMT``) found in the reference is used, and with none of them the mitochondrial test is off.
 
 Primary contigs
     The full-memory proposals of the library layer look only at the primary contigs.  ``--primary-contigs`` lists them (a comma
@@ -19,26 +29,49 @@ Primary contigs
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from pathlib import Path
 
 from .errors import InputContractError
 
 __all__ = [
     "DEVELOPMENT_PRIMARY_CONTIGS",
+    "MITO_CONTIG_NAMES",
     "ORGANELLE_CONTIG_NAMES",
     "PRIMARY_MIN_FRACTION",
     "default_primary_contigs",
+    "find_mito_contig",
+    "match_contig_name",
     "parse_contig_list",
     "resolve_primary_contigs",
 ]
 
 DEVELOPMENT_PRIMARY_CONTIGS = ("chr2L", "chr2R", "chr3L", "chr3R", "chrX")
+MITO_CONTIG_NAMES = ("chrM", "MT", "M", "chrMT")
 ORGANELLE_CONTIG_NAMES = frozenset(
-    name.lower() for name in ("chrM", "MT", "M", "chrMT", "mito", "mitochondrion", "chrMito", "ChrC", "chrPt", "Pt", "chloroplast")
+    name.lower() for name in (*MITO_CONTIG_NAMES, "mito", "mitochondrion", "chrMito", "ChrC", "chrPt", "Pt", "chloroplast")
 )
 PRIMARY_MIN_FRACTION = 0.10
 _UNPLACED = re.compile(r"^(chr)?Un([_\W]|$)|_(random|alt|fix|hap\d*|decoy)\b", re.IGNORECASE)
+
+
+def match_contig_name(name: str, contigs: Collection[str]) -> str:
+    """``name``, or ``chr`` + ``name`` when only that one is a contig of the reference (``contigs``)."""
+
+    if contigs and name not in contigs and "chr" + name in contigs:
+        return "chr" + name
+    return name
+
+
+def find_mito_contig(contigs: Iterable[str], option: str | None = None) -> str | None:
+    """The mitochondrial contig: ``option`` (which must exist), else the first of ``MITO_CONTIG_NAMES`` present, else None."""
+
+    names = set(contigs)
+    if option:
+        if option not in names:
+            raise InputContractError(f"--mito-contig {option!r} is not a contig of the reference")
+        return option
+    return next((name for name in MITO_CONTIG_NAMES if name in names), None)
 
 
 def default_primary_contigs(lengths: Mapping[str, int]) -> tuple[str, ...]:

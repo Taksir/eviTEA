@@ -16,6 +16,7 @@ import bisect
 from collections import defaultdict
 from pathlib import Path
 
+from ..contigs import match_contig_name
 from ..errors import InputContractError
 
 __all__ = ["CopyIndex", "FAMILY_ENRICHMENT", "family_inside", "resident_flags"]
@@ -60,9 +61,7 @@ class CopyIndex:
                     chrom, s, e = tab[0], int(tab[1]), int(tab[2])
             except (ValueError, IndexError):
                 continue
-            if names and chrom not in names:
-                chrom = "chr" + chrom if "chr" + chrom in names else chrom
-            iv[chrom].append((s, e))
+            iv[match_contig_name(chrom, names)].append((s, e))
         if not iv:
             raise InputContractError(f"repeat annotation {path} holds no interval")
         return cls(iv)

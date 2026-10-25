@@ -351,6 +351,9 @@ def build_parser() -> argparse.ArgumentParser:
                     "reference order)")
     lf.add_argument("--rule-c", action="store_true",
                     help="also drop family calls whose family members are <= 98.31%% identical (rule c)")
+    lf.add_argument("--mito-contig",
+                    help="the reference's mitochondrial contig, for the segment firewall (default: the first of chrM, MT, M, "
+                    "chrMT found; with none the mitochondrial test is off)")
     lf.add_argument("--detection-dir", type=Path,
                     help="reuse library_free_places.tsv and library_free_segments.fa from an earlier detection")
     _add_depth_cap(lf)
@@ -403,6 +406,9 @@ def build_parser() -> argparse.ArgumentParser:
     resident.add_argument("--calls", type=Path, required=True, help="calls.native.tsv or calls.combined.tsv")
     resident.add_argument("--reference-te-copies", type=Path, required=True, help="RepeatMasker .out of the reference")
     resident.add_argument("--te-assets", type=Path, required=True, help="prepared TE assets (the FBte id to family map)")
+    resident.add_argument("--reference-assets", type=Path,
+                          help="prepared reference assets: bare copy-table contig names (2L, 1) are matched to its chr "
+                          "contigs (default: to the contigs of the call table)")
     resident.add_argument("--output", type=Path, required=True)
     resident.add_argument("--allow-unlisted-copies", action="store_true",
                           help="accept a copy table whose sha256 is not listed in the tool")
@@ -920,6 +926,7 @@ def _library_free(args: argparse.Namespace) -> None:
         options=options,
         repeat_annotation=_resolved_cli_path(Path(args.repeat_annotation)) if args.repeat_annotation else None,
         repeat_map=_resolved_cli_path(Path(args.repeat_map)) if args.repeat_map else None,
+        mito_contig=args.mito_contig,
     )
 
 
@@ -979,6 +986,7 @@ def _filter_resident_copies(args: argparse.Namespace) -> None:
     from .resident_filter import (
         CopyIndex,
         FamilyIds,
+        call_contigs,
         dropped_tsv_bytes,
         filter_calls,
         load_copy_table,
@@ -995,8 +1003,14 @@ def _filter_resident_copies(args: argparse.Namespace) -> None:
     copies_sha, listed = verify_copy_table(copies_path, allow_unlisted=args.allow_unlisted_copies)
     family_map = _resident_family_map_path(args)
     started = time.time()
-    index = CopyIndex(load_copy_table(copies_path))
-    result = filter_calls(calls_path.read_bytes(), index, load_family_ids(family_map))
+    calls = calls_path.read_bytes()
+    contigs = (
+        tuple(name for name, _ in load_prepared_reference(_resolved_cli_path(args.reference_assets)).contigs)
+        if getattr(args, "reference_assets", None) is not None
+        else call_contigs(calls)
+    )
+    index = CopyIndex(load_copy_table(copies_path), contigs)
+    result = filter_calls(calls, index, load_family_ids(family_map))
     output = prepare_output_directory(_resolved_cli_path(args.output), resume=False)
     write_bytes(output / calls_path.name, result.filtered)
     write_bytes(output / "resident_copy_dropped.tsv", dropped_tsv_bytes(result.dropped))

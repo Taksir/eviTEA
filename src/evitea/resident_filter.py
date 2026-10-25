@@ -7,7 +7,7 @@ the library-free layer never run it, so a run's bytes cannot change because this
 Rule (the same one the wrong-call anatomy measured):
 
 * the copy is a RepeatMasker ``.out`` line on the same chromosome (chromosome names normalised as ``norm_chrom``:
-  a bare ``2L``/``2R``/``3L``/``3R``/``X`` gets ``chr``), copy begin taken 0-based (``int(f[5]) - 1``), copy end
+  a bare name such as ``2L`` or ``1`` gets ``chr`` when the reference has that ``chr`` contig), copy begin taken 0-based (``int(f[5]) - 1``), copy end
   ``int(f[6])``, copy id the FBte id in column 10, divergence column 2; lines with fewer than 15 fields, or whose first
   field is not a number (the header), are skipped;
 * gap = max(0, copy_begin - call_end, call_start - copy_end); the call is dropped iff a copy of its own family has gap 0
@@ -27,10 +27,11 @@ import csv
 import hashlib
 import io
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from dataclasses import astuple, dataclass, fields
 from pathlib import Path
 
+from .contigs import match_contig_name
 from .errors import InputContractError
 
 __all__ = [
@@ -58,18 +59,23 @@ LISTED_COPY_TABLES = {
 }
 
 
-def norm_chrom(value: str) -> str:
-    value = str(value).strip()
-    return "chr" + value if value in {"2L", "2R", "3L", "3R", "X"} else value
+def norm_chrom(value: str, contigs: Collection[str]) -> str:
+    """A bare name becomes ``chr`` + name when that contig exists in the reference (``contigs``); see ``evitea.contigs``."""
+
+    return match_contig_name(str(value).strip(), contigs)
 
 
 class CopyIndex:
-    """Reference copies per chromosome, sorted by ``(begin, end, id, divergence)``."""
+    """Reference copies per chromosome, sorted by ``(begin, end, id, divergence)``.
 
-    def __init__(self, records: Iterable[tuple[str, int, int, str, str]]):
+    ``contigs``: the reference's contig names, against which bare copy-table names are matched (``norm_chrom``).
+    """
+
+    def __init__(self, records: Iterable[tuple[str, int, int, str, str]], contigs: Collection[str]):
+        self.contigs = frozenset(contigs)
         by_chrom: dict[str, list[tuple[int, int, str, str]]] = defaultdict(list)
         for chrom, begin, end, fbte, divergence in records:
-            by_chrom[norm_chrom(chrom)].append((int(begin), int(end), fbte, divergence))
+            by_chrom[norm_chrom(chrom, self.contigs)].append((int(begin), int(end), fbte, divergence))
         self.by_chrom = {chrom: sorted(v) for chrom, v in by_chrom.items()}
         self.starts = {chrom: [c[0] for c in v] for chrom, v in self.by_chrom.items()}
         self.max_len = {chrom: max(c[1] - c[0] for c in v) for chrom, v in self.by_chrom.items()}
@@ -80,7 +86,7 @@ class CopyIndex:
     def match(self, chrom: str, start: int, end: int, fbte_ids: frozenset[str]) -> tuple[str, int, int, str, str] | None:
         """The first copy (sorted order) of any id in ``fbte_ids`` at gap 0 from ``[start, end]``, or None."""
 
-        chrom = norm_chrom(chrom)
+        chrom = norm_chrom(chrom, self.contigs)
         copies = self.by_chrom.get(chrom)
         if not copies:
             return None
@@ -185,6 +191,19 @@ def _integer(value: str, name: str, event_id: str) -> int:
         return int(value.strip())
     except ValueError:
         raise InputContractError(f"call {event_id}: {name} {value!r} is not an integer") from None
+
+
+def call_contigs(calls: bytes) -> frozenset[str]:
+    """Contig names of a call table's ``chr`` column (reference names), used when the reference is not given."""
+
+    lines = calls.decode("utf-8-sig").splitlines()
+    if not lines:
+        return frozenset()
+    header = lines[0].split("\t")
+    if "chr" not in header:
+        return frozenset()
+    column = header.index("chr")
+    return frozenset(f[column] for f in (line.split("\t") for line in lines[1:]) if len(f) > column and f[column])
 
 
 def filter_calls(calls: bytes, index: CopyIndex, family_ids: FamilyIds) -> FilterResult:

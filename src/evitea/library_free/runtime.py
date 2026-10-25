@@ -19,6 +19,7 @@ from collections import Counter as Tally
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from ..contigs import MITO_CONTIG_NAMES, find_mito_contig
 from ..errors import InputContractError, OperationalResourceError
 from ..outputs import write_bytes, write_run_summary
 from ..shadow_layers import ShadowCallset
@@ -92,7 +93,7 @@ def _code_sha256() -> str:
 
 
 def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: Sequence[str] | None, work: Path,
-            progress: Callable[[str], None], opts: Options):
+            progress: Callable[[str], None], opts: Options, mito_contig: str | None = None):
     """Scan the contigs (resumable), then group each pass over all scanned contigs. Returns the tables of the first pass
     (places bytes, segments bytes), of the second scan (or None) and an info dict."""
 
@@ -113,6 +114,10 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
     missing = [c for c in contigs if c not in genome]
     if missing or len(set(contigs)) != len(contigs):
         raise InputContractError(f"contigs must be distinct reference contigs; not found: {missing}")
+    mito = find_mito_contig(genome, mito_contig)
+    progress(f"library-free: mitochondrial contig {mito}" if mito else
+             "library-free: no mitochondrial contig found (" + ", ".join(MITO_CONTIG_NAMES)
+             + "); the mitochondrial segment test is off (--mito-contig names one)")
     about = Path(msbwt_index) / "about.npy"
     identity_base = {
         "schema": PIECE_SCHEMA,
@@ -122,6 +127,7 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
         "msbwt_index": str(msbwt_index),
         "depth_cap": _depth_cap_report(),
         "detection": opts.detection_identity,
+        "mito_contig": mito,
     }
     pieces_dir = work / "pieces"
     pieces_dir.mkdir(parents=True, exist_ok=True)
@@ -154,7 +160,7 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
             started = time.time()
             progress(f"library-free: scanning {chrom}")
             counter = P.Counter(load_msbwt(msbwt_index), cache=False)
-            firewall = P.MappyFirewall(str(reference_fasta), genome.get("chrM"))
+            firewall = P.MappyFirewall(str(reference_fasta), genome[mito] if mito else None)
             if opts.is_previous:
                 first, second, info = D.scan_contig(counter, genome[chrom], chrom, rm, firewall), None, {}
             else:
@@ -190,6 +196,7 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
         info["scan_counts"] = stats
     if opts.relative_depth_floor:
         info["depth_floors"] = {chrom: stats[chrom].get("depth_floor") for chrom in contigs}
+    info["mito_contig"] = mito
     return tables, info
 
 
@@ -221,7 +228,8 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
                      contigs: Sequence[str] | None, rule_c: bool, detection_dir: Path | None,
                      command_line: Sequence[str] = (), source_identity: dict | None = None,
                      progress: Callable[[str], None] | None = None, options: Options | None = None,
-                     repeat_annotation: Path | None = None, repeat_map: Path | None = None) -> dict:
+                     repeat_annotation: Path | None = None, repeat_map: Path | None = None,
+                     mito_contig: str | None = None) -> dict:
     from ..breakpoints.runtime import read_fasta
     from ..pipeline import prepare_output_directory
     from . import assemble as AS
@@ -252,7 +260,7 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
             raise InputContractError("library-free detection needs an msBWT index")
         genome = read_fasta(reference_fasta)
         tables, info = _detect(reference_fasta=reference_fasta, genome=genome, msbwt_index=Path(msbwt_index), contigs=contigs,
-                               work=work, progress=say, opts=opts)
+                               work=work, progress=say, opts=opts, mito_contig=mito_contig)
     if ("second" in tables) != (opts.het_scan != "off") and detection_dir is not None:
         raise InputContractError(
             "the detection directory " + ("holds" if "second" in tables else "has no") + " second-scan tables but --het-scan is "

@@ -374,16 +374,18 @@ def numt_rule(hits, L):
 
 
 def sd_rule(hits, L):
-    """hits: (q_st, q_en, mlen, blen, ctg, r_st) against the genome without chrM. SD if 1 or 2 distinct loci align at >= 95% identity
+    """hits: (q_st, q_en, mlen, blen, ctg, r_st) against the genome without the mitochondrial contig. SD if 1 or 2 distinct loci align at >= 95% identity
     over >= 80% of the segment."""
     loci = {(h[4], h[5] // 1000) for h in hits if h[3] and h[2] / h[3] >= SD_ID and (h[1] - h[0]) >= SD_COV * L}
     return 1 <= len(loci) <= 2
 
 
 class MappyFirewall:
-    """S4 alignment-based rules with mappy (minimap2). genome: dict name -> sequence (upper case) without chrM; chrm: sequence."""
+    """S4 alignment-based rules with mappy (minimap2). genome: dict name -> sequence (upper case) without the mitochondrial contig;
+    chrm: the mitochondrial sequence (None: no mitochondrial test)."""
     def __init__(self, genome_fa, chrm, preset="map-ont"):
-        """genome_fa: FASTA of the whole reference (chrM included; NUMTs are tested first); chrm: the chrM sequence."""
+        """genome_fa: FASTA of the whole reference (the mitochondrial contig included; NUMTs are tested first); chrm: the sequence of
+        the mitochondrial contig, or None when the reference has none."""
         import mappy
         self.mp, self.preset = mappy, preset
         self.g = mappy.Aligner(genome_fa, preset=preset, best_n=5)
