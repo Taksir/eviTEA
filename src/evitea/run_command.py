@@ -16,13 +16,17 @@ Without a library (``--no-library``; the chain of ``tools/no_library.sh`` and th
     reference/  prepare-reference          sample/  prepare-sample
     repeat_map/     build-repeat-map (BLAST+ on PATH)
 
-``--repeat-annotation`` is optional here.  Without it, ``build-repeat-map`` runs first, on the reference FASTA, and its BED6
-copy (``repeat_map/repeat_map_bed6.bed``: every repeated interval named ``repeat``) is the reference's annotation for
-``prepare-reference`` and so for the record pass's ``call``.  The run then takes only the reference and the reads.  A
-self-built record never shares a name with an annotation entry, so the same-family tests that read the annotation (the
-paired-end channel's residency test, the reference check of the record codebooks) behave the same with the map as with a
-curated annotation; what the map changes is the near-any-TE field of ``call-tiers`` and the segment classes of
-``--refine-breakpoints``, which read any annotated interval as a TE.  An explicit ``--repeat-annotation`` wins.
+``--repeat-annotation`` is optional here. Without it, ``build-repeat-map`` runs first, on the reference FASTA. Its BED6
+copy (``repeat_map/repeat_map_bed6.bed``, every repeated interval named ``repeat``) becomes the reference annotation for
+``prepare-reference`` and so for the ``call`` of the record pass. The run then takes only the reference and the reads.
+A self-built record never shares a name with an annotation entry. So the same-family tests that read the annotation
+(the residency test of paired-end anchor support, the reference check of the record codebooks) behave the same with the
+map as with a curated annotation. The map does change the near-any-TE field of ``call-tiers`` and the segment classes
+of ``--refine-breakpoints``, which read any annotated interval as a TE. An explicit ``--repeat-annotation`` takes
+precedence.
+
+The remaining steps without a library::
+
     nolib_stub/     an empty library call set (the header of calls.native.tsv and the sample id)
     library_free/   library-free on the stub, family-identity filter on, resident-copy test with the repeat map
     records/lib/, records/assets_te/   build-family-records (flag rule kept, record guard with the map), prepare-te
@@ -57,7 +61,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--read1", type=Path, required=True)
     parser.add_argument("--read2", type=Path, required=True)
     parser.add_argument("--sample-id")
-    parser.add_argument("--output", type=Path, required=True, help="run folder (created; a step already done is kept)")
+    parser.add_argument("--output", type=Path, required=True, help="run folder (created if absent; a finished step is not run again)")
     library = parser.add_mutually_exclusive_group(required=True)
     library.add_argument("--te-library", type=Path, help="TE library FASTA (with --family-map)")
     library.add_argument("--no-library", action="store_true",
@@ -68,7 +72,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--threads", type=int, default=0)
     parser.add_argument("--workers", type=int)
     for name in ("--read-length", "--fragment-q95", "--fragment-q99", "--primary-contigs"):
-        parser.add_argument(name, help=f"passed to call ({name})")
+        parser.add_argument(name, help=f"given to call as {name}")
 
 
 def _call_options(args: argparse.Namespace) -> list[str]:
@@ -153,7 +157,7 @@ def no_library_steps(args: argparse.Namespace, out: Path, sample_id: str) -> lis
 
 
 def write_stub_run(folder: Path, sample_id: str) -> None:
-    """An empty library call set: the header of calls.native.tsv and the sample id (what library-free reads)."""
+    """Write an empty library call set: the header of calls.native.tsv and the sample id (what library-free reads)."""
 
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "calls.native.tsv").write_text("\t".join(LEGACY_EVENT_FIELDS) + "\n", encoding="utf-8", newline="\n")
@@ -182,9 +186,9 @@ def run(args: argparse.Namespace, main: Callable[[Sequence[str]], int], say: Cal
         if args.family_map is not None or args.library_free:
             raise InputContractError("--no-library takes no --family-map or --library-free")
     elif args.family_map is None:
-        raise InputContractError("--te-library needs --family-map")
+        raise InputContractError("--te-library requires --family-map")
     elif args.repeat_annotation is None:
-        raise InputContractError("a run with a TE library needs --repeat-annotation (see docs/REPEAT_ANNOTATION.md)")
+        raise InputContractError("a run with a TE library requires --repeat-annotation (see docs/REPEAT_ANNOTATION.md)")
     out = Path(args.output).expanduser().resolve()
     sample_id = derive_sample_id(args.read1, args.sample_id)
     steps = no_library_steps(args, out, sample_id) if args.no_library else library_steps(args, out, sample_id)
