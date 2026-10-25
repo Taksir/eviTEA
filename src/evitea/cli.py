@@ -1,4 +1,4 @@
-"""Thin public command parser; frozen scientific thresholds are absent."""
+"""Command-line parser; the scientific thresholds are fixed and have no option."""
 
 from __future__ import annotations
 
@@ -87,7 +87,7 @@ def _distribution_version(*names: str) -> str | None:
 
 
 def _msbwt_distribution() -> tuple[str, str | None]:
-    """(name, version) of the installed msBWT package: pymsbwt first, then the older names."""
+    """Return (name, version) of the installed msBWT package: pymsbwt first, then the other package names."""
 
     for name in ("pymsbwt", "msbwt-modern3", "msbwt"):
         version = _distribution_version(name)
@@ -178,7 +178,7 @@ def _add_depth_cap(parser: argparse.ArgumentParser) -> None:
         default="none",
         metavar="N|none",
         help="absolute upper bound of the local-depth window of the breakpoint walk and the library-free layer "
-        "(default none: only the lower bound of 10 reads applies; --depth-cap 100 keeps the previous window)",
+        "(default none: only the lower bound of 10 reads applies; --depth-cap 100 sets an upper bound of 100)",
     )
 
 
@@ -221,24 +221,24 @@ def build_parser() -> argparse.ArgumentParser:
     te.add_argument(
         "--terminal-codebook",
         type=Path,
-        help="final safe terminal 21-mer codebook (v3 language; with --internal-codebook)",
+        help="final safe terminal 21-mer codebook (with --internal-codebook)",
     )
     te.add_argument(
         "--internal-codebook",
         type=Path,
-        help="internal-only safe 21-mer codebook (v3 language; with --terminal-codebook)",
+        help="internal-only safe 21-mer codebook (with --terminal-codebook)",
     )
     te.add_argument(
         "--build-languages",
         action="store_true",
-        help="build both v3 languages from the TE library, family map, reference and "
+        help="build the terminal and internal 21-mer codebooks from the TE library, family map, reference and "
         "RepeatMasker annotation (evitea.languages)",
     )
     te.add_argument(
         "--read-length",
         type=int,
         default=125,
-        help="with --build-languages: read length (bp) of the block column of the internal-21 audit (default 125)",
+        help="with --build-languages: read length (bp) of the block column of the internal 21-mer audit (default 125)",
     )
     te.add_argument("--reference-assets", type=Path, required=True)
     te.add_argument("--output", type=Path, required=True)
@@ -272,7 +272,8 @@ def build_parser() -> argparse.ArgumentParser:
     call.add_argument("--exact-query-backend", choices=("msbwt",))
     call.add_argument(
         "--profile",
-        help="'production' (default) or a reproduction-only profile (AKA017, ISO1)",
+        help="profile: 'production' (default), or AKA017 or ISO1 for the read names and event labels of those two "
+        "development samples",
     )
     call.add_argument("--bowtie2", type=Path)
     call.add_argument("--bowtie2-build", type=Path)
@@ -286,7 +287,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--refine-breakpoints",
         action="store_true",
         default=None,
-        help="narrow wide calls to the TE junction found in the reads (off by default; needs mappy)",
+        help="narrow wide calls to the TE junction found in the reads (off by default; requires mappy)",
     )
     call.add_argument(
         "--complete-routing",
@@ -300,7 +301,7 @@ def build_parser() -> argparse.ArgumentParser:
     call.add_argument(
         "--max-rescue-interval-mass",
         type=int,
-        help="recall-repair resource limit in msBWT interval rows (default 1500000)",
+        help="wide-anchor work limit in msBWT interval rows (default 1500000)",
     )
     call.add_argument(
         "--read-length",
@@ -345,8 +346,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     lf = commands.add_parser(
         "library-free",
-        help="library-free detector (detector v2) on an existing call output: family calls with no EviTEA call "
-        "within 500 bp are added (Linux/WSL; needs mappy and parasail)",
+        help="library-free detector on an existing call output: family calls with no EviTEA call "
+        "within 500 bp are added (Linux/WSL; requires mappy and parasail)",
     )
     lf.add_argument("--run-dir", type=Path, required=True, help="completed `evitea call` output")
     lf_sample = lf.add_mutually_exclusive_group()
@@ -358,7 +359,8 @@ def build_parser() -> argparse.ArgumentParser:
     lf.add_argument("--contigs", help="comma-separated contigs to scan, in this order (default: contigs >= 1 Mb, "
                     "reference order)")
     lf.add_argument("--rule-c", action="store_true",
-                    help="also drop family calls whose family members are <= 98.31%% identical (rule c)")
+                    help="the family-identity filter: also drop family calls whose family members have a median pairwise "
+                    "identity of <= 98.31%%")
     lf.add_argument("--mito-contig",
                     help="the reference's mitochondrial contig, for the segment firewall (default: the first of chrM, MT, M, "
                     "chrMT found; with none the mitochondrial test is off)")
@@ -373,8 +375,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     fr_build = commands.add_parser(
         "build-family-records",
-        help="library records from the library-free families that the library lacks, with their reference copies and end-word "
-        "codebooks (Linux/WSL; needs mappy)",
+        help="library records from the library-free families that the library does not have, with their reference copies "
+        "and end-word codebooks (Linux/WSL; requires mappy)",
     )
     _fr.add_arguments_build(fr_build)
     fr_add = commands.add_parser(
@@ -391,7 +393,7 @@ def build_parser() -> argparse.ArgumentParser:
     rmap_ref = rmap.add_mutually_exclusive_group(required=True)
     rmap_ref.add_argument("--reference-fasta", type=Path)
     rmap_ref.add_argument("--reference-assets", type=Path)
-    rmap.add_argument("--output", type=Path, required=True, help="new folder; the map is <output>/repeat_map.bed")
+    rmap.add_argument("--output", type=Path, required=True, help="output folder; the map is <output>/repeat_map.bed")
     rmap.add_argument("--contigs", help="comma-separated contigs whose windows are aligned (default: contigs >= 1 Mb, the contigs "
                       "that library-free scans by default)")
     rmap.add_argument("--parts", type=int, help="blastn processes (default: the CPUs, at most 8); the map does not depend on it")
@@ -408,7 +410,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     resident = commands.add_parser(
         "filter-resident-copies",
-        help="ablation post-filter (I-165): drop core calls that touch or overlap a reference copy of their own TE "
+        help="ablation post-filter: drop core calls that touch or overlap a reference copy of their own TE "
         "family; reads a finished call table, never run by `call` or `library-free`",
     )
     resident.add_argument("--calls", type=Path, required=True, help="calls.native.tsv or calls.combined.tsv")
@@ -600,7 +602,7 @@ def _validate(args: argparse.Namespace) -> None:
         _validate_run(args.output)
 
 
-# (name, what needs it, required, how to find the version)
+# (name, what uses it, required, how to find the version)
 _INSTALL_ITEMS = (
     ("python", "everything (CPython 3.14)", True, "python"),
     ("pymsbwt", "the msBWT of the sample (prepare-sample, call)", True, "module:MUSCython.MultiStringBWTCython"),
@@ -616,7 +618,7 @@ _INSTALL_ITEMS = (
 
 
 def _install_status(name: str, probe: str) -> str | None:
-    """The version of an item, ``installed`` when it has none to report, or None when it is missing."""
+    """Return the version of an item, ``installed`` when it has none to report, or None when it is missing."""
 
     import importlib
 
@@ -657,7 +659,7 @@ def _check_install(args: argparse.Namespace) -> int:
             state = version if version is not None else ("MISSING (required)" if required else "missing")
             print(f"  {name:<14} {state:<45} {need}")
         if sys.version_info[:2] != (3, 14):
-            print(f"  EviTEA needs CPython 3.14; this is {sys.version.split()[0]}")
+            print(f"  EviTEA requires CPython 3.14; this is {sys.version.split()[0]}")
         if not sys.platform.startswith("linux"):
             print("  the library-free layer and the family-record commands run on Linux (or WSL) only")
     return 0 if all(version is not None for _, _, required, version in rows if required) else 8
@@ -821,14 +823,14 @@ def _breakpoint_refiner(
     pin_one_sided: bool = False,
     call_annotations: bool = False,
 ):
-    """The real breakpoint refiner (imported only when the switch is on)."""
+    """Return the breakpoint refiner, imported only when breakpoint refinement is on."""
 
     from .breakpoints.runtime import BreakpointRefiner
 
     if msbwt_index is None:
         if assets.sample is None:
             raise InputContractError(
-                "breakpoint refinement needs --msbwt-index or --sample-assets "
+                "breakpoint refinement requires --msbwt-index or --sample-assets "
                 "(run prepare-sample first for raw reads)"
             )
         profile = assets.sample.backend_profile
@@ -980,7 +982,7 @@ def _add_record_calls(args: argparse.Namespace) -> None:
 
 
 def _library_free(args: argparse.Namespace) -> None:
-    """Detector v2 (+ rule c) on an existing run: places, family calls, added calls, combined calls."""
+    """Run the library-free detector on an existing run: places, family calls, added calls, combined calls."""
 
     _apply_depth_cap(args)
     from .library_free.runtime import run_library_free
@@ -991,7 +993,7 @@ def _library_free(args: argparse.Namespace) -> None:
         sample = load_prepared_sample(_resolved_cli_path(args.sample_assets))
         msbwt_index = sample.root / str(sample.backend_profile.get("index_directory", "index"))
     if msbwt_index is None and args.detection_dir is None:
-        raise InputContractError("library-free detection needs --msbwt-index or --sample-assets (or --detection-dir)")
+        raise InputContractError("library-free detection requires --msbwt-index or --sample-assets (or --detection-dir)")
     started = time.time()
     from .library_free.options import from_args as _lf_options
 
@@ -1023,7 +1025,7 @@ def _library_free(args: argparse.Namespace) -> None:
 
 
 def _tier_resident_paths(args: argparse.Namespace) -> tuple[Path, Path]:
-    """(repeat annotation, TE family map) of the prepared assets."""
+    """Return (repeat annotation, TE family map) paths of the prepared assets."""
 
     reference = load_prepared_reference(_resolved_cli_path(args.reference_assets))
     te = load_prepared_te_assets(_resolved_cli_path(args.te_assets))
@@ -1031,7 +1033,7 @@ def _tier_resident_paths(args: argparse.Namespace) -> tuple[Path, Path]:
 
 
 def _call_tiers(args: argparse.Namespace) -> None:
-    """call_tiers.tsv: one confidence tier per call of the combined call table; the run files are only read."""
+    """Write call_tiers.tsv, one confidence tier per call of the combined call table; the run files are only read."""
 
     from collections import Counter
 
@@ -1065,13 +1067,13 @@ def _call_tiers(args: argparse.Namespace) -> None:
 
 
 def _resident_family_map_path(args: argparse.Namespace) -> Path:
-    """The TE record to family map of the prepared TE assets."""
+    """Return the TE record to family map of the prepared TE assets."""
 
     return load_prepared_te_assets(_resolved_cli_path(args.te_assets)).source_path("family_map")
 
 
 def _filter_resident_copies(args: argparse.Namespace) -> None:
-    """Ablation (I-165): the call table without the core calls inside a reference copy of their own family."""
+    """Write the call table without the core calls inside a reference copy of their own family (an ablation)."""
 
     from .outputs import write_bytes, write_run_summary
     from .pipeline import prepare_output_directory
@@ -1202,7 +1204,7 @@ def _call(
 
 
 def _default_engine_with_progress(config: EviTEAConfig) -> CallEngine:
-    """The installed default engine, reporting progress on stderr."""
+    """Return the default call engine, reporting progress on stderr."""
 
     from .pipeline import default_call_engine
 
