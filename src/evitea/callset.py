@@ -22,8 +22,9 @@ import csv
 import hashlib
 import io
 from collections import Counter
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
@@ -37,8 +38,10 @@ __all__ = [
     "BED_COLUMNS",
     "UNRESOLVED_COLUMNS",
     "CallsetState",
+    "call_views",
     "calls_bed_bytes",
     "calls_tsv_bytes",
+    "calls_vcf_bytes",
     "unresolved_tsv_bytes",
 ]
 
@@ -254,6 +257,12 @@ def _sorted_views(
     return sorted(views, key=lambda v: (v["chrom"], v["start"], v["end"], v["family"], v["call_id"]))
 
 
+def call_views(state: CallsetState) -> list[dict[str, Any]]:
+    """The rows of ``calls.tsv`` as dicts (native coordinates), in its order."""
+
+    return _sorted_views(state)
+
+
 def calls_tsv_bytes(
     state: CallsetState, refined: Mapping[str, tuple[int, int]] | None = None
 ) -> bytes:
@@ -291,6 +300,22 @@ def calls_bed_bytes(
             "coordinate_kind": view["coordinate_kind"], "call_origin": view["call_origin"],
         })
     return _tsv(BED_COLUMNS, rows)
+
+
+def calls_vcf_bytes(
+    state: CallsetState,
+    contigs: Sequence[tuple[str, int]],
+    reference_fasta: Path | None,
+    refined: Mapping[str, tuple[int, int]] | None = None,
+) -> bytes:
+    """``calls.vcf``: the calls of ``calls.tsv`` (same coordinates) as VCF records (``evitea.vcf``)."""
+
+    from . import vcf
+
+    calls = vcf.native_vcf_calls(_sorted_views(state, refined))
+    bases = vcf.reference_bases(reference_fasta, calls) if reference_fasta is not None else None
+    return vcf.calls_vcf_bytes(calls, contigs, sample_id=state.sample_id, bases=bases,
+                               reference_name=Path(reference_fasta).name if reference_fasta is not None else None)
 
 
 def unresolved_tsv_bytes(state: CallsetState) -> bytes:

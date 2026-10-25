@@ -20,6 +20,8 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from ..contigs import MITO_CONTIG_NAMES, find_mito_contig
+from .. import vcf as V
+from ..callset import CallsetState, call_views
 from ..errors import InputContractError, OperationalResourceError
 from ..outputs import write_bytes, write_run_summary
 from ..shadow_layers import ShadowCallset
@@ -80,6 +82,16 @@ def combined_calls_tsv_bytes(native: bytes, added: bytes) -> bytes:
             r = dict(zip(head, line.split("\t")))
             lines.append(f"{r['event_id']}\t{r['chr']}\t{r['start']}\t{r['end']}\t{r['family']}\tLIBRARY_FREE")
     return ("\n".join(lines) + "\n").encode("utf-8")
+
+
+def combined_calls_vcf_bytes(native: bytes, added: bytes, reference, sample_id: str) -> bytes:
+    """``calls.combined.vcf``: the library calls (as in ``calls.tsv``) and the added library-free calls, as VCF records."""
+
+    calls = [*V.native_vcf_calls(call_views(CallsetState(sample_id=sample_id, native=native))),
+             *V.library_free_vcf_calls(added)]
+    fasta = Path(reference.reference_fasta_path)
+    return V.calls_vcf_bytes(calls, reference.contigs, sample_id=sample_id, bases=V.reference_bases(fasta, calls),
+                             reference_name=fasta.name)
 
 
 def _code_sha256() -> str:
@@ -290,8 +302,9 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     write_bytes(output / FAMILY_CALLS, AS.family_calls_tsv_bytes(rows, extended=extended))
     write_bytes(output / ADDED, added)
     write_bytes(output / COMBINED, combined_calls_tsv_bytes(native, added))
+    write_bytes(output / V.COMBINED_VCF_OUTPUT, combined_calls_vcf_bytes(native, added, reference, sample_id))
     statuses = Tally(r.status for r in rows)
-    names = [PLACES, SEGMENTS, FAMILY_CALLS, ADDED, COMBINED] + ([SECOND_PLACES, SECOND_SEGMENTS] if second is not None else [])
+    names = [PLACES, SEGMENTS, FAMILY_CALLS, ADDED, COMBINED, V.COMBINED_VCF_OUTPUT] + ([SECOND_PLACES, SECOND_SEGMENTS] if second is not None else [])
     summary = {
         "sample_id": sample_id,
         "source_run": str(run_dir),

@@ -34,7 +34,7 @@ from .errors import (
     OutputStateError,
     ResumeStateError,
 )
-from .callset import CallsetState, calls_bed_bytes, calls_tsv_bytes, unresolved_tsv_bytes
+from .callset import CallsetState, calls_bed_bytes, calls_tsv_bytes, calls_vcf_bytes, unresolved_tsv_bytes
 from .outputs import (
     write_bytes,
     write_run_log,
@@ -59,6 +59,8 @@ CANONICAL_OUTPUTS = (
 )
 BREAKPOINTS_OUTPUT = "breakpoints.tsv"  # written only when refinement.breakpoints is on
 ANNOTATIONS_OUTPUT = "call_annotations.tsv"  # written only when refinement.call_annotations is on
+VCF_OUTPUT = "calls.vcf"  # the calls of calls.tsv as VCF; runs before it existed have none
+OPTIONAL_OUTPUTS = (BREAKPOINTS_OUTPUT, ANNOTATIONS_OUTPUT, VCF_OUTPUT)
 CHECKPOINT_SCHEMA = "evitea.checkpoint.v1"
 RAW_SAMPLE_DIRECTORY = "prepared-sample"
 RAW_SAMPLE_STAGING_PREFIX = ".sample-build-"
@@ -450,8 +452,12 @@ def run_sample(
             calls_bed_bytes(state, dict(prepared_assets.reference.contigs), refined),
         )
         write_bytes(output / "unresolved.tsv", unresolved_tsv_bytes(state))
+        write_bytes(
+            output / VCF_OUTPUT,
+            calls_vcf_bytes(state, prepared_assets.reference.contigs, prepared_assets.reference.reference_fasta_path, refined),
+        )
         summary = state.summary()
-        hashed = tuple(name for name in CANONICAL_OUTPUTS if name != "run_manifest.json")
+        hashed = (*(name for name in CANONICAL_OUTPUTS if name != "run_manifest.json"), VCF_OUTPUT)
         log_lines = (
             "run_completed=true",
             f"profile={state.profile}",

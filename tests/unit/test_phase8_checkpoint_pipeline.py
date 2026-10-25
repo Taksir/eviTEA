@@ -68,7 +68,7 @@ def _context(config: EviTEAConfig) -> RunManifestContext:
 
 def _assets() -> PreparedAssets:
     return PreparedAssets(
-        reference=SimpleNamespace(contigs=(("2L", 100),)),
+        reference=SimpleNamespace(contigs=(("2L", 100),), reference_fasta_path=None),
         te=SimpleNamespace(),
     )
 
@@ -240,7 +240,7 @@ def test_cli_raw_build(
 ) -> None:
     config = _raw_config(tmp_path)
     call_assets = PreparedAssets(
-        reference=SimpleNamespace(contigs=(("2L", 100),), identity_sha256="r"),
+        reference=SimpleNamespace(contigs=(("2L", 100),), identity_sha256="r", reference_fasta_path=None),
         te=SimpleNamespace(identity_sha256="t"),
     )
     builder_calls: list[tuple[Path, str, int]] = []

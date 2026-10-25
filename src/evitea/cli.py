@@ -51,9 +51,9 @@ from .inputs import (
     validate_te_fasta,
 )
 from .pipeline import (
-    ANNOTATIONS_OUTPUT,
     BREAKPOINTS_OUTPUT,
     CANONICAL_OUTPUTS,
+    OPTIONAL_OUTPUTS,
     PreparedAssets,
     RawSampleBuilder,
     RunResult,
@@ -552,7 +552,7 @@ def _validate_run(output: Path) -> None:
     if not isinstance(output_hashes, dict):
         raise AssetCompatibilityError("run output hashes are malformed")
     required = set(CANONICAL_OUTPUTS) - {"run_manifest.json"}
-    if set(output_hashes) - {BREAKPOINTS_OUTPUT, ANNOTATIONS_OUTPUT} != required:
+    if set(output_hashes) - set(OPTIONAL_OUTPUTS) != required:
         raise AssetCompatibilityError(
             "run manifest must bind every canonical non-manifest output"
         )
@@ -776,9 +776,9 @@ def _refine_breakpoints(args: argparse.Namespace) -> None:
         refinement_summary,
     )
     from .pipeline import ANNOTATIONS_OUTPUT
-    from .callset import CallsetState, calls_bed_bytes, calls_tsv_bytes
+    from .callset import CallsetState, calls_bed_bytes, calls_tsv_bytes, calls_vcf_bytes
     from .outputs import write_bytes, write_run_summary
-    from .pipeline import prepare_output_directory
+    from .pipeline import VCF_OUTPUT, prepare_output_directory
 
     run_dir = _resolved_cli_path(args.run_dir)
     native = (run_dir / "calls.native.tsv").read_bytes()
@@ -818,7 +818,11 @@ def _refine_breakpoints(args: argparse.Namespace) -> None:
         output / "calls.bed", calls_bed_bytes(state, dict(assets.reference.contigs), refined)
     )
     write_bytes(output / BREAKPOINTS_OUTPUT, breakpoints_tsv_bytes(rows, pins=result.pins))
-    written = ["calls.native.tsv", "calls.tsv", "calls.bed", BREAKPOINTS_OUTPUT]
+    write_bytes(
+        output / VCF_OUTPUT,
+        calls_vcf_bytes(state, assets.reference.contigs, assets.reference.reference_fasta_path, refined),
+    )
+    written = ["calls.native.tsv", "calls.tsv", "calls.bed", VCF_OUTPUT, BREAKPOINTS_OUTPUT]
     if result.annotations is not None:
         write_bytes(output / ANNOTATIONS_OUTPUT, call_annotations_tsv_bytes(result.annotations))
         written.append(ANNOTATIONS_OUTPUT)
