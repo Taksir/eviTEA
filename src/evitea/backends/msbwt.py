@@ -33,7 +33,7 @@ from .protocols import MapperRead, RawReadHit, ReadIdentity
 MSBWT_DISTRIBUTION = "pymsbwt"
 # Lowest pymsbwt release accepted; every release builds the same msBWT byte for byte.
 MSBWT_MIN_VERSION = (0, 5)
-# The earlier distribution of the same module, accepted as a fallback at its validated version.
+# A second distribution of the same module, accepted as a fallback at its validated version.
 LEGACY_MSBWT_DISTRIBUTION = "msbwt-modern3"
 LEGACY_MSBWT_VERSION = "0.3.0"
 INDEX_DIRECTORY = "index"
@@ -104,14 +104,14 @@ def _sha256(path: Path) -> str:
 
 
 def _release_tuple(version: str) -> tuple[int, ...]:
-    """Leading numeric release parts: ``"0.5.0"`` -> (0, 5, 0), ``"0.6rc1"`` -> (0, 6)."""
+    """Leading numeric release parts: ``"0.5.0"`` gives (0, 5, 0), ``"0.6rc1"`` gives (0, 6)."""
 
     match = re.match(r"\d+(?:\.\d+)*", version)
     return tuple(int(part) for part in match.group().split(".")) if match else ()
 
 
 def installed_msbwt_distribution() -> tuple[str, str]:
-    """(distribution, version) of the installed msBWT package: pymsbwt, else the legacy package."""
+    """(distribution, version) of the installed msBWT package: pymsbwt, else msbwt-modern3."""
 
     for name in (MSBWT_DISTRIBUTION, LEGACY_MSBWT_DISTRIBUTION):
         try:

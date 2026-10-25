@@ -1,4 +1,4 @@
-"""Shell-free Bowtie2 candidate wrapper and streaming SAM parser."""
+"""Shell-free Bowtie2 runner and streaming SAM parser."""
 
 from __future__ import annotations
 
@@ -40,9 +40,9 @@ class Bowtie2CompatibilityProfile:
         if not self.version:
             raise InputContractError("Bowtie2 profile version must be non-empty")
         if self.max_reported != 2:
-            raise InputContractError("Phase 3 Bowtie2 profile requires max_reported=2")
+            raise InputContractError("the Bowtie2 profile requires max_reported=2")
         if self.min_mapq != 20:
-            raise InputContractError("Phase 3 Bowtie2 profile requires min_mapq=20")
+            raise InputContractError("the Bowtie2 profile requires min_mapq=20")
         if self.status != CANDIDATE_STATUS:
             raise InputContractError("Bowtie2 profile cannot claim unvalidated approval")
         reserved = {"-a", "--all", "-k", "-x", "-U", "-S", "-f", "-q"}
@@ -248,7 +248,7 @@ def map_paired_reference_reads(
     threads: int = 1,
     max_insert: int = FROZEN_REFERENCE_MAX_INSERT,
 ) -> PairedReferenceBatch:
-    """Run the frozen paired-reference producer over selected physical pairs."""
+    """Run the paired-reference Bowtie2 command over selected physical pairs."""
 
     verify_reference_asset(prepared_reference)
     index_value = prepared_reference.mapper_profile.get("index_prefix")

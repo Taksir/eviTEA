@@ -1,7 +1,7 @@
 """Backend observation models and structural protocols.
 
-Backends expose raw observations only. Biological interpretation remains in
-the evidence and adjudication layers.
+Backends expose raw observations only. Interpretation stays in the ``evidence``
+and ``adjudication`` packages.
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ class RawReadHit:
 
 @dataclass(frozen=True, slots=True)
 class MapperRead:
-    """One query sequence supplied to a host mapper."""
+    """One query sequence provided to a host mapper."""
 
     query_name: str
     sequence: str

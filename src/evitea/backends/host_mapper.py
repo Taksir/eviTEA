@@ -1,4 +1,4 @@
-"""Mapper-observation classification for the frozen candidate contract."""
+"""Classification of mapper observations into a host mapping state."""
 
 from __future__ import annotations
 
