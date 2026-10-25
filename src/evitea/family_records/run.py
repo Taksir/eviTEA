@@ -57,8 +57,8 @@ def _ids(scan, cluster):
 
 
 def padded_map(records):
-    """The family map followed by inert rows up to PAD_TO entries (the anchor-pair stage needs that many entries; prepare-te keeps
-    only rows of library records, so the assets still hold the records alone)."""
+    """Return the family map followed by inert rows up to PAD_TO entries. The anchor-pair stage requires that many entries.
+    prepare-te keeps only rows of library records, so the prepared assets hold the records alone."""
     body = "".join("%s\t%s\t\t\t\t\n" % (te, fam) for te, fam, _ in records)
     n = len(records)
     pad = "".join("%s\t%s\t\t\t\t\n" % (PAD_ID % k, PAD_NAME % k) for k in range(1, max(0, B.PAD_TO - n) + 1))
@@ -200,9 +200,9 @@ class _Index:
 
 
 def add_record_calls(*, calls, base_calls, annotation, family_map, output):
-    """Calls of the second library pass (on the record assets) that are added to the existing call set: a call inside a reference
-    copy of its own record is dropped; a call is added only where no call of the existing set lies within 500 bp; calls added
-    within 500 bp of each other count once (the one nearest the start of the contig is kept)."""
+    """Add calls of the second library pass (on the record assets) to the existing call set. A call inside a reference copy of
+    its own record is dropped. A call is added only where no call of the existing set lies within 500 bp. Calls added within
+    500 bp of each other count once, and the one nearest the start of the contig is kept."""
     out = Path(output)
     out.mkdir(parents=True, exist_ok=True)
     fam_of = dict(family_pairs(family_map))
@@ -265,12 +265,12 @@ def add_arguments_build(p):
     p.add_argument("--flag-rule", choices=S.FLAG_RULES, default="kept")
     p.add_argument("--record-guard", choices=("on", "off"), default="on")
     p.add_argument("--repeat-annotation", type=Path,
-                   help="RepeatMasker .out or BED of the reference: measures how many of a family's calls lie inside old copies")
+                   help="RepeatMasker .out or BED of the reference: measures what fraction of a family's calls lie inside old copies")
     p.add_argument("--repeat-map", type=Path,
                    help="repeat map of the reference (evitea build-repeat-map): stands in for --repeat-annotation when the run had no library")
-    p.add_argument("--te-share", type=float, help="the genome's TE share, when the annotation is not given")
+    p.add_argument("--te-share", type=float, help="the genome's TE fraction, when the annotation is not given")
     p.add_argument("--copy-report", choices=("on", "off"), default="off",
-                   help="also write copy_report.tsv: for each record the share of its words absent from the reference and its "
+                   help="also write copy_report.tsv: for each record the fraction of its words absent from the reference and its "
                         "reference copies")
 
 

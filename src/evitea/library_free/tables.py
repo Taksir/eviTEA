@@ -1,5 +1,5 @@
-"""Places and segments tables of a pass. The previous version columns come first and unchanged; the columns a switch needs follow, and
-only when that switch is on, so a run with every switch off writes the previous version's bytes."""
+"""Places and segments tables of a pass. The base detector columns come first and unchanged. A switch adds its columns after them,
+only when that switch is on, so a run with every switch off writes the base detector's bytes."""
 
 from __future__ import annotations
 

@@ -1,19 +1,19 @@
-"""Which families get a record, and the record guard.
+"""Choose the families that get a record, and apply the record guard.
 
-A family is flagged when it has at least FAMILY_MIN calls away from the library layer's calls and more away than near. The calls
-counted depend on the flag rule:
+A family is flagged when it has at least FAMILY_MIN calls away from the library layer's calls, and more calls away than near.
+The flag rule decides which calls count:
 
-kept            away = calls that the filters kept or the resident-copy test dropped last (ADDED, DROPPED_RESIDENT_COPY);
-                near = calls near a library call (NEAR_EVITEA). A haplotype-scan call near a first-pass call (NEAR_FIRST_PASS) is
-                neither: the first-pass call may itself belong to a family the library lacks.
-before-filters  away = calls that are not near a library call and that the family-identity filter does not drop, whatever the reference-path filter,
-                the one-site check or the resident-copy test said; near as above.
+kept            away = calls that the filters kept or that the resident-copy test dropped last (ADDED, DROPPED_RESIDENT_COPY).
+                near = calls near a library call (NEAR_EVITEA). A haplotype-scan call near a first-pass call (NEAR_FIRST_PASS)
+                counts as neither, because the first-pass call may itself belong to a family the library lacks.
+before-filters  away = calls that are not near a library call and that the family-identity filter does not drop. The reference-path
+                filter, the one-site check and the resident-copy test do not change the count. near as above.
 both            a family flagged by either rule.
 
 Cluster numbers belong to a scan, so a family is named by (scan, cluster).
 
-Record guard    a family whose calls lie inside annotated reference TE copies more than twice as often as the genome's TE share
-                (and in more than half of its calls) is a family of old copies, not of new insertions: it gets no record.
+Record guard    a family whose calls lie inside annotated reference TE copies more than twice as often as the genome's TE fraction
+                (and in more than half of its calls) is a family of old copies, not of non-reference insertions: it gets no record.
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ def _counts(rows, rule):
 
 
 def flagged_families(rows, rule: FlagRule = "kept"):
-    """{(scan, cluster): {'rows': [...], 'kept': (away, near), 'before-filters': (away, near), 'flagged_by': [...]}} for the
+    """Return {(scan, cluster): {'rows': [...], 'kept': (away, near), 'before-filters': (away, near), 'flagged_by': [...]}} for the
     flagged families, in scan then cluster order."""
     if rule not in FLAG_RULES:
         raise ValueError(f"flag rule {rule!r}: use one of {FLAG_RULES}")
@@ -71,13 +71,13 @@ def flagged_families(rows, rule: FlagRule = "kept"):
 
 
 def guard_threshold(te_share: float | None) -> float:
-    """The family-inside share above which a family gets no record. An unknown TE share counts as 0 (the floor alone)."""
+    """Return the family-inside fraction above which a family gets no record. An unknown TE fraction counts as 0 (the floor alone)."""
     return max(GUARD_FLOOR, FAMILY_ENRICHMENT * (te_share or 0.0))
 
 
 def inside_share(rows, copies: CopyIndex | None) -> float | None:
-    """Share of the family's calls (any status) whose break lies inside an annotated copy: measured with the annotation when
-    given, else read from the family-calls table's ``family_inside`` column; None when neither exists."""
+    """Return the fraction of the family's calls (any status) whose break lies inside an annotated copy. Measure it with the
+    annotation when given, else read it from the family-calls table's ``family_inside`` column. Return None when neither exists."""
     if copies is not None:
         k = sum(copies.inside(r["chrom"], int(r["bL"])) for r in rows)
         return k / len(rows)

@@ -1,9 +1,9 @@
 """Detector driver: one contig at a time, then one grouping over all contigs.
 
-Port of the frozen research driver (``p4_genome.py piece`` / ``merge``, built
-from ``p4_run.py``) without its evaluation-only targeted mode.  The
+Port of the research driver (``p4_genome.py piece`` / ``merge``, built
+from ``p4_run.py``) without its evaluation-only targeted mode. The
 per-contig scan and the grouping call the vendored ``_p4_lib`` exactly as the
-frozen driver does, so ``places_tsv_bytes`` reproduces ``P4_PLACES.tsv`` and
+research driver does, so ``places_tsv_bytes`` reproduces ``P4_PLACES.tsv`` and
 ``segments_fa_bytes`` reproduces ``P4_SEGMENTS.fa`` (tests/unit/test_library_free.py).
 """
 
@@ -39,7 +39,7 @@ def reference_multi(genome: Mapping[str, str]) -> P.RefMulti:
 def scan_contig(counter, sequence: str, chrom: str, rm: P.RefMulti, firewall) -> list[dict]:
     """S1-S4 for every candidate of one contig, in candidate order (``p4_genome.py piece`` without targets).
 
-    ``counter`` is a ``_p4_lib.Counter`` over the sample msBWT built with ``cache=False``; as in the frozen driver its
+    ``counter`` is a ``_p4_lib.Counter`` over the sample msBWT built with ``cache=False``. As in the research driver, its
     cache is switched on after the S1 scan and cleared every 2,000,000 entries.
     """
 
@@ -100,7 +100,7 @@ def segments_fa_bytes(grouped: Sequence[dict]) -> bytes:
 
 
 def parse_places(data: bytes) -> list[dict[str, str]]:
-    """Rows of a places table as text fields (the frozen scorers' reading)."""
+    """Return the rows of a places table as text fields (as the research scorers read them)."""
 
     lines = data.decode("utf-8-sig").splitlines()
     if not lines:

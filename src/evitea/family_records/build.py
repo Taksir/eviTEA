@@ -1,13 +1,14 @@
 """Record building: consensus of the member segments of a family, reference copies from exact words, end-word codebooks.
 
-Record      the member segments of a family are oriented against a seed (the member with the most letters whose two segments both
-            hold at least ORIENT_K letters; up to SEED_CANDIDATES seeds are tried and the one that places most members wins), piled
-            on the seed per end, and voted per column (a letter needs more than half of the covering members and at least
-            FAMILY_MIN members; otherwise N). The two end consensuses join where a suffix of the first is exactly a prefix of the
-            second (JOIN_K letters at least: the walks met inside a short element); otherwise they are separated by SPACER N.
-Copies      a reference copy of a record is a chain of exact WORD_K-letter words of the record on one contig and strand: each
-            word lies at most COPY_GAP letters after the chain's last word and its offset (reference position minus record
-            position) is within DIAG_SLACK of it. A chain is a copy when it holds two non-overlapping words.
+Record      the member segments of a family are oriented against a seed, piled on the seed per end, and voted per column.
+            The seed is the member with the most letters whose two segments both hold at least ORIENT_K letters. Up to
+            SEED_CANDIDATES seeds are tried, and the one that places most members wins. A letter wins a column when it has more
+            than half of the covering members and at least FAMILY_MIN members, otherwise the column is N. The two end consensuses
+            join where a suffix of the first is exactly a prefix of the second (JOIN_K letters at least, because the walks met
+            inside a short element). Otherwise they are separated by SPACER N.
+Copies      a reference copy of a record is a chain of exact WORD_K-letter words of the record on one contig and strand. Each
+            word lies at most COPY_GAP letters after the chain's last word, and its offset (reference position minus record
+            position) is within DIAG_SLACK of the chain's. A chain is a copy when it holds two non-overlapping words.
 """
 
 from __future__ import annotations
@@ -95,7 +96,7 @@ def _place(alA, alB, lseg, rseg):
 
 
 def join_ends(a: str, b: str) -> tuple[str, str]:
-    """Merge the two ends only when a suffix of the first is exactly a prefix of the second; a shared word alone is not enough,
+    """Merge the two ends only when a suffix of the first is exactly a prefix of the second. A shared word alone is not enough,
     because terminal repeats put the same words at both ends."""
     for p in range(max(0, len(a) - len(b)), len(a) - JOIN_K + 1):
         if b.startswith(a[p:]):
@@ -104,8 +105,8 @@ def join_ends(a: str, b: str) -> tuple[str, str]:
 
 
 def build_record(members) -> Record | None:
-    """``members``: (left segment, right segment) pairs of one family. None when fewer than FAMILY_MIN members are usable or no
-    column reaches the vote."""
+    """Build a record from ``members``, the (left segment, right segment) pairs of one family. Return None when fewer than
+    FAMILY_MIN members are usable or no column reaches the vote."""
     mp = _mappy()
     usable = [m for m in members if len(m[0]) + len(m[1]) >= ORIENT_K]
     if len(usable) < FAMILY_MIN:
@@ -139,7 +140,7 @@ def build_record(members) -> Record | None:
 
 
 def _reference_chunks(path):
-    """(contig name, uppercase sequence) of a FASTA."""
+    """Yield (contig name, uppercase sequence) of a FASTA."""
     from ..languages.common import parse_fasta
 
     for header, seq in parse_fasta(path):
@@ -147,7 +148,7 @@ def _reference_chunks(path):
 
 
 def word_copies(records: dict[str, str], reference_fasta) -> list[tuple[str, int, int, str]]:
-    """Reference copies of each record from its own WORD_K-letter words: rows (contig, begin, end, record id)."""
+    """Return the reference copies of each record from its own WORD_K-letter words, as rows (contig, begin, end, record id)."""
     index: dict[str, list] = {}
     for te, seq in records.items():
         for i in range(len(seq) - WORD_K + 1):
@@ -185,7 +186,7 @@ def word_copies(records: dict[str, str], reference_fasta) -> list[tuple[str, int
 
 
 def reference_absent_share(seq: str, ref_count: dict[str, int]) -> float:
-    """Share of the record's WORD_K-letter words (both strands as one) that occur nowhere in the reference."""
+    """Return the fraction of the record's WORD_K-letter words (both strands as one) that occur nowhere in the reference."""
     ws = [w for w in (seq[i:i + WORD_K] for i in range(len(seq) - WORD_K + 1)) if "N" not in w]
     if not ws:
         return 0.0
@@ -194,7 +195,7 @@ def reference_absent_share(seq: str, ref_count: dict[str, int]) -> float:
 
 
 def count_record_words(records: dict[str, str], reference_fasta) -> dict[str, int]:
-    """canonical word -> occurrences in the reference, for the words of the records only."""
+    """Map each word of the records (both strands as one) to its occurrences in the reference."""
     look = {}
     for seq in records.values():
         for i in range(len(seq) - WORD_K + 1):
@@ -213,8 +214,8 @@ def count_record_words(records: dict[str, str], reference_fasta) -> dict[str, in
 
 
 def languages(te_fa, fmap, bed, ref):
-    """The end-word codebooks (terminal, internal-only) of the library builder; its gap fill stops when no record is short of end
-    words, and then the rebuilt words pass through."""
+    """Return the end-word codebooks (terminal, internal-only) of the library builder. When its gap fill stops because no record
+    is short of end words, the rebuilt words pass through."""
     from ..languages import internal as I
     from ..languages import terminal as T
     from ..languages.builder import build_languages, g1a_tables

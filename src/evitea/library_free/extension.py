@@ -11,13 +11,13 @@ anchored   Where the plain extension stops short (the firewall would drop its se
            than a read, so a re-extended segment reaches at most about one read length minus 30 letters past the junction
            while the anchored counts are in use. A re-extended segment's stop reason carries the prefix ``a_`` when the
            anchored counts were used for at least one letter; when they never were, the result equals the plain one.
-cross      (needs anchored) When the extension would stop and its segment ends in a run of one letter at least ``LC_RUN``
+cross      (requires anchored) When the extension would stop and its segment ends in a run of one letter at least ``LC_RUN``
            long, the letter after the run is counted over every run length from ``LC_RUN`` up (anchored words: host letters +
            segment before the run + run + letter). If the top letter has at least the extension's stop count and ``FORK`` of
            the summed counts, the segment takes the run at its most common length and that letter, then continues under the
            plain stop and fork rules. Stop reasons of such segments start with ``a_x_``.
 
-No constant is new. With both off the extender is ``_p4_lib.extend``.
+All constants come from ``_p4_lib``. With both off, the extender is ``_p4_lib.extend``.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ def _tail_run(s):
 
 
 def _cross(C, host, s, stop, fork):
-    """(new segment or None, record, state) for the letter after the trailing run, counted over every run length."""
+    """Return (extended segment or None, record, state) for the letter after the trailing run, counted over every run length."""
     R, n = _tail_run(s)
     pre = s[:len(s) - n]
     sums = {x: 0 for x in "ACGT" if x != R}
@@ -75,7 +75,7 @@ def _xcount(C, X, b):
 class Extender:
     def __init__(self, anchored: bool = False, cross: bool = False):
         if cross and not anchored:
-            raise ValueError("the poly-A crossing needs the anchored extension")
+            raise ValueError("the poly-A crossing requires the anchored extension")
         self.anchored, self.cross = bool(anchored), bool(cross)
         self.where: dict = {}
         self.stats = dict(calls=0, retried=0, anchored=0, anchored_letters=0, now_long_not_sat=0, cross_tried=0, cross_done=0)
