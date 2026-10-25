@@ -39,7 +39,6 @@ implementation_prep/
 docs/S40_PRODUCER_FIELD_MAPPING.md
 docs/V3_EXTENSION_SOURCE_AUDIT.md
 .s10-manual/
-.github/
 
 # Runtime state and large data
 *.pkl

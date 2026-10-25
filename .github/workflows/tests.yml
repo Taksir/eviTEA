@@ -1,0 +1,49 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: External programs (Bowtie2, BLAST+)
+        run: sudo apt-get update && sudo apt-get install -y bowtie2 ncbi-blast+
+      - name: Install EviTEA with both extras
+        run: python -m pip install ".[anchorpe,library-free]" pytest
+      - name: evitea check-install
+        run: evitea check-install
+      - name: pytest (unit, negative, integration, parity)
+        run: python -m pytest -ra
+      - name: Live msBWT and the synthetic end-to-end calls (known insertions)
+        env:
+          EVITEA_RUN_MSBWT_LIVE: "1"
+          EVITEA_RUN_SYNTHETIC_CALL: "1"
+        run: python -m pytest -ra tests/integration/test_phase8_msbwt_live.py tests/integration/test_synthetic_call.py
+      - name: Library-free tests
+        env:
+          PYTHON: python
+        run: bash tools/library_free_tests/run_all.sh
+
+  windows:
+    # the library layer runs on Windows; the library-free layer (mappy) and the Bowtie2-based tests do not, and skip
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install EviTEA
+        run: python -m pip install . pytest
+      - name: evitea check-install
+        run: evitea check-install; exit 0
+        shell: pwsh
+      - name: pytest
+        run: python -m pytest -ra
