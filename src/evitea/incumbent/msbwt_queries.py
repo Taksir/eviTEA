@@ -42,7 +42,7 @@ class MsbwtSample(SeedPairLocator):
             try:
                 from MUSCython import MultiStringBWTCython
             except ImportError as exc:  # pragma: no cover - environment dependent
-                raise BackendCompatibilityError("msbwt-modern3 is not installed") from exc
+                raise BackendCompatibilityError("pymsbwt is not installed (pip install pymsbwt)") from exc
             bwt = MultiStringBWTCython.loadBWT(str(directory), useMemmap=True)
         if about is None:
             about = np.load(directory / "about.npy", mmap_mode="r", allow_pickle=False)

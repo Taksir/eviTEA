@@ -12,7 +12,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "Md Taksir Hasan Majumder" }]
 requires-python = ">=3.14,<3.15"
 dependencies = [
-    "msbwt-modern3==0.3.0",
+    "pymsbwt>=0.5",
     "numpy>=2.5,<3",
 ]
 

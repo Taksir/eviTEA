@@ -82,6 +82,16 @@ def _distribution_version(*names: str) -> str | None:
     return None
 
 
+def _msbwt_distribution() -> tuple[str, str | None]:
+    """(name, version) of the installed msBWT package: pymsbwt first, then the older names."""
+
+    for name in ("pymsbwt", "msbwt-modern3", "msbwt"):
+        version = _distribution_version(name)
+        if version is not None:
+            return name, version
+    return "pymsbwt", None
+
+
 def _executable_version(executable: str | Path) -> str | None:
     resolved = shutil.which(str(executable))
     if resolved is None:
@@ -527,7 +537,7 @@ def _validate(args: argparse.Namespace) -> None:
 
 
 def _version(args: argparse.Namespace) -> None:
-    exact_query_version = _distribution_version("msbwt-modern3", "msbwt")
+    exact_query_package, exact_query_version = _msbwt_distribution()
     numpy_version = _distribution_version("numpy")
     native_version = _distribution_version("evitea-native")
     document = {
@@ -536,6 +546,7 @@ def _version(args: argparse.Namespace) -> None:
         "evitea_version": __version__,
         "exact_query_backend": {
             "name": "msbwt",
+            "package": exact_query_package,
             "version": exact_query_version,
         },
         "native_backend": {
@@ -552,7 +563,7 @@ def _version(args: argparse.Namespace) -> None:
         print(f"architecture: {ARCHITECTURE_ID}")
         print(f"Python: {document['python_version']}")
         print(f"NumPy: {numpy_version or 'unavailable'}")
-        print(f"exact-query backend: msbwt {exact_query_version or 'unavailable'}")
+        print(f"exact-query backend: msbwt ({exact_query_package} {exact_query_version or 'unavailable'})")
         print(f"native backend: {native_version or 'unavailable'}")
         print(f"Bowtie2: {document['bowtie2_version'] or 'unavailable'}")
 
@@ -994,7 +1005,7 @@ def _call(
         backend_versions={
             "exact_query": (
                 f"{config.runtime.exact_query_backend} "
-                f"{_distribution_version('msbwt-modern3', 'msbwt') or 'unavailable'}"
+                f"{' '.join(str(part or 'unavailable') for part in _msbwt_distribution())}"
             ),
             "bowtie2": (
                 _executable_version(config.runtime.bowtie2 or "bowtie2")

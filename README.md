@@ -33,14 +33,12 @@ ISO1 about 2 hours. These are observations, not guarantees.
 
 ## Installation
 
-EviTEA needs `msbwt-modern3==0.3.0`, which is not on PyPI. It lives at
-<https://github.com/Taksir/msbwt> (branch `enhanced-modern3`, directory
-`packages/msbwt-modern3`). Install it first, following the instructions in that
-repository: use a prebuilt wheel if one is attached to its Releases page, otherwise
-build from source:
+EviTEA reads the sample through a multi-string BWT built by
+[pymsbwt](https://pypi.org/project/pymsbwt/) (version 0.5 or later). It is a normal
+dependency, so `pip install` of EviTEA pulls it in; to install it on its own:
 
 ```bash
-python -m pip install "msbwt-modern3 @ git+https://github.com/Taksir/msbwt.git@enhanced-modern3#subdirectory=packages/msbwt-modern3"
+python -m pip install pymsbwt
 ```
 
 Then install EviTEA:

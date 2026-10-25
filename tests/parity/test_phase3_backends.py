@@ -239,7 +239,7 @@ def test_prepared_sample_binds_sources_identity_map_and_index(tmp_path: Path):
         read1_path=FIXTURES / "sample_R1.fastq.txt",
         read2_path=FIXTURES / "sample_R2.fastq.txt",
         identity_map_relative_path="identity/reads.json",
-        backend_profile={"backend": "msbwt-modern3", "version": "0.3.0"},
+        backend_profile={"backend": "pymsbwt", "version": "0.5.0"},
         index_relative_paths=["index/sample.msbwt"],
     )
 
@@ -277,6 +277,6 @@ def test_prepared_sample_rejects_incomplete_pair_mate_identity(tmp_path: Path):
             read1_path=FIXTURES / "sample_R1.fastq.txt",
             read2_path=FIXTURES / "sample_R2.fastq.txt",
             identity_map_relative_path="identity/reads.json",
-            backend_profile={"backend": "msbwt-modern3", "version": "0.3.0"},
+            backend_profile={"backend": "pymsbwt", "version": "0.5.0"},
             index_relative_paths=["index/sample.msbwt"],
         )

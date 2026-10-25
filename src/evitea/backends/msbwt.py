@@ -1,10 +1,11 @@
-"""Adapter for the validated ``msbwt-modern3`` public query API."""
+"""Adapter for the ``pymsbwt`` public query API (module ``MUSCython.MultiStringBWTCython``)."""
 
 from __future__ import annotations
 
 import hashlib
 import logging
 import os
+import re
 import shutil
 import stat
 from collections.abc import Iterable
@@ -29,8 +30,12 @@ from .exact_query import (
 )
 from .protocols import MapperRead, RawReadHit, ReadIdentity
 
-MSBWT_DISTRIBUTION = "msbwt-modern3"
-MSBWT_VERSION = "0.3.0"
+MSBWT_DISTRIBUTION = "pymsbwt"
+# Lowest pymsbwt release accepted; every release builds the same msBWT byte for byte.
+MSBWT_MIN_VERSION = (0, 5)
+# The earlier distribution of the same module, accepted as a fallback at its validated version.
+LEGACY_MSBWT_DISTRIBUTION = "msbwt-modern3"
+LEGACY_MSBWT_VERSION = "0.3.0"
 INDEX_DIRECTORY = "index"
 IDENTITY_MAP_NAME = "read_identity_map.json"
 REQUIRED_INDEX_FILES = ("about.npy", "fmIndex.npy", "msbwt.npy", "totalCounts.npy")
@@ -80,7 +85,7 @@ def load_msbwt(index_dir: str | Path, *, use_memmap: bool = True) -> Any:
         from MUSCython.MultiStringBWTCython import loadBWT
     except ImportError as exc:
         raise BackendCompatibilityError(
-            "msbwt-modern3 is unavailable; install the validated compatibility line"
+            "pymsbwt is unavailable; install it with `pip install pymsbwt`"
         ) from exc
     try:
         return loadBWT(str(Path(index_dir)), useMemmap=use_memmap)
@@ -98,26 +103,50 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _installed_uniform_builder() -> tuple[Callable[..., None], str, Path]:
+def _release_tuple(version: str) -> tuple[int, ...]:
+    """Leading numeric release parts: ``"0.5.0"`` -> (0, 5, 0), ``"0.6rc1"`` -> (0, 6)."""
+
+    match = re.match(r"\d+(?:\.\d+)*", version)
+    return tuple(int(part) for part in match.group().split(".")) if match else ()
+
+
+def installed_msbwt_distribution() -> tuple[str, str]:
+    """(distribution, version) of the installed msBWT package: pymsbwt, else the legacy package."""
+
+    for name in (MSBWT_DISTRIBUTION, LEGACY_MSBWT_DISTRIBUTION):
+        try:
+            return name, metadata.version(name)
+        except metadata.PackageNotFoundError:
+            continue
+    raise BackendCompatibilityError("pymsbwt is unavailable; install it with `pip install pymsbwt`")
+
+
+def _installed_uniform_builder() -> tuple[Callable[..., None], str, str, Path]:
     try:
-        installed_version = metadata.version(MSBWT_DISTRIBUTION)
+        distribution, installed_version = installed_msbwt_distribution()
         from MUSCython import MultiStringBWTCython
-    except (ImportError, metadata.PackageNotFoundError) as exc:
+    except ImportError as exc:
         raise BackendCompatibilityError(
-            "msbwt-modern3 0.3.0 with compiled builders is unavailable"
+            "pymsbwt with compiled builders is unavailable"
         ) from exc
-    if installed_version != MSBWT_VERSION:
+    if distribution == MSBWT_DISTRIBUTION:
+        if _release_tuple(installed_version) < MSBWT_MIN_VERSION:
+            raise BackendCompatibilityError(
+                f"pymsbwt {installed_version} is older than the required "
+                f"{'.'.join(map(str, MSBWT_MIN_VERSION))}"
+            )
+    elif installed_version != LEGACY_MSBWT_VERSION:
         raise BackendCompatibilityError(
-            f"msbwt-modern3 {installed_version} is not the validated "
-            f"{MSBWT_VERSION} profile"
+            f"{LEGACY_MSBWT_DISTRIBUTION} {installed_version} is not the validated "
+            f"{LEGACY_MSBWT_VERSION}; install pymsbwt instead"
         )
     builder = getattr(MultiStringBWTCython, "createMSBWTFromFastq", None)
     module_path = Path(getattr(MultiStringBWTCython, "__file__", ""))
     if not callable(builder) or not module_path.is_file():
         raise BackendCompatibilityError(
-            "msbwt-modern3 lacks the compiled uniform FASTQ builder"
+            f"{distribution} lacks the compiled uniform FASTQ builder"
         )
-    return builder, installed_version, module_path
+    return builder, distribution, installed_version, module_path
 
 
 def _identity_map_from_about(
@@ -192,8 +221,9 @@ def build_prepared_msbwt_sample(
     root.mkdir(parents=True, exist_ok=True)
 
     if builder is None:
-        builder, installed_version, installed_module_path = _installed_uniform_builder()
+        builder, distribution, installed_version, installed_module_path = _installed_uniform_builder()
     else:
+        distribution = MSBWT_DISTRIBUTION
         installed_version = backend_version or "test-double"
         installed_module_path = (
             Path(builder_module_path) if builder_module_path else None
@@ -299,7 +329,7 @@ def build_prepared_msbwt_sample(
         read2_path=read2,
         identity_map_relative_path=IDENTITY_MAP_NAME,
         backend_profile={
-            "distribution": MSBWT_DISTRIBUTION,
+            "distribution": distribution,
             "version": installed_version,
             "builder": "MUSCython.MultiStringBWTCython.createMSBWTFromFastq",
             "builder_module_sha256": module_sha256,

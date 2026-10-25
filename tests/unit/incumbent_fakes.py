@@ -8,7 +8,7 @@ from evitea.incumbent.msbwt_queries import MsbwtSample
 
 
 class TinyBWT:
-    """Suffix-sorted stand-in for the msbwt-modern3 public query API."""
+    """Suffix-sorted stand-in for the pymsbwt public query API."""
 
     def __init__(self, reads: list[str]):
         self.reads = reads

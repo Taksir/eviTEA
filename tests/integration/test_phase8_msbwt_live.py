@@ -58,6 +58,7 @@ def test_compiled_builder_preserves_duplicate_pair_and_mate_identity(
     )
     asset = load_prepared_sample(output)
     identity_map = verify_prepared_sample(asset)
+    assert asset.backend_profile["distribution"] == "pymsbwt"
     assert set(asset.file_hashes) == {
         "read_identity_map.json",
         "index/about.npy",
