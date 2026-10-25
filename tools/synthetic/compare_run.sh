@@ -20,27 +20,28 @@ COMMON=(--reference "$D/reference.fa" --repeat-annotation "$D/repeat_annotation.
 ev run "${COMMON[@]}" --te-library "$D/te_library.fa" --family-map "$D/family_map.tsv" --library-free --contigs "$C" \
   --output "$WORK/run_lib" 2> "$WORK/run_lib.log"
 S=$WORK/sep_lib
-if [ ! -d "$S/call" ]; then
-  ev prepare-reference --reference "$D/reference.fa" --repeat-annotation "$D/repeat_annotation.bed" --output "$S/reference" --threads 4
-  ev prepare-te --te-library "$D/te_library.fa" --family-map "$D/family_map.tsv" --build-languages --reference-assets "$S/reference" \
-    --output "$S/te" 2> "$S.te.log"
-  ev prepare-sample --read1 "$D/sample_R1.fastq" --read2 "$D/sample_R2.fastq" --sample-id synth --output "$S/sample" --threads 4
-  ev call --sample-assets "$S/sample" --reference-assets "$S/reference" --te-assets "$S/te" --output "$S/call" \
-    --work-dir "$S/work/call" --threads 4 --workers 2 2> "$S.call.log"
-  ev library-free --run-dir "$S/call" --sample-assets "$S/sample" --reference-assets "$S/reference" --output "$S/library_free" \
-    --work-dir "$S/work/library_free" --contigs "$C" 2> "$S.lf.log"
-fi
+# each separate step runs unless its output folder exists (a run cut short: remove the unfinished folder and start again)
+[ -d "$S/reference" ] || ev prepare-reference --reference "$D/reference.fa" --repeat-annotation "$D/repeat_annotation.bed" \
+  --output "$S/reference" --threads 4
+[ -d "$S/te" ] || ev prepare-te --te-library "$D/te_library.fa" --family-map "$D/family_map.tsv" --build-languages \
+  --reference-assets "$S/reference" --output "$S/te" 2> "$S.te.log"
+[ -d "$S/sample" ] || ev prepare-sample --read1 "$D/sample_R1.fastq" --read2 "$D/sample_R2.fastq" --sample-id synth \
+  --output "$S/sample" --threads 4
+[ -d "$S/call" ] || ev call --sample-assets "$S/sample" --reference-assets "$S/reference" --te-assets "$S/te" --output "$S/call" \
+  --work-dir "$S/work/call" --threads 4 --workers 2 2> "$S.call.log"
+[ -d "$S/library_free" ] || ev library-free --run-dir "$S/call" --sample-assets "$S/sample" --reference-assets "$S/reference" \
+  --output "$S/library_free" --work-dir "$S/work/library_free" --contigs "$C" 2> "$S.lf.log"
 
 # without a library
 ev run "${COMMON[@]}" --no-library --contigs "$C" --output "$WORK/run_nolib" 2> "$WORK/run_nolib.log"
 N=$WORK/sep_nolib
-if [ ! -d "$N/record_pass" ]; then
-  mkdir -p "$N"
-  ev prepare-reference --reference "$D/reference.fa" --repeat-annotation "$D/repeat_annotation.bed" --output "$N/reference" --threads 4
-  ev prepare-sample --read1 "$D/sample_R1.fastq" --read2 "$D/sample_R2.fastq" --sample-id synth --output "$N/sample" --threads 4
-  ASSETS=$N/reference SAMPLE=$N/sample DS=synth OUT=$N CONTIGS=$C CALL_OPTS="--threads 4 --workers 2" PYTHON=$PYTHON \
-    bash tools/no_library.sh 2> "$N.log"
-fi
+mkdir -p "$N"
+[ -d "$N/reference" ] || ev prepare-reference --reference "$D/reference.fa" --repeat-annotation "$D/repeat_annotation.bed" \
+  --output "$N/reference" --threads 4
+[ -d "$N/sample" ] || ev prepare-sample --read1 "$D/sample_R1.fastq" --read2 "$D/sample_R2.fastq" --sample-id synth \
+  --output "$N/sample" --threads 4
+[ -d "$N/record_pass/added" ] || ASSETS=$N/reference SAMPLE=$N/sample DS=synth OUT=$N CONTIGS=$C \
+  CALL_OPTS="--threads 4 --workers 2" PYTHON=$PYTHON bash tools/no_library.sh 2> "$N.log"
 
 fail=0
 same() {  # same <A> <B> <relative files...>
