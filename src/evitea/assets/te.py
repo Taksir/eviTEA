@@ -1,12 +1,13 @@
-"""Prepared TE-library manifests and the v3 detection languages they carry.
+"""Prepared TE-library manifests and the detection codebooks they carry.
 
-A prepared TE asset binds the TE consensus library and its family map to one
-prepared reference.  Since schema v3 it also carries the two languages the
-default engine consumes:
+A prepared TE asset (schema ``evitea.prepared-te.v3``) binds the TE consensus
+library and its family map to one prepared reference.  It also carries the two
+codebooks (called languages in names) the default engine consumes:
 
-* ``terminal_final`` - the final safe terminal 21-mer codebook (AnchorPE and
-  full-memory branches);
-* ``internal_only`` - the internal-only safe 21-mer codebook (INTERNAL21).
+* ``terminal_final`` - the final safe terminal 21-mer codebook (paired-end
+  anchor and full-memory layers);
+* ``internal_only`` - the internal-only safe 21-mer codebook (internal 21-mer
+  layer).
 
 Each language records its SHA-256 and its ``source``: ``built:<builder>``
 (``evitea.languages``, from the TE library, family map, reference and
@@ -108,7 +109,7 @@ class PreparedTEAssets:
         )
 
     def language_path(self, key: str) -> Path:
-        """Absolute path of a bound language (fails closed when absent)."""
+        """Absolute path of a bound language; raise when it is absent."""
 
         try:
             return self.root / self.languages[key]["path"]
@@ -179,10 +180,10 @@ def prepare_te_assets(
             "the terminal and internal-only codebooks must be supplied together"
         )
     if build_languages and terminal_codebook_path is not None:
-        raise InputContractError("either build the v3 languages or supply them, not both")
+        raise InputContractError("either build the languages or supply them, not both")
     if (g1a_archive_path is None) != (family_crosswalk_path is None):
         raise InputContractError(
-            "frozen G1A archive and FBte family crosswalk must be supplied together"
+            "anchor archive and FBte family crosswalk must be supplied together"
         )
     root = Path(output_dir)
     root.mkdir(parents=True, exist_ok=True)
@@ -218,7 +219,7 @@ def prepare_te_assets(
         ]
         if len(reference_sources) != 1 or len(repeat_sources) != 1:
             raise AssetCompatibilityError(
-                "frozen G1A preparation requires one bound reference and RepeatMasker source"
+                "anchor archive preparation requires one bound reference and RepeatMasker source"
             )
         reference_input = validate_reference_fasta(
             prepared_reference.root / reference_sources[0]
@@ -391,10 +392,10 @@ def verify_te_assets(
         raise AssetCompatibilityError("prepared-TE in-memory identity mismatch")
     verify_relative_files(asset.root, asset.file_hashes)
     if bool(asset.resources) != bool(asset.codebooks):
-        raise AssetCompatibilityError("prepared-TE frozen resource/codebook manifest is incomplete")
+        raise AssetCompatibilityError("prepared-TE resource/codebook manifest is incomplete")
     if asset.resources:
         if set(asset.resources) != {"g1a_archive", "family_crosswalk"}:
-            raise AssetCompatibilityError("prepared-TE frozen resource manifest is malformed")
+            raise AssetCompatibilityError("prepared-TE resource manifest is malformed")
         if set(asset.codebooks) != {"terminal", "internal_full", "internal_only"}:
             raise AssetCompatibilityError("prepared-TE codebook manifest is malformed")
         for entries in (asset.resources, asset.codebooks):
@@ -421,9 +422,9 @@ def build_safe_language(
     candidates: Iterable[SafeProbeCandidate],
     probe_class: ProbeClass,
 ) -> tuple[TEProbe, ...]:
-    """Build the safe language through the Phase 4 semantic owner.
+    """Build the safe language with ``evidence.codebook.build_safe_probes``.
 
-    Imports are local so Phase 3 asset loading stays independent of evidence
+    Imports are local so asset loading stays independent of evidence
     construction and its candidate types.
     """
 
@@ -439,7 +440,7 @@ def validate_probe_independence(probes: Iterable[TEProbe]) -> None:
 
 
 def validate_language_files(terminal_codebook: str | Path, internal_codebook: str | Path) -> None:
-    """Parse both languages with the loaders the engines use (fail closed)."""
+    """Parse both languages with the loaders the engines use; raise on a malformed file."""
 
     from ..anchor_pe.codebook import load_safe_codebook
     from ..internal21.acquisition import load_internal_codebook
@@ -448,4 +449,4 @@ def validate_language_files(terminal_codebook: str | Path, internal_codebook: st
         load_safe_codebook(terminal_codebook)
         load_internal_codebook(internal_codebook)
     except (KeyError, ValueError) as exc:
-        raise AssetCompatibilityError(f"malformed v3 language file: {exc}") from exc
+        raise AssetCompatibilityError(f"malformed language file: {exc}") from exc

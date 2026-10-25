@@ -65,7 +65,7 @@ def write_manifest(path: str | Path, value: Any) -> Path:
 
 
 def load_manifest(path: str | Path) -> dict[str, Any]:
-    """Load one JSON object without treating its contents as instructions."""
+    """Load a manifest file that holds one JSON object."""
 
     manifest_path = Path(path)
     try:
@@ -108,7 +108,7 @@ def verify_relative_files(
     root: str | Path,
     expected: Mapping[str, str],
 ) -> None:
-    """Fail closed unless every explicitly bound file still matches."""
+    """Raise unless every bound file still matches its recorded hash."""
 
     actual = hash_relative_files(root, expected)
     if actual != dict(expected):
