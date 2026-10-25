@@ -322,8 +322,12 @@ def load_repeat_annotation(
                     )
                 chrom, start_text, end_text, name, score, strand = fields[:6]
                 if chrom not in reference.contig_lengths:
+                    known = reference.contig_lengths
+                    other = "chr" + chrom if "chr" + chrom in known else chrom[3:] if chrom[3:] in known else None
                     raise InputContractError(
                         f"repeat line {line0 + 1} names unknown contig {chrom!r}"
+                        + (f"; the reference names it {other!r}: use the reference's contig names" if other else
+                           "; the annotation's contig names must be those of the reference FASTA")
                     )
                 try:
                     start0 = int(start_text)

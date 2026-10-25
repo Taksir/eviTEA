@@ -29,6 +29,7 @@ from .config import (
 )
 from .constants import ARCHITECTURE_ID
 from .contigs import parse_contig_list
+from .preflight import check_contig_names, check_msbwt_index, check_paired_reads, check_te_records
 from .sample_geometry import validate_read_length
 from .errors import (
     ArchitectureInvariantError,
@@ -495,9 +496,10 @@ def _prepare_te(args: argparse.Namespace) -> None:
     output = args.output.resolve()
     if output.exists() and (not output.is_dir() or any(output.iterdir())):
         raise OutputStateError("prepared-TE output must be absent or empty")
-    reference = load_prepared_reference(args.reference_assets)
     te = validate_te_fasta(args.te_library)
     family_map = load_family_map(args.family_map)
+    check_te_records((record.record_id for record in te.records), family_map.assignments)
+    reference = load_prepared_reference(args.reference_assets)
     prepare_te_assets(
         te,
         family_map,
@@ -519,6 +521,7 @@ def _prepare_sample(args: argparse.Namespace) -> None:
     output = args.output.resolve()
     if output.exists() and (not output.is_dir() or any(output.iterdir())):
         raise OutputStateError("prepared-sample output must be absent or empty")
+    check_paired_reads(args.read1, args.read2)
     sample_id = derive_sample_id(args.read1, args.sample_id)
     threads = RuntimeConfig(threads=args.threads).resolved_threads
     try:
@@ -1048,9 +1051,15 @@ def _call(
 ) -> RunResult:
     config = _call_config(args)
     _apply_depth_cap(args)
+    if config.inputs.read1 is not None:
+        check_paired_reads(config.inputs.read1, config.inputs.read2)
+    elif config.inputs.msbwt_index is not None and (Path(config.inputs.msbwt_index) / "about.npy").is_file():
+        check_msbwt_index(Path(config.inputs.msbwt_index))
     if call_engine is None:
         call_engine = _default_engine_with_progress(config)
     assets = prepare_assets(config)
+    if config.runtime.primary_contigs is not None:
+        check_contig_names(config.runtime.primary_contigs, dict(assets.reference.contigs), "--primary-contigs")
     input_assets = {}
     if config.inputs.read1 is not None:
         input_assets = {

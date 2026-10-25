@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -222,8 +223,8 @@ def _raw_config(tmp_path: Path, *, resume: bool = False, sample_id=None):
     read1 = reads / "specimen_R1.fastq.gz"
     read2 = reads / "specimen_R2.fastq.gz"
     if not read1.exists():
-        read1.write_bytes(b"R1 fixture")
-        read2.write_bytes(b"R2 fixture")
+        read1.write_bytes(gzip.compress(b"@p1/1\nACGT\n+\nIIII\n", mtime=0))
+        read2.write_bytes(gzip.compress(b"@p1/2\nTTGC\n+\nIIII\n", mtime=0))
     return EviTEAConfig(
         inputs=InputConfig(sample_id=sample_id, read1=read1, read2=read2),
         runtime=RuntimeConfig(
