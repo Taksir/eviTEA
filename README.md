@@ -1,24 +1,42 @@
 # EviTEA
 
-EviTEA (Evidence-integrated Transposable Element Analysis) calls transposable-element
-(TE) insertions from short-read, paired-end sequencing data. It works over a
-multi-string BWT (msBWT) of the reads, runs a repeat-aware incumbent caller, and then
-adds four evidence-extension layers: bilateral and asymmetric AnchorPE, full-memory
-AnchorPE, and INTERNAL21.
+EviTEA (Evidence-integrated Transposable Element Analysis) finds new transposable-element (TE) insertions in a genome from
+short-read, paired-end sequencing of that genome: places where the sample carries a TE copy that the reference genome does
+not have. For each insertion it reports where it is and which TE family it belongs to.
 
-The design rules are: a junction is assigned to exactly one owner, a call needs
-physically independent paired-end corroboration, and evidence that cannot be resolved is
-reported as unresolved instead of being forced into a call.
+It reads the sample through a multi-string BWT (msBWT) of all reads, so it can look up any word in every read, and it maps
+only the reads that matter with Bowtie2. A call needs physically independent paired-end evidence, each junction is
+assigned to one call only, and evidence that cannot be resolved is reported as unresolved instead of being forced into a
+call.
 
 Author: Md Taksir Hasan Majumder. License: GPL-3.0-or-later (see [LICENSE](LICENSE)).
 
+## Two kinds of calls
+
+- **Library calls** (`evitea call`). With a TE library (consensus sequences of the species' TE families) EviTEA calls
+  insertions of those families: a repeat-aware caller (split-junction reads, mate rescue, repeat-aware rescue), then four
+  extension layers (bilateral and asymmetric paired-end anchors, full-memory anchors, internal TE words). Output:
+  `calls.native.tsv`, `calls.tsv`, `calls.bed`, `calls.vcf`.
+- **Library-free calls** (`evitea library-free`, Linux or WSL). Without using the library, EviTEA assembles the inserted
+  sequence at each junction it finds in the reads and groups the insertions into families by their sequence (families named
+  `LF_cluster_<n>`). Calls within 500 bp of a library call are left out; the others are added to the library calls in
+  `calls.combined.tsv` and `calls.combined.vcf`.
+
+A species without a curated TE library can still be run: the library-free families become TE records, and the library layer
+runs again on them (`evitea run --no-library`; see [docs/REPEAT_ANNOTATION.md](docs/REPEAT_ANNOTATION.md)).
+
 ## Status
 
-Version `0.1.0.dev0`. On two *Drosophila melanogaster* development samples (AKA017 and
-ISO1) the pipeline reproduces the frozen research callsets byte for byte: 838 calls for
-AKA017 and 194 for ISO1. That is a **method-equivalence** result, not an accuracy
-benchmark. It has been validated only on dm6 with 125 bp paired-end reads. See
+Version `0.1.0.dev0`. On two *Drosophila melanogaster* development samples (AKA017 and ISO1, dm6, 125 bp reads) the pipeline
+reproduces the frozen research call sets byte for byte: 838 calls for AKA017 and 194 for ISO1. That is a
+**method-equivalence** result, not an accuracy benchmark. See
 [validation/EVITEA_V1_VALIDATION_STATUS.md](validation/EVITEA_V1_VALIDATION_STATUS.md).
+
+The values that were fixed for those samples are now taken from each sample and reference: the read length, the
+fragment-size 95th and 99th percentiles, the primary contigs and the mitochondrial contig; TE records may have any names
+(see [docs/CLI_AND_DATA.md](docs/CLI_AND_DATA.md)). EviTEA runs on other read lengths, fragment sizes, genomes and TE
+libraries, and the synthetic tests run them; **its accuracy on species other than *D. melanogaster* has not been measured
+yet.**
 
 ## Requirements
 
@@ -63,76 +81,91 @@ for Apptainer, `apptainer build evitea.sif docker-daemon://evitea:latest`).
 
 To run the tests: `python -m pip install pytest`, then `python -m pytest`.
 
-## Input files, and where to put them
+## Input files
 
-**You choose all file locations yourself.** Nothing in this repository assumes a
-particular folder; every path is an argument you pass. A layout that works well:
+| input | what it is |
+|---|---|
+| reference FASTA | the reference genome |
+| repeat annotation | BED6 of the TE copies in the reference (contig, start, end, TE record, score, strand); [how to make it with RepeatMasker](docs/REPEAT_ANNOTATION.md) |
+| TE library | FASTA of TE consensus sequences, one record per TE (the first word of the header is the record name) |
+| family map | the family of every TE record: two columns `record<TAB>family` (any names), or a FlyBase table with `FBte_ID` and `FlyBase_Family` columns |
+| reads | paired-end FASTQ, read 1 and read 2 in two files (plain or `.gz`), all reads of one length |
 
-```text
-project/
-  data/reference/   host genome FASTA (e.g. dm6) + RepeatMasker TE annotation (BED)
-  data/te/          TE consensus library FASTA + family table (FBte_ID, FlyBase_Family)
-  data/reads/       paired FASTQ (R1/R2), uniform read length
-  prepared/         outputs of prepare-reference / prepare-te / prepare-sample (reusable)
-  results/<sample>/ one `evitea call` output directory per sample
-```
+You choose every location; nothing in this repository assumes a folder. Details of each input and of every option are in
+[docs/CLI_AND_DATA.md](docs/CLI_AND_DATA.md).
 
-Details of each input are in [docs/CLI_AND_DATA.md](docs/CLI_AND_DATA.md). In short: a
-host FASTA, a RepeatMasker TE annotation, a TE library FASTA, a family map
-(two columns `te_record_id<TAB>family`, or a FlyBase-style table with `FBte_ID` and
-`FlyBase_Family`), the two v3 language codebooks (or let EviTEA build them), and
-synchronized paired FASTQ.
+## A worked example
+
+[`examples/synthetic/run_example.sh`](examples/synthetic/run_example.sh) makes a small genome (contigs `chr1`..`chr5`, `MT`),
+a 120-record TE library with ordinary names and 30x paired reads of a sample with 30 new insertions, runs `evitea run` on
+them and checks the calls against the expected `calls.native.tsv` (about 10 minutes on 4 CPUs). See
+[examples/README.md](examples/README.md).
 
 ## Quick start
 
+One command, from FASTQ to calls (each step goes to its own folder under `--output`; run it again to continue after an
+interruption):
+
 ```bash
-# 1. Reference (reusable across samples)
-evitea prepare-reference --reference data/reference/dm6.fa \
-  --repeat-annotation data/reference/dm6_repeatmasker_TE.bed6 \
-  --bowtie2-build bowtie2-build --output prepared/reference
-#    or adopt an existing Bowtie2 index of the same FASTA: --bowtie2-index path/to/index/dm6
-
-# 2. TE library (reusable)
-evitea prepare-te --te-library data/te/transposon_sequence_set.fa \
-  --family-map data/te/fbte_to_flybase_family.tsv --build-languages \
-  --reference-assets prepared/reference --output prepared/te
-
-# 3. Sample, then call
-evitea prepare-sample --read1 data/reads/s_R1.fastq.gz --read2 data/reads/s_R2.fastq.gz \
-  --sample-id s --output prepared/s
-evitea call --sample-assets prepared/s \
-  --reference-assets prepared/reference --te-assets prepared/te --output results/s
+evitea run --reference data/genome.fa --repeat-annotation data/repeat_annotation.bed \
+  --te-library data/te_library.fa --family-map data/family_map.tsv \
+  --read1 data/s_R1.fastq.gz --read2 data/s_R2.fastq.gz --sample-id s --output runs/s --threads 8
+# add --library-free for the library-free calls (Linux/WSL); use --no-library instead of the library options without one
 ```
 
-`prepare-sample` writes a JSON map with one entry per read, which becomes impractically
-large for full-size libraries (tens of millions of reads). For those, build an msBWT
-yourself and call directly from it:
+The same as separate commands (the prepared reference and TE library can be reused for every sample):
+
+```bash
+evitea prepare-reference --reference data/genome.fa --repeat-annotation data/repeat_annotation.bed --output prepared/reference
+#   (or adopt an existing Bowtie2 index of the same FASTA: --bowtie2-index path/to/index/genome)
+evitea prepare-te --te-library data/te_library.fa --family-map data/family_map.tsv --build-languages \
+  --reference-assets prepared/reference --output prepared/te
+evitea prepare-sample --read1 data/s_R1.fastq.gz --read2 data/s_R2.fastq.gz --sample-id s --output prepared/s
+evitea call --sample-assets prepared/s --reference-assets prepared/reference --te-assets prepared/te --output runs/s/call
+evitea library-free --run-dir runs/s/call --sample-assets prepared/s --reference-assets prepared/reference \
+  --output runs/s/library_free                                         # optional; Linux or WSL
+```
+
+`prepare-sample` writes a JSON map with one entry per read, which becomes impractically large for full-size libraries (tens
+of millions of reads). For those, build an msBWT yourself and call directly from it:
 
 ```bash
 evitea call --msbwt-index path/to/msbwt_index --sample-id s \
-  --reference-assets prepared/reference --te-assets prepared/te --output results/s
+  --reference-assets prepared/reference --te-assets prepared/te --output runs/s/call
 ```
 
-Useful options for `call`: `--threads`, `--workers`, `--work-dir`, `--resume`,
-`--bowtie2`, `--edlib-python`. Run `evitea call --help` for the full list.
+Useful options for `call`: `--threads`, `--workers`, `--work-dir`, `--resume`, `--bowtie2`, `--edlib-python`, and the values
+EviTEA otherwise takes from the sample and the reference: `--read-length`, `--fragment-q95`, `--fragment-q99`,
+`--primary-contigs`. Run `evitea call --help` for the full list. To reproduce a development run exactly, pass
+`--read-length 125 --fragment-q95 494 --fragment-q99 805 --primary-contigs chr2L,chr2R,chr3L,chr3R,chrX`.
+
+## Runs without a TE library
+
+`evitea run --no-library` builds a repeat map of the reference with BLAST+ (`build-repeat-map`), runs the library-free layer
+with it, turns the library-free families into TE records (`build-family-records`), runs the library layer on those records
+and adds its new calls (`add-record-calls`). The result is `record_pass/added/calls.combined.tsv`. The same chain is in
+`tools/no_library.sh` (plain shell) and `tools/slurm/no_library.sh` (Slurm). See
+[docs/REPEAT_ANNOTATION.md](docs/REPEAT_ANNOTATION.md).
 
 ## Outputs
 
 | File | Content |
 |---|---|
-| `calls.native.tsv` | the callset in the frozen 15-column schema (the scientific result) |
+| `calls.native.tsv` | the call set in the native 15-column schema (the scientific result) |
 | `calls.tsv` | one row per call, genomic order, with `call_origin` and supporting pair IDs |
 | `calls.bed` | BED view of the calls |
+| `calls.vcf` | VCF 4.2 view of the calls (symbolic `<INS:ME:family>` alleles, sites only) |
 | `unresolved.tsv` | events deliberately not turned into calls |
 | `run_summary.json` | counts per origin and hashes after every layer |
-| `run.log`, `run_manifest.json` | provenance; the manifest hashes every other output |
+| `run.log`, `run_manifest.json` | provenance; the manifest hashes every other output and records the values taken from the sample (`values.run_parameters`) |
 
-Completed output directories are never overwritten.
+`library-free` adds `calls.library_free.tsv`, `calls.combined.tsv` and `calls.combined.vcf`. Completed output directories
+are never overwritten.
 
 ## Profiles
 
-`--profile production` is the default. `AKA017` and `ISO1` exist only to reproduce the
-frozen development callsets and refuse any other sample ID.
+`--profile production` is the default. `AKA017` and `ISO1` exist only to reproduce the frozen development call sets and
+refuse any other sample ID.
 
 ## Reproducing the validation
 
@@ -143,13 +176,17 @@ supply every path yourself**, through arguments or environment variables
 (`EVITEA_DATA`, `EVITEA_ROUTE_B_V2`, `EVITEA_ROUTE_B_V3`, `EVITEA_REPO`). See
 [validation/README.md](validation/README.md).
 
-## Limitations
+## What is validated, and limitations
 
-- Host-genome specifics: dm6 and FlyBase-style TE identifiers (`FBte...`), a fixed list
-  of primary chromosomes, and an insert-size constant tuned for the validation data.
-- Validated only on 125 bp paired-end reads.
-- CPython 3.14 only.
-- Method equivalence with the research pipeline is shown; accuracy against truth sets is not claimed here.
+- Validated: byte-for-byte method equivalence with the research pipeline on two *D. melanogaster* samples (dm6, 125 bp);
+  synthetic end-to-end runs that find every planted insertion with its family: the automated test
+  (`tests/integration/test_synthetic_call.py`, 125 bp, FlyBase and plain TE names, fly and non-fly contig names) and runs at
+  100 and 150 bp made during the release cleanup.
+- Not validated: accuracy (recall and precision against a truth set) on any species, including on other *D. melanogaster*
+  strains; it will be reported separately.
+- Reads must be paired-end and of one length; trim them to one length first.
+- CPython 3.14 only. The library-free layer and the family-record commands run on Linux or WSL only.
+- `prepare-sample`'s read-identity map does not scale to full-size libraries; use `--msbwt-index` for those.
 
 ## Citation
 

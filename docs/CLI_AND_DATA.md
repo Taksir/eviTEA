@@ -23,9 +23,13 @@ evitea prepare-sample --read1 sample_R1.fastq.gz --read2 sample_R2.fastq.gz `
 
 * `--repeat-annotation` is required by the default engine (RepeatMasker
   residency of AnchorPE clusters).
-* `--family-map` accepts the two-column `te_record_id<TAB>family` form or a
-  FlyBase-style table with `FBte_ID` and `FlyBase_Family` columns (the form the
-  engines read; records without a family stay unassigned).
+* `--family-map` accepts a two-column `record<TAB>family` table with any record
+  names (the first word of each TE FASTA header; an optional header row such as
+  `te_record_id<TAB>family` is skipped), or a FlyBase-style table with `FBte_ID`
+  and `FlyBase_Family` columns (records without a family stay unassigned). Every
+  layer reads both forms (`evitea.family_table`).
+* `--repeat-annotation` is BED6 named by TE record; see
+  [`REPEAT_ANNOTATION.md`](REPEAT_ANNOTATION.md) for making it with RepeatMasker.
 * The two codebooks are the v3 detection languages (prepared-TE schema v3,
   `languages` section).  Until their builders are EviTEA stages they are
   supplied as frozen, hash-recorded files (`source: supplied`).  A prepared
@@ -121,6 +125,7 @@ A completed run contains:
 | `calls.native.tsv` | the callset in the frozen Route-B v3 schema (15 columns), byte-exact: R9E incumbent rows, then the rows appended by each extension layer |
 | `calls.tsv` | one row per native call, genomic order: `call_origin` (INCUMBENT_SPLIT_JUNCTION / INCUMBENT_MATE_RESCUE / INCUMBENT_REPEAT_AWARE / EXTENSION_ANCHOR_PE_BILATERAL / EXTENSION_ANCHOR_PE_ASYMMETRIC / EXTENSION_FULL_MEMORY / EXTENSION_INTERNAL21), `coordinate_kind`, supports and support pair ids |
 | `calls.bed` | BED view (point `p` -> `[p, p+1)`, the last base for a contig-end point; range `[start, end)`) |
+| `calls.vcf` | VCF 4.2, sites only: one record per call of `calls.tsv`, `ALT` `<INS:ME:family>`, `POS` the base before the call, `END`/`CIPOS`/`IMPRECISE` for ranges, `INFO` with `FAMILY`, `SOURCE` (library or library-free), `ORIGIN`, `EVIDENCE` and the supports (`evitea.vcf`); `library-free` writes `calls.combined.vcf` |
 | `unresolved.tsv` | fail-closed integration events (nearby different-family call, new-event multiplicity or cross-family competition) |
 | `run_summary.json` | counts per origin, rows and SHA-256 after every layer, engine stage counts |
 | `run.log`, `run_manifest.json` | provenance; the manifest hashes every other output |
