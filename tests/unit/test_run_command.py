@@ -74,7 +74,7 @@ def test_no_library_run_without_an_annotation_binds_the_repeat_map(tmp_path: Pat
     assert reference[reference.index("--repeat-annotation") + 1] == str(out / "repeat_map" / "repeat_map_bed6.bed")
     detect = seen[3]
     assert detect[detect.index("--repeat-map") + 1] == str(out / "repeat_map" / "repeat_map.bed")
-    # a run with a library still needs the annotation
+    # a run with a library requires the annotation
     with pytest.raises(InputContractError, match="--repeat-annotation"):
         run(build_parser().parse_args([
             "run", "--reference", "ref.fa", "--read1", "a", "--read2", "b", "--output", str(tmp_path / "o2"),

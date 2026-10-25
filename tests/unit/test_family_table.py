@@ -70,7 +70,7 @@ def test_every_reader_accepts_a_two_column_map_with_plain_names(tmp_path: Path) 
                    parse_family_map_gapfill, breakpoint_map, tier_map):
         assert reader(plain) == expected, reader.__module__ + "." + reader.__name__
     assert set(input_map(plain).assignments) == set(expected)
-    # three entries are enough now (the paired-end channel used to refuse maps of fewer than 100 entries)
+    # a map of three entries is accepted
     mapping, families = load_family_map(family_map_rows(plain))
     assert mapping == expected and families == {"B1", "L1", "Ty1_family"}
     assert unmapped_records(["B1_Mm", "Ty1", "IAPEz"], mapping) == 1
@@ -147,5 +147,5 @@ def test_library_layer_on_a_plain_named_library(tmp_path: Path) -> None:
         by_record.setdefault(row["te_id"], set()).add(row["family"])
     assert set(by_record) <= set(records)
     assert all(families == {records[name][0]} for name, families in by_record.items())
-    # the records whose ends are shared by two families get no end word of their own from the 21-mer pass
+    # the records whose ends are shared by two families get no end k-mer of their own from the 21-mer pass
     assert {"B1_Mm", "L1MdA_I", "Ty1"} <= set(by_record)

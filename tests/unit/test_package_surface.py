@@ -1,4 +1,4 @@
-"""Phase 0 package metadata smoke tests."""
+"""Package metadata smoke tests."""
 
 import evitea
 

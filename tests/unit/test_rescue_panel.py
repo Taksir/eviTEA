@@ -1,4 +1,4 @@
-"""The rescue panel is always the 1,024-row panel, which the pair-aware reselection is built for."""
+"""The widest panel (1,024 rows) is always the one kept, because the pair-aware reselection is built for it."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from incumbent_fakes import paired_sample
 
 
 def _rare_word_inputs():
-    """Two TE records whose words each occur a few times in the reads: every word is rare."""
+    """Two TE records whose k-mers each occur a few times in the reads: every k-mer is rare."""
 
     rng = random.Random(9)
     records = {f"TE{i}": "".join(rng.choice("ACGT") for _ in range(400)) for i in (1, 2)}
@@ -44,7 +44,7 @@ def test_rare_words_keep_the_1024_row_panel(monkeypatch: pytest.MonkeyPatch) -> 
     original = coverage_panel._optimize_panel
 
     def every_cap(*args, **kwargs):
-        for cap in coverage_panel.PANEL_CAPS:  # the three caps tie here, which used to keep the 256-row panel
+        for cap in coverage_panel.PANEL_CAPS:  # the three caps tie here, so the 256-row panel would win on score alone
             scores[cap] = original(cap, *args[1:], **kwargs)[1]
         return original(*args, **kwargs)
 

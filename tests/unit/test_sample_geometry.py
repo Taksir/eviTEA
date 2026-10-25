@@ -29,7 +29,7 @@ def test_window_geometry_follows_the_read_length() -> None:
     # 125 bp (the default) and the same call with the default left out agree
     assert coverage_panel.coverage_interval(300, 100, 21) == coverage_panel.coverage_interval(300, 100, 21, 125)
     assert coverage_panel.coverage_interval(300, 100, 21, 125) == (0, 100)
-    # 100 bp reads: a read must start at or after 21 to hold the word at 100..121, and 201 windows exist
+    # 100 bp reads: a read must start at or after 21 to hold the 21-mer at 100..121, and 201 windows exist
     assert coverage_panel.coverage_interval(300, 100, 21, 100) == (21, 100)
     assert coverage_panel.coverage_interval(300, 250, 21, 100) == (171, 200)
     # 150 bp reads on a 140 bp record: no window fits

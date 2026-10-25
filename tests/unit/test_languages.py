@@ -1,6 +1,6 @@
-"""v3 language builders: scanner parity and stage mechanics on synthetic data.
+"""Language (codebook) builders: scanner parity and stage mechanics on synthetic data.
 
-Byte equality with the frozen dm6 tables is checked by
+Byte equality with the fixed dm6 tables is checked by
 validation/language_checks/run_language_equivalence.py.
 """
 
@@ -24,7 +24,7 @@ from evitea.languages.terminal import _choose_record_codebook, _select_best_nono
 
 
 def _naive(seq, qmap, k):
-    """The research scanner (rolling 2-bit code, reset on non-ACGT)."""
+    """Naive reference scanner (rolling 2-bit code, reset on non-ACGT)."""
 
     enc = {c: v for c, v in zip("ACGTacgt", (0, 1, 2, 3) * 2)}
     mask, code, valid = (1 << (2 * k)) - 1, 0, 0

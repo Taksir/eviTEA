@@ -1,4 +1,4 @@
-"""Synthetic Phase 3 checks for prepared reference and TE asset manifests."""
+"""Synthetic checks for prepared reference and TE asset manifests."""
 
 import json
 import shutil

@@ -1,4 +1,4 @@
-"""Clean incumbent primitives: alignment semantics, index access, parsing, geometry."""
+"""Library-layer primitives: alignment semantics, index access, parsing, geometry."""
 
 from __future__ import annotations
 

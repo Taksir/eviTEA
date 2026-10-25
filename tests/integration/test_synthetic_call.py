@@ -2,7 +2,7 @@
 
 Opt-in (a few minutes per case): EVITEA_RUN_SYNTHETIC_CALL=1, with Bowtie2 on PATH and pymsbwt installed.
 The non-fly case uses ordinary TE record names with a two-column family map, contigs chr1..chr5 and an ``MT``
-mitochondrial contig, and every value taken from the sample and the reference (no development values passed).
+mitochondrial contig, and every value taken from the sample and the reference (none of the development values is given).
 """
 
 from __future__ import annotations

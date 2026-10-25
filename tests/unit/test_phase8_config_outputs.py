@@ -123,7 +123,7 @@ def test_outputs_are_order_independent_utf8_lf_and_canonical(tmp_path: Path) -> 
     )
     left = _state(exact, ranged, unresolved=(unresolved,))
     right = _state(ranged, exact, unresolved=(unresolved,))
-    assert left.native != right.native  # native order is the producers' frozen order
+    assert left.native != right.native  # native order is the producers' fixed order
     assert calls_tsv_bytes(left) == calls_tsv_bytes(right)
     assert unresolved_tsv_bytes(left) == unresolved_tsv_bytes(right)
     text = calls_tsv_bytes(left)

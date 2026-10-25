@@ -1,4 +1,4 @@
-"""INTERNAL21 acquisition classification and fixed-proposal observability."""
+"""Internal 21-mer acquisition classification and fixed-proposal observability."""
 
 from __future__ import annotations
 

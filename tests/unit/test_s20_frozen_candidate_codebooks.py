@@ -1,4 +1,4 @@
-"""Focused truth-blind checks for frozen G1A candidate preparation."""
+"""Truth-blind checks for building candidate codebooks from the hash-recorded catalogue archive."""
 
 import csv
 import hashlib

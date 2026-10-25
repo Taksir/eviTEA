@@ -1,4 +1,4 @@
-"""Frozen AnchorPE producer semantics on small synthetic inputs."""
+"""Paired-end anchor support (anchor_pe) behavior on small synthetic inputs."""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ def test_production_host_read_names_are_pid_and_aka_is_reproduction_only():
     assert HOST_READ_NAME_PROFILES == ("pid", "aka-historical")
     assert AnchorPEInputs.__dataclass_fields__["host_read_names"].default == "pid"
     with pytest.raises(InputContractError):
-        host_query_name(7, 2, "iso")  # retired alias of the production profile
+        host_query_name(7, 2, "iso")  # an alias of the default profile is refused
 
 
 def test_classify_pairs_states_and_primary_multiblock():
@@ -102,8 +102,8 @@ def test_terminal_softclips_require_terminal_s():
 def test_cluster_mappings_gap_ids_and_keep_all():
     rows = [
         {"pair_id": 1, "family": "F", "chrom": "c", "start": 0, "end": 100},      # mid 50
-        {"pair_id": 2, "family": "F", "chrom": "c", "start": 500, "end": 600},    # mid 550: gap 500 -> same
-        {"pair_id": 3, "family": "F", "chrom": "c", "start": 1050, "end": 1152},  # mid 1101: gap 551 -> new
+        {"pair_id": 2, "family": "F", "chrom": "c", "start": 500, "end": 600},    # mid 550: gap 500 -> same cluster
+        {"pair_id": 3, "family": "F", "chrom": "c", "start": 1050, "end": 1152},  # mid 1101: gap 551 -> new cluster
     ]
     assert [c["pair_ids"] for c in cluster_mappings(rows, require_folds=True, prefix="X")] == ["1;2"]
     kept = cluster_mappings(rows, require_folds=True, prefix="X", keep_all=True)

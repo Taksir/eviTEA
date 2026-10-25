@@ -1,4 +1,4 @@
-"""Phase 2 checks for raw FASTQ and user-supplied reference assets."""
+"""Checks for raw FASTQ and user-provided reference assets."""
 
 import gzip
 import shutil

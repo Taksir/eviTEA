@@ -246,7 +246,7 @@ def test_recall_repair_read_names_are_a_profile():
     assert REPRODUCTION_PROFILES["ISO1"].rescue_read_names == "numeric"
     base = dict(sample_id="S", te_fasta=Path("t"), te_family_map=Path("m"), reference_fasta=Path("r"),
                 host_index_prefix=Path("i"), bowtie2=Path("b"))
-    assert "rescue_read_names" not in _fingerprint(IncumbentInputs(**base))  # legacy work dirs stay resumable
+    assert "rescue_read_names" not in _fingerprint(IncumbentInputs(**base))  # the default is left out of the fingerprint, so existing work folders can be resumed
     assert _fingerprint(IncumbentInputs(**base, rescue_read_names="numeric"))["rescue_read_names"] == "numeric"
     with pytest.raises(ValueError):
         IncumbentInputs(**base, rescue_read_names="P")

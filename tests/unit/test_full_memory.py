@@ -1,4 +1,4 @@
-"""Frozen full-memory branch semantics on small synthetic inputs."""
+"""Full-memory layer behavior on small synthetic inputs."""
 
 from __future__ import annotations
 

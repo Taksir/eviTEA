@@ -1,4 +1,4 @@
-"""Tiny truth-blind parity checks for Phase 3 backend plumbing."""
+"""Tiny truth-blind parity checks for the backend plumbing."""
 
 from __future__ import annotations
 

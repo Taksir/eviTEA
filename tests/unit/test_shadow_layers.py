@@ -1,4 +1,4 @@
-"""Frozen v3 extension-layer integration (S100) policies."""
+"""Policies for appending the extension layers (bilateral, asymmetric, full memory, internal 21-mer) to the library-layer call set."""
 
 from __future__ import annotations
 

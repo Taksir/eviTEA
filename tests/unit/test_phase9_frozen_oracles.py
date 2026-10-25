@@ -1,4 +1,4 @@
-"""Tests for the validation-only Phase 9 frozen-oracle verifier."""
+"""Tests for the validation-only verifier of fixed reference outputs (row counts and SHA-256)."""
 
 from __future__ import annotations
 

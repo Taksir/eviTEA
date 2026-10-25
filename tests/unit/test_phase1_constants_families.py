@@ -1,4 +1,4 @@
-"""Phase 1 checks for frozen scientific constants and family aliases."""
+"""Checks for the built-in scientific constants and family aliases."""
 
 from dataclasses import FrozenInstanceError
 

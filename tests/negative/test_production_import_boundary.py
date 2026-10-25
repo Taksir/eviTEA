@@ -1,4 +1,4 @@
-"""Keep validation and research history outside the production package."""
+"""Keep validation and research code outside the evitea package."""
 
 import ast
 from pathlib import Path

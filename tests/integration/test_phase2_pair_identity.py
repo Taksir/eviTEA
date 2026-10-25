@@ -1,4 +1,4 @@
-"""End-to-end Phase 2 contract from paired FASTQ through physical identity."""
+"""End-to-end contract from paired FASTQ through physical identity."""
 
 import shutil
 from pathlib import Path

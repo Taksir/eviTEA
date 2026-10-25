@@ -1,4 +1,4 @@
-"""Runtime loading of frozen prepared safe-language query units."""
+"""Runtime loading of prepared safe-language query units."""
 
 import csv
 

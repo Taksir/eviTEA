@@ -1,4 +1,4 @@
-"""Negative guard: repeated rows for one probe cannot manufacture a second block."""
+"""Negative guard: repeated rows for one probe cannot create a second block."""
 
 import json
 from pathlib import Path

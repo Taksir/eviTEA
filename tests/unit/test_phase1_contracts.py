@@ -1,4 +1,4 @@
-"""Phase 1 checks for coordinate and stable-serialization contracts."""
+"""Checks for coordinate and stable-serialization contracts."""
 
 import json
 
