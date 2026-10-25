@@ -1,9 +1,9 @@
-"""Full TE-facing segment family certification of junction groups (R8C-R8E).
+"""Confirm the family of junction groups from their full TE-facing segments.
 
 Only junction groups linked into a locus aggregation list ("used" groups) are
-certified.  For each, the untrimmed TE-facing segment is recovered from the
+confirmed.  For each, the untrimmed TE-facing segment is taken from the
 winning junction's source read, aligned end-to-end anywhere in the TE library
-(either strand) with the frozen exhaustive Bowtie2 profile, collapsed to the
+(either strand) with the built-in exhaustive Bowtie2 profile, collapsed to the
 minimum NM per alias-normalized biological family, and accepted when the
 candidate family is the unique best family and ``35 * NM <= 3 * length``.
 """

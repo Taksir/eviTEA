@@ -1,8 +1,8 @@
-"""Fixed-candidate split-junction reference competition (incumbent class 1).
+"""Find split-junction evidence at the candidate loci by competition with the reference.
 
-Port of the frozen FCRC1 evidence layer.  For every candidate locus and both
-mates of every candidate physical pair, terminal host|TE and TE|host cuts are
-nominated from candidate-family 21-mer density, then certified only if:
+For every candidate locus and both mates of every candidate physical pair,
+terminal host|TE and TE|host cuts are nominated from candidate-family 21-mer
+density, then confirmed only if:
 
 1. the whole host-facing segment aligns to the local reference scope with at
    most three edits and yields exactly one best breakpoint, inside the
@@ -11,11 +11,13 @@ nominated from candidate-family 21-mer density, then certified only if:
    (<= 3 edits, 3-bp pad);
 3. the TE-facing segment has a unique best biological family in the full TE
    library (<= 3 edits);
-4. the split model beats a whole-read local reference alignment by >= 4 edits.
+4. the split model has >= 4 fewer edits than a whole-read local reference
+   alignment.
 
-One semantic winner per read context, fragment-level reconciliation of the two
-mates, side clustering of physical-pair support, pairing of opposite sides
-within 50 bp, and the frozen score >= 4 emission rule complete the layer.
+One winner per read context (hypotheses with the same family, side and
+breakpoint count once), fragment-level reconciliation of the two mates, side
+clustering of physical-pair support, pairing of opposite sides within 50 bp,
+and the score >= 4 emission rule complete the layer.
 """
 
 from __future__ import annotations
@@ -155,7 +157,7 @@ def nominate_read(
     scope: str,
     scope_start: int,
 ) -> list[Nomination]:
-    """Broad cut nomination; never evidence until certified."""
+    """Nominate cuts broadly; a nomination is not evidence until confirmed."""
 
     if not family_kmers:
         return []
@@ -461,7 +463,7 @@ def split_junction_hypotheses(
     progress: Callable[[int, int], None] | None = None,
     hypothesis_sink: Callable[[Nomination, str, CertifiedJunction | None, dict[str, object]], None] | None = None,
 ) -> tuple[list[CertifiedJunction], dict[str, int]]:
-    """Certified split-junction hypotheses of ``loci`` in locus order.
+    """Return the confirmed split-junction hypotheses of ``loci`` in locus order.
 
     Loci are independent, so contiguous locus batches may be processed
     separately and concatenated in order before :func:`finalize_split_junctions`.
@@ -504,7 +506,7 @@ def split_junction_hypotheses(
 def finalize_split_junctions(
     sample_id: str, certified: Sequence[CertifiedJunction], counts: Mapping[str, int] | None = None
 ) -> SplitJunctionResult:
-    """Context and fragment competition, side clustering and pairing."""
+    """Apply context and fragment competition, side clustering and pairing."""
 
     context_hypotheses: dict[tuple[int, int], list[CertifiedJunction]] = defaultdict(list)
     for junction in certified:
@@ -542,7 +544,7 @@ def run_split_junction_layer(
     progress: Callable[[int, int], None] | None = None,
     hypothesis_sink: Callable[[Nomination, str, CertifiedJunction | None, dict[str, object]], None] | None = None,
 ) -> SplitJunctionResult:
-    """Run the frozen split-junction layer over every candidate locus."""
+    """Run the split-junction layer over every candidate locus."""
 
     certified, counts = split_junction_hypotheses(
         loci=loci, reads=reads, reference=reference, family_kmers=family_kmers, te_index=te_index,

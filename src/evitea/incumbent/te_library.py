@@ -1,18 +1,18 @@
-"""TE-library evidence primitives of the frozen incumbent lineage.
+"""TE-library evidence primitives of the library layer.
 
-This ports the recovered Route-B core used by every incumbent stage:
+These primitives are used by every step of the library layer:
 
 * whole-segment infix alignment of a TE-facing sequence anywhere in each TE
   consensus record, either strand, at most three edits;
 * collapse to the best distance per biological family (raw family-map labels,
   no alias normalization at this level);
-* a unique best family is required; equal-best families fail closed;
+* a unique best family is required; equal-best families give no result;
 * side clustering of qualified breakpoints (single link, radius 8 bp, modal
   coordinate with ties to the larger coordinate).
 
-It also ports the candidate-family 21-mer panel builder, including its frozen
-record-selection behaviour (a record joins a family panel when its first header
-token, its mapped family, or a substring match of the family label selects it).
+It also builds the candidate-family 21-mer panels.  A record joins a family
+panel when its first header token, its mapped family, or a substring match of
+the family label selects it.
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ __all__ = [
 
 
 def normalize_family(label: str) -> str:
-    """Apply only the two frozen historical aliases."""
+    """Apply only the two built-in family aliases (``rooA`` to ``roo``, ``Rt1a`` to ``Rt1b``)."""
 
     return FROZEN_ALIASES.get(str(label), str(label))
 
@@ -66,7 +66,7 @@ def _read_tsv(path: Path) -> list[dict[str, str]]:
 
 
 def load_record_family_map(path: str | Path) -> dict[str, str]:
-    """``FBte_ID -> FlyBase_Family`` (raw labels) with frozen column fallbacks, or a two-column ``record<TAB>family`` table."""
+    """Read a map from ``FBte_ID`` to ``FlyBase_Family`` (raw labels) with fallback column names, or a two-column ``record<TAB>family`` table."""
 
     if is_two_column_table(path):
         return dict(family_pairs(path))
@@ -83,7 +83,7 @@ def load_record_family_map(path: str | Path) -> dict[str, str]:
 
 
 def load_heuristic_family_map(path: str | Path) -> dict[str, str]:
-    """Gate-1 family map: first ID-like column and first ``family`` column, or a two-column ``record<TAB>family`` table."""
+    """Read a family map from the first ID-like column and the first ``family`` column, or a two-column ``record<TAB>family`` table."""
 
     if is_two_column_table(path):
         return dict(family_pairs(path))
@@ -127,7 +127,7 @@ class TERecord:
 
 
 def load_te_records(path: str | Path, family_map: Mapping[str, str]) -> tuple[TERecord, ...]:
-    """Parse TE consensus records exactly as the recovered TE index did."""
+    """Parse TE consensus records; the record ID is the ``FBte`` ID in the header, else the first header token."""
 
     records: list[TERecord] = []
     header: str | None = None
@@ -221,7 +221,7 @@ class LocalTEIndex:
 def family_best_classify(
     hits: Iterable[tuple[int, str, str, int, str]],
 ) -> tuple[LocalHit | None, dict[str, object]]:
-    """Unique best biological family among TE-record hits (raw labels)."""
+    """Return the unique best biological family among TE-record hits (raw labels)."""
 
     rows = list(hits)
     if not rows:
@@ -328,7 +328,7 @@ def load_family_kmer_panels(
     k: int,
     min_entropy: float,
 ) -> tuple[dict[str, set[str]], dict[str, object]]:
-    """Candidate-family k-mer panels with the frozen record-selection rule."""
+    """Build candidate-family k-mer panels using the record-selection rule in the module docstring."""
 
     family_map = load_heuristic_family_map(family_map_path)
     wanted = set(wanted_families)

@@ -1,11 +1,12 @@
-"""Sparse exact-anchor panel and its read/pair routing (lineage stage G1B).
+"""Select the sparse exact-anchor panel and route reads and pairs through it.
 
 For every anchor locus (record, start, region, orientation) the narrowest
 nonempty exact query of width <= 64 is chosen (ties: not low-complexity,
 longer k, query id).  Families observed in the sample but without such a query
 receive up to four fallback queries of width 65..1024.  Every msBWT row of the
-panel is enumerated; a read inherits the channel mask and families of all
-panel queries it carries, and a pair the union over its mates.
+panel is enumerated.  A read inherits the channel mask (terminal, internal or
+fallback bits) and the families of all panel queries it carries.  A pair
+inherits the union over its mates.
 """
 
 from __future__ import annotations
@@ -121,7 +122,7 @@ def select_sparse_panel(catalogue: AnchorCatalogue) -> list[PanelQuery]:
 
     panel = [selected[qid] for qid in sorted(selected)]
     if sum(entry.width for entry in panel) > PANEL_ROW_HARD_CAP:
-        raise BackendCompatibilityError("sparse panel exceeds the frozen 2,000,000-row enumeration cap")
+        raise BackendCompatibilityError("sparse panel exceeds the 2,000,000-row enumeration cap")
     return panel
 
 

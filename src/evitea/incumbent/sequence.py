@@ -33,7 +33,7 @@ def revcomp(sequence: str) -> str:
 
 
 def shannon_entropy_acgt(sequence: str) -> float:
-    """Return the entropy over A/C/G/T counts only (used to filter k-mer panels)."""
+    """Return the entropy over A/C/G/T counts only (for filtering k-mer panels)."""
 
     if not sequence:
         return 0.0
