@@ -64,7 +64,7 @@ def build_internal21(
     for r in provenance:
         old = family_by_te.setdefault(r["te_id"], r["family"])
         if old != r["family"]:
-            raise RuntimeError(f"Inconsistent anchor provenance family for {r['te_id']}")
+            raise RuntimeError(f"Inconsistent anchor family for {r['te_id']}")
     cat_by_qid, candidates = {}, set()
     for r in catalogue:
         if int(r["k"]) != K or int(r["has_internal_provenance"]) != 1 or int(r["low_complexity"]) != 0:

@@ -67,7 +67,7 @@ def project_internal(sample, probe_family: Mapping[str, str],
             over += int(hi - lo > PER_ORIENTED_QUERY_ROW_CAP)
     if over or total > TOTAL_INTERVAL_ROW_CAP:
         raise BackendCompatibilityError(
-            f"internal 21-mer msBWT interval budget exceeded (total={total:,}, over-cap queries={over}); the run stops")
+            f"internal 21-mer msBWT interval budget exceeded (total={total:,}, over-cap queries={over})")
     hits: dict[int, dict[int, set[str]]] = defaultdict(lambda: defaultdict(set))
     for n, probe in enumerate(probes, 1):
         for q in dict.fromkeys((probe, revcomp(probe))):

@@ -41,7 +41,7 @@ def load_proposal_records(accounting: Iterable[Mapping[str, str]],
     for row in accounting:
         pid, fold = as_int(row.get("pair_id")), as_int(row.get("fold"))
         if pid < 0 or fold != pid % N_FOLDS:
-            raise InputContractError(f"pair accounting row for pair {pid} has an invalid pair ID or fold")
+            raise InputContractError(f"invalid pair ID or fold in pair accounting: {pid}")
         if (row.get("experiment_state") == "ELIGIBLE" and row.get("reference_state") == "REFERENCE_UNEXPLAINED"
                 and row.get("host_class") == "UNIQUE_HIGH" and not as_bool(row.get("reference_cap_censored"))
                 and not as_bool(row.get("host_cap_censored"))):

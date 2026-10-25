@@ -63,7 +63,7 @@ def allowed_pairs(accounting: Iterable[Mapping[str, str]]) -> dict[int, str]:
     for row in accounting:
         pid = as_int(row.get("pair_id"))
         if pid < 0 or as_int(row.get("fold")) != pid % N_FOLDS:
-            raise InputContractError(f"pair accounting row for pair {pid} has an invalid pair ID or fold")
+            raise InputContractError(f"invalid pair ID or fold in pair accounting: {pid}")
         if (row.get("experiment_state") != "ELIGIBLE" or row.get("reference_state") != "REFERENCE_UNEXPLAINED"
                 or as_bool(row.get("reference_cap_censored"))):
             continue

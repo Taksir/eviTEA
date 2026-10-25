@@ -76,7 +76,7 @@ def _g1a_family_by_te(provenance: Sequence[Mapping[str, str]], *, terminal21_onl
             continue
         old = family_by_te.setdefault(row["te_id"], row["family"])
         if old != row["family"]:
-            raise RuntimeError(f"Inconsistent anchor provenance family for {row['te_id']}: {old} vs {row['family']}")
+            raise RuntimeError(f"Inconsistent anchor family for {row['te_id']}: {old} vs {row['family']}")
     return family_by_te
 
 
@@ -153,7 +153,7 @@ def rebuild_terminal21(
             continue
         old = family_by_te.setdefault(p["te_id"], p["family"])
         if old != p["family"]:
-            raise RuntimeError(f"Inconsistent anchor provenance family for {p['te_id']}: {old} vs {p['family']}")
+            raise RuntimeError(f"Inconsistent anchor family for {p['te_id']}: {old} vs {p['family']}")
         source_rows.append({
             "canonical_strand_probe": c["canonical_strand_key"], "te_id": p["te_id"], "family": p["family"],
             "terminal_side": "5p" if p["region"] == "5p_terminal" else "3p",

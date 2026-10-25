@@ -73,9 +73,9 @@ def _certify(witnesses: list[Mapping], index: BIndex, heldout: set[int], proposa
         b_ids = set(b["left_B_pair_ids"]) | set(b["right_B_pair_ids"])
         discovery = {as_int(x) for x in str(proposal["discovery_pair_ids"]).split(";") if x}
         if a_ids & b_ids:
-            raise InputContractError("exact junction evidence and paired-end anchor support share a physical pair")
+            raise InputContractError("exact junction and paired-end pairs overlap")
         if discovery & (a_ids | b_ids):
-            raise InputContractError("pairs that discovered the proposal also appear in its confirming evidence")
+            raise InputContractError("discovery and confirming pairs overlap")
         out.append({**event, "proposal_id": proposal["candidate_id"], "internal_A_pair_ids": sorted(a_ids & internal_ids)})
     return out
 
