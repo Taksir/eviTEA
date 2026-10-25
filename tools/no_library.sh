@@ -1,0 +1,45 @@
+#!/bin/bash
+# The run without a library, as one plain shell chain (no Slurm): repeat map (once per reference), detection with an empty
+# library call set, family records with the same map, and the record pass. The same steps as tools/slurm/no_library.sh and as
+# `evitea run --no-library`, in the same order and with the same arguments.
+#
+#   ASSETS=<prepared reference assets> SAMPLE=<prepared sample assets> DS=<sample id> OUT=<new folder> \
+#     [CONTIGS=chr1,chr2] [MAPDIR=<repeat map folder>] [CALL_OPTS="--threads 8"] [PYTHON=python3] bash tools/no_library.sh
+#
+# The map is built only when $MAPDIR/repeat_map.bed (default $OUT/repeat_map) does not exist yet; it needs BLAST+ on PATH.
+# The result is $OUT/record_pass/added/calls.combined.tsv.
+set -euo pipefail
+: "${ASSETS:?set ASSETS}" "${SAMPLE:?set SAMPLE}" "${DS:?set DS}" "${OUT:?set OUT}"
+PYTHON=${PYTHON:-python3}
+MAPDIR=${MAPDIR:-$OUT/repeat_map}
+CONTIG_OPTS=()
+[ -n "${CONTIGS:-}" ] && CONTIG_OPTS=(--contigs "$CONTIGS")
+read -r -a CALL_EXTRA <<< "${CALL_OPTS:-}"
+ev() { "$PYTHON" -m evitea "$@"; }
+mkdir -p "$OUT"
+if [ ! -e "$MAPDIR/repeat_map.bed" ]; then
+  echo "repeat map -> $MAPDIR"
+  ev build-repeat-map --reference-assets "$ASSETS" --output "$MAPDIR" "${CONTIG_OPTS[@]}"
+fi
+MAP=$MAPDIR/repeat_map.bed
+echo "empty library call set -> $OUT/nolib_stub"
+"$PYTHON" -c 'import sys; from pathlib import Path; from evitea.run_command import write_stub_run; write_stub_run(Path(sys.argv[1]), sys.argv[2])' \
+  "$OUT/nolib_stub" "$DS"
+echo "detection -> $OUT/library_free"
+ev library-free --run-dir "$OUT/nolib_stub" --sample-assets "$SAMPLE" --reference-assets "$ASSETS" --output "$OUT/library_free" \
+  --work-dir "$OUT/work/library_free" "${CONTIG_OPTS[@]}" --rule-c --repeat-map "$MAP"
+echo "records -> $OUT/records"
+SEG2=()
+[ -f "$OUT/library_free/library_free_second_segments.fa" ] && SEG2=(--second-segments "$OUT/library_free/library_free_second_segments.fa")
+ev build-family-records --family-calls "$OUT/library_free/library_free_family_calls.tsv" \
+  --segments "$OUT/library_free/library_free_segments.fa" "${SEG2[@]}" --reference-assets "$ASSETS" --output "$OUT/records/lib" \
+  --flag-rule kept --repeat-map "$MAP"
+ev prepare-te --te-library "$OUT/records/lib/te_library.fa" --family-map "$OUT/records/lib/family_map_padded.tsv" \
+  --terminal-codebook "$OUT/records/lib/terminal_codebook.tsv" --internal-codebook "$OUT/records/lib/internal_only_codebook.tsv" \
+  --reference-assets "$ASSETS" --output "$OUT/records/assets_te"
+echo "record pass -> $OUT/record_pass"
+ev call --sample-assets "$SAMPLE" --reference-assets "$ASSETS" --te-assets "$OUT/records/assets_te" \
+  --output "$OUT/record_pass/call" --work-dir "$OUT/work/record_pass" "${CALL_EXTRA[@]}"
+ev add-record-calls --calls "$OUT/record_pass/call/calls.native.tsv" --base-calls "$OUT/library_free/calls.combined.tsv" \
+  --records "$OUT/records/lib" --output "$OUT/record_pass/added"
+echo "done: $OUT/record_pass/added/calls.combined.tsv"

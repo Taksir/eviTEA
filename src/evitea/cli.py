@@ -420,6 +420,15 @@ def build_parser() -> argparse.ArgumentParser:
     resident.add_argument("--allow-unlisted-copies", action="store_true",
                           help="accept a copy table whose sha256 is not listed in the tool")
 
+    from . import run_command as _run
+
+    run = commands.add_parser(
+        "run",
+        help="one command from FASTQ to calls: the prepare steps and call (and library-free), or, with --no-library, the "
+        "run without a TE library (repeat map, library-free, family records, record pass)",
+    )
+    _run.add_arguments(run)
+
     validate = commands.add_parser("validate")
     targets = validate.add_subparsers(dest="validation_target", required=True)
     targets.add_parser("install")
@@ -1200,6 +1209,14 @@ def main(
             _call_tiers(args)
         elif args.command == "filter-resident-copies":
             _filter_resident_copies(args)
+        elif args.command == "run":
+            from .run_command import run as _run_steps
+
+            started = time.time()
+            return _run_steps(
+                args, main,
+                lambda m: print(f"[evitea {time.time() - started:9.1f}s] {m}", file=sys.stderr, flush=True),
+            )
         elif args.command == "validate":
             _validate(args)
         elif args.command == "version":
