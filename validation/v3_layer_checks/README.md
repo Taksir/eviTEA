@@ -1,14 +1,14 @@
-# v3 extension-layer checks
+# Extension-layer checks
 
-Validation-only.  Production code never imports anything here.
+Validation only. Package code never imports anything here.
 
-## `run_shadow_layer_equivalence.py` — S100 integration equivalence
+## `run_shadow_layer_equivalence.py`: integration equivalence
 
-Feeds the frozen research inputs of the four historical integration freezes
-(AnchorPE candidates, full-memory selected anchors, INTERNAL21 locus ledger and
-event instances) into `evitea.shadow_layers` on top of the R9E incumbent bytes,
-and requires byte identity at every layer plus exact agreement of every
-integration decision and nearest-call attribution:
+Feeds the recorded research inputs of the four integration steps (paired-end
+anchor candidates, full-memory selected anchors, internal 21-mer locus record
+and event instances) into `evitea.shadow_layers` on top of the library-layer
+callset bytes. It requires byte identity at every layer plus exact agreement of
+every integration decision and nearest-call attribution:
 
 ```text
 AKA017  792 -> 801 -> 820 -> 835 -> 838   final 6432c8e1...f701
@@ -23,18 +23,18 @@ python validation\v3_layer_checks\run_shadow_layer_equivalence.py `
 ```
 
 Pass `--incumbent-aka017 <engine R9E_COMBINED_CALLS.tsv>` to build on the clean
-incumbent engine output instead of the frozen R9E file (the two are
-byte-identical after `INCUMBENT_EQUIVALENCE_PASS`).
+library-layer engine output instead of the recorded library-layer file (the two
+are byte-identical after `INCUMBENT_EQUIVALENCE_PASS`).
 
-Scope: this isolates the integration semantics.  It does **not** show that
-EviTEA derives the layer inputs themselves; that is covered by the engine checks below.
+Scope: this isolates the integration semantics. It does **not** show that
+EviTEA derives the layer inputs itself. The engine checks below cover that.
 
-## `run_iso_procedure_on_aka017.py` — route-deciding probe (laptop, hours)
+## `run_iso_procedure_on_aka017.py`: ISO1 procedure on AKA017 (laptop, hours)
 
-Runs the frozen, self-contained ISO-1 AnchorPE transfer procedure (imported by
-SHA-256, exactly as the GIM-024 blind run did) unchanged on AKA-017 and compares
-its corrected clusters, novel/nonresident targets, replicated A anchors, B
-universe and candidates with AKA-017's frozen historical chain.  Verdicts:
+Runs the fixed, self-contained ISO1 paired-end anchor transfer procedure
+(imported by SHA-256) unchanged on AKA017. It compares its corrected clusters,
+novel/nonresident targets, replicated exact-junction anchors, paired-end
+support universe and candidates with the recorded AKA017 chain. Results:
 
 * `ISO_PROCEDURE_REPRODUCES_AKA017_CANDIDATES_EXACTLY`
 * `ISO_PROCEDURE_REPRODUCES_AKA017_CANDIDATES_UP_TO_CLUSTER_IDS`
@@ -44,19 +44,19 @@ universe and candidates with AKA-017's frozen historical chain.  Verdicts:
 powershell -ExecutionPolicy Bypass -File .\tools\windows\PROBE_ISO_PROCEDURE_AKA017.ps1 -Work <work-dir> -RouteBV3 <route-b-v3-dir> -EdlibPython <python-with-edlib>
 ```
 
-Needs the edlib-capable interpreter used by the research scripts
+Requires the edlib-capable interpreter used by the research scripts
 (`-EdlibPython <path\to\python.exe>`, required) and an
-msbwt-modern3 Python (`-Python`).  Result: `ISO_PROCEDURE_AKA017_COMPARISON.json`
-in the work directory.
+msbwt-modern3 Python (`-Python`). The result is
+`ISO_PROCEDURE_AKA017_COMPARISON.json` in the work directory.
 
-## `run_v3_extension_equivalence.py` — clean v3 extension engine (laptop)
+## `run_v3_extension_equivalence.py`: clean extension engine (laptop)
 
 Runs `evitea.extension_engine.run_extension` from the prepared msBWT of each
-sample (AKA017 host read names `aka-historical`, ISO1 `iso`) and requires every
-intermediate (AnchorPE candidates; full-memory proposals, event ledger and
-selected events; INTERNAL21 witnesses, event instances and loci) to equal the
-frozen tables, and the four layers to be byte-identical (AKA017
-801/820/835/838, ISO1 192/193/194/194).  Verdict
+sample (AKA017 host read names `aka-historical`, ISO1 `iso`). It requires every
+intermediate (paired-end anchor candidates; full-memory proposals, event record
+and selected events; internal 21-mer witnesses, event instances and loci) to
+equal the recorded tables, and the four layers to be byte-identical (AKA017
+801/820/835/838, ISO1 192/193/194/194). The result is
 `V3_EXTENSION_ENGINE_EQUIVALENCE_PASS` in `V3_EXTENSION_ENGINE_EQUIVALENCE.json`.
 
 ```powershell
