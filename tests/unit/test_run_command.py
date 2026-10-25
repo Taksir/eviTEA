@@ -57,3 +57,26 @@ def test_a_failed_step_stops_the_run(tmp_path: Path) -> None:
     assert not (tmp_path / "out" / "steps" / "te.done").exists()
     with pytest.raises(InputContractError):
         run(_args(tmp_path, "--te-library", "te.fa"), lambda words: 0, lambda m: None)
+
+
+def test_no_library_run_without_an_annotation_binds_the_repeat_map(tmp_path: Path) -> None:
+    seen: list[list[str]] = []
+    args = build_parser().parse_args([
+        "run", "--reference", "ref.fa", "--read1", "s_R1.fastq", "--read2", "s_R2.fastq", "--sample-id", "s",
+        "--output", str(tmp_path / "out"), "--no-library",
+    ])
+    assert run(args, lambda words: seen.append(list(words)) or 0, lambda m: None) == 0
+    assert [w[0] for w in seen][:3] == ["build-repeat-map", "prepare-reference", "prepare-sample"]
+    out = tmp_path / "out"
+    repeat_map = seen[0]
+    assert repeat_map[repeat_map.index("--reference-fasta") + 1] == "ref.fa"
+    reference = seen[1]
+    assert reference[reference.index("--repeat-annotation") + 1] == str(out / "repeat_map" / "repeat_map_bed6.bed")
+    detect = seen[3]
+    assert detect[detect.index("--repeat-map") + 1] == str(out / "repeat_map" / "repeat_map.bed")
+    # a run with a library still needs the annotation
+    with pytest.raises(InputContractError, match="--repeat-annotation"):
+        run(build_parser().parse_args([
+            "run", "--reference", "ref.fa", "--read1", "a", "--read2", "b", "--output", str(tmp_path / "o2"),
+            "--te-library", "te.fa", "--family-map", "map.tsv",
+        ]), lambda words: 0, lambda m: None)

@@ -102,6 +102,12 @@ def main():
             s = RM.build_repeat_map(reference_fasta=ref, output=out, contigs=["chrA", "chrB", "chrC"], parts=parts, progress=lambda m: None)
             beds[parts] = (out / "repeat_map.bed").read_text()
         check("M3 the map does not depend on the number of parts", beds[1] == beds[3], (beds[1], beds[3]))
+        bed6 = (t / "map1" / RM.BED6).read_text()
+        check("M3 the BED6 copy holds the same intervals, named repeat, score 0, no strand",
+              bed6 == "".join(f"{line}\trepeat\t0\t.\n" for line in beds[1].splitlines()), bed6[:200])
+        from evitea.inputs import load_repeat_annotation, validate_reference_fasta
+        loaded = load_repeat_annotation(t / "map1" / RM.BED6, validate_reference_fasta(ref))
+        check("M3 prepare-reference reads the BED6 copy as a repeat annotation", len(loaded.records) == len(beds[1].splitlines()))
         rows = [line.split("\t") for line in beds[1].splitlines()]
         got = {}
         for contig_, x, y in rows:

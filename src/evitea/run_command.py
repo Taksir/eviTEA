@@ -15,6 +15,14 @@ Without a library (``--no-library``; the chain of ``tools/no_library.sh`` and th
 
     reference/  prepare-reference          sample/  prepare-sample
     repeat_map/     build-repeat-map (BLAST+ on PATH)
+
+``--repeat-annotation`` is optional here.  Without it, ``build-repeat-map`` runs first, on the reference FASTA, and its BED6
+copy (``repeat_map/repeat_map_bed6.bed``: every repeated interval named ``repeat``) is the reference's annotation for
+``prepare-reference`` and so for the record pass's ``call``.  The run then takes only the reference and the reads.  A
+self-built record never shares a name with an annotation entry, so the same-family tests that read the annotation (the
+paired-end channel's residency test, the reference check of the record codebooks) behave the same with the map as with a
+curated annotation; what the map changes is the near-any-TE field of ``call-tiers`` and the segment classes of
+``--refine-breakpoints``, which read any annotated interval as a TE.  An explicit ``--repeat-annotation`` wins.
     nolib_stub/     an empty library call set (the header of calls.native.tsv and the sample id)
     library_free/   library-free on the stub, family-identity filter on, resident-copy test with the repeat map
     records/lib/, records/assets_te/   build-family-records (flag rule kept, record guard with the map), prepare-te
@@ -33,6 +41,7 @@ from pathlib import Path
 
 from .errors import InputContractError
 from .incumbent.events import LEGACY_EVENT_FIELDS
+from .repeat_map import BED6
 
 __all__ = ["add_arguments", "library_steps", "no_library_steps", "run", "write_stub_run"]
 
@@ -42,8 +51,9 @@ FAMILY_IDENTITY_FILTER = "--rule-c"
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--reference", type=Path, required=True, help="reference FASTA")
-    parser.add_argument("--repeat-annotation", type=Path, required=True,
-                        help="TE annotation of the reference (BED6; see docs/REPEAT_ANNOTATION.md)")
+    parser.add_argument("--repeat-annotation", type=Path,
+                        help="TE annotation of the reference (BED6; see docs/REPEAT_ANNOTATION.md); required with a library; "
+                        "with --no-library the repeat map stands in for it when it is not given")
     parser.add_argument("--read1", type=Path, required=True)
     parser.add_argument("--read2", type=Path, required=True)
     parser.add_argument("--sample-id")
@@ -73,9 +83,10 @@ def _call_options(args: argparse.Namespace) -> list[str]:
 
 
 def _common_steps(args: argparse.Namespace, out: Path, sample_id: str) -> list[tuple[str, list[str]]]:
+    annotation = args.repeat_annotation if args.repeat_annotation is not None else out / "repeat_map" / BED6
     return [
         ("reference", ["prepare-reference", "--reference", str(args.reference), "--repeat-annotation",
-                       str(args.repeat_annotation), "--output", str(out / "reference"), "--threads", str(args.threads)]),
+                       str(annotation), "--output", str(out / "reference"), "--threads", str(args.threads)]),
         ("sample", ["prepare-sample", "--read1", str(args.read1), "--read2", str(args.read2), "--sample-id", sample_id,
                     "--output", str(out / "sample"), "--threads", str(args.threads)]),
     ]
@@ -109,11 +120,15 @@ def no_library_steps(args: argparse.Namespace, out: Path, sample_id: str) -> lis
     repeat_map = out / "repeat_map" / "repeat_map.bed"
     records = out / "records"
     second = out / "library_free" / "library_free_second_segments.fa"
+    if args.repeat_annotation is None:
+        # the map first, from the FASTA: its BED6 copy is the reference's annotation
+        first = [("repeat_map", ["build-repeat-map", "--reference-fasta", str(args.reference), "--output",
+                                 str(out / "repeat_map"), *_contigs(args)]), reference, sample]
+    else:
+        first = [reference, sample, ("repeat_map", ["build-repeat-map", "--reference-assets", str(out / "reference"),
+                                                    "--output", str(out / "repeat_map"), *_contigs(args)])]
     return [
-        reference,
-        sample,
-        ("repeat_map", ["build-repeat-map", "--reference-assets", str(out / "reference"), "--output",
-                        str(out / "repeat_map"), *_contigs(args)]),
+        *first,
         ("nolib_stub", ["@stub", str(out / "nolib_stub"), sample_id]),
         ("library_free", ["library-free", "--run-dir", str(out / "nolib_stub"), "--sample-assets", str(out / "sample"),
                           "--reference-assets", str(out / "reference"), "--output", str(out / "library_free"),
@@ -168,6 +183,8 @@ def run(args: argparse.Namespace, main: Callable[[Sequence[str]], int], say: Cal
             raise InputContractError("--no-library takes no --family-map or --library-free")
     elif args.family_map is None:
         raise InputContractError("--te-library needs --family-map")
+    elif args.repeat_annotation is None:
+        raise InputContractError("a run with a TE library needs --repeat-annotation (see docs/REPEAT_ANNOTATION.md)")
     out = Path(args.output).expanduser().resolve()
     sample_id = derive_sample_id(args.read1, args.sample_id)
     steps = no_library_steps(args, out, sample_id) if args.no_library else library_steps(args, out, sample_id)

@@ -143,7 +143,8 @@ EviTEA otherwise takes from the sample and the reference: `--read-length`, `--fr
 
 `evitea run --no-library` builds a repeat map of the reference with BLAST+ (`build-repeat-map`), runs the library-free layer
 with it, turns the library-free families into TE records (`build-family-records`), runs the library layer on those records
-and adds its new calls (`add-record-calls`). The result is `record_pass/added/calls.combined.tsv`. The same chain is in
+and adds its new calls (`add-record-calls`). The result is `record_pass/added/calls.combined.tsv`. It needs only the
+reference and the reads: without `--repeat-annotation`, the repeat map also serves as the reference's annotation. The same chain is in
 `tools/no_library.sh` (plain shell) and `tools/slurm/no_library.sh` (Slurm). See
 [docs/REPEAT_ANNOTATION.md](docs/REPEAT_ANNOTATION.md).
 

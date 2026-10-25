@@ -44,18 +44,25 @@ A species may have no curated TE library. EviTEA can still call insertions:
 4. `call` runs the library layer once more, on those records; `add-record-calls` adds its new calls to the library-free call
    set. The result is `record_pass/added/calls.combined.tsv`.
 
-All four steps are one command:
+All four steps are one command, which needs only the reference and the reads:
 
 ```bash
-evitea run --no-library --reference reference.fa --repeat-annotation repeat_annotation.bed \
+evitea run --no-library --reference reference.fa \
   --read1 s_R1.fastq.gz --read2 s_R2.fastq.gz --sample-id s --output runs/s --threads 8
 ```
 
-The same chain is `tools/no_library.sh` (a plain shell script, on prepared assets) and `tools/slurm/no_library.sh` (Slurm jobs).
-The library pass of step 4 reads the reference's repeat annotation like any `call`, so `--repeat-annotation` (BED6, as above)
-is needed here too. Without a curated library, make it with RepeatMasker and a library of the species' repeats from a de novo
-tool (for example RepeatModeler). The repeat map cannot take its place: it is a three-column BED of repeated intervals with
-no TE names.
+The library pass of step 4 runs `call`, which reads the reference's repeat annotation. Without `--repeat-annotation`, the
+repeat map is built first, from the reference FASTA, and its BED6 copy (`repeat_map/repeat_map_bed6.bed`: every repeated
+interval, named `repeat`, score 0, strand `.`) becomes the reference's annotation. The records are built from the sample, so
+their names never match an annotation name: the same-family tests that read the annotation (the residency test of the
+paired-end channel, the reference check of the record codebooks) do not fire on them, with a curated annotation or with the
+map. Two optional outputs read any annotated interval as a TE and so see the map's repeats: the near-any-TE field of
+`call-tiers` and the segment classes of `--refine-breakpoints`. Pass `--repeat-annotation` (BED6, as above) to use a curated
+annotation instead; it wins over the map.
+
+The same chain is `tools/no_library.sh` (a plain shell script: `REFERENCE=<FASTA>` for a run with only the reference, or
+`ASSETS=<prepared reference>` to use a prepared reference and its annotation) and `tools/slurm/no_library.sh` (Slurm jobs, on
+a prepared reference).
 
 `build-repeat-map --contigs` limits the map to some contigs (default: contigs of 1 Mb or more, the contigs the library-free
 layer scans by default); `--parts` sets the number of blastn processes (the map does not depend on it).

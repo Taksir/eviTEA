@@ -1,6 +1,7 @@
 #!/bin/bash
 # `evitea run` against the separate commands on the synthetic data set, with a library (and library-free) and without one
-# (against tools/no_library.sh). The outputs must be identical.
+# (against tools/no_library.sh), the latter once with the curated annotation and once without any (the repeat map stands
+# in). The outputs must be identical.
 #   bash tools/synthetic/compare_run.sh [WORK]          (PYTHON=python3; Bowtie2, BLAST+, mappy and parasail needed)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -43,6 +44,17 @@ mkdir -p "$N"
 [ -d "$N/record_pass/added" ] || ASSETS=$N/reference SAMPLE=$N/sample DS=synth OUT=$N CONTIGS=$C \
   CALL_OPTS="--threads 4 --workers 2" PYTHON=$PYTHON bash tools/no_library.sh 2> "$N.log"
 
+# without a library and without an annotation
+NOANN=(--reference "$D/reference.fa" --read1 "$D/sample_R1.fastq" --read2 "$D/sample_R2.fastq" --sample-id synth --threads 4
+       --workers 2)
+ev run "${NOANN[@]}" --no-library --contigs "$C" --output "$WORK/run_noann" 2> "$WORK/run_noann.log"
+M=$WORK/sep_noann
+mkdir -p "$M"
+[ -d "$M/sample" ] || ev prepare-sample --read1 "$D/sample_R1.fastq" --read2 "$D/sample_R2.fastq" --sample-id synth \
+  --output "$M/sample" --threads 4
+[ -d "$M/record_pass/added" ] || REFERENCE=$D/reference.fa SAMPLE=$M/sample DS=synth OUT=$M CONTIGS=$C \
+  CALL_OPTS="--threads 4 --workers 2" PYTHON=$PYTHON bash tools/no_library.sh 2> "$M.log"
+
 fail=0
 same() {  # same <A> <B> <relative files...>
   local a=$1 b=$2; shift 2
@@ -62,5 +74,10 @@ same "$WORK/run_nolib/library_free" "$N/library_free" "${LF_FILES[@]}"
 same "$WORK/run_nolib/records/lib" "$N/records/lib" $(cd "$N/records/lib" && ls *.tsv *.fa *.bed 2>/dev/null)
 same "$WORK/run_nolib/record_pass/call" "$N/record_pass/call" "${CALL_FILES[@]}"
 same "$WORK/run_nolib/record_pass/added" "$N/record_pass/added" $(cd "$N/record_pass/added" && ls)
+same "$WORK/run_noann/repeat_map" "$M/repeat_map" repeat_map.bed repeat_map_bed6.bed
+same "$WORK/run_noann/library_free" "$M/library_free" "${LF_FILES[@]}"
+same "$WORK/run_noann/records/lib" "$M/records/lib" $(cd "$M/records/lib" && ls *.tsv *.fa *.bed 2>/dev/null)
+same "$WORK/run_noann/record_pass/call" "$M/record_pass/call" "${CALL_FILES[@]}"
+same "$WORK/run_noann/record_pass/added" "$M/record_pass/added" $(cd "$M/record_pass/added" && ls)
 [ "$fail" = 0 ] && echo "ALL SAME ($WORK)" || echo "DIFFERENCES ($WORK)"
 exit $fail

@@ -8,7 +8,9 @@ contig, subject start within 300 bp of the query position).  Query sides and, on
 and merged.
 
 Output: ``<output>/repeat_map.bed`` (contig, 0-based start, end), read by ``--repeat-map`` of ``library-free`` and
-``build-family-records``; ``<output>/repeat_map_summary.json`` holds the constants, the counts and the checksums.
+``build-family-records``; ``<output>/repeat_map_bed6.bed``, the same intervals as BED6 (name ``repeat``, score 0, strand
+``.``), which ``prepare-reference --repeat-annotation`` accepts, so that a run without a library needs no curated annotation;
+``<output>/repeat_map_summary.json`` holds the constants, the counts and the checksums.
 """
 
 from __future__ import annotations
@@ -24,7 +26,10 @@ from pathlib import Path
 
 from .errors import InputContractError, OperationalResourceError
 
-__all__ = ["build_repeat_map", "default_contigs", "intervals_from_hits", "merge_intervals", "read_lengths", "window_records"]
+__all__ = [
+    "BED", "BED6", "build_repeat_map", "default_contigs", "intervals_from_hits", "merge_intervals", "read_lengths",
+    "window_records",
+]
 
 WINDOW = 500
 STEP = 250
@@ -36,6 +41,8 @@ MAX_SUBJECTS = 10
 MAX_HSPS = 10
 HIT_FORMAT = "6 qseqid sseqid pident length qstart qend sstart send"
 BED = "repeat_map.bed"
+BED6 = "repeat_map_bed6.bed"
+BED6_NAME = "repeat"
 SUMMARY = "repeat_map_summary.json"
 IDENTITY = "build_identity.json"
 TOOLS = ("makeblastdb", "blastn")
@@ -161,6 +168,15 @@ def write_bed(path: Path, intervals: dict[str, list[tuple[int, int]]]) -> tuple[
     return n, bases
 
 
+def write_bed6(path: Path, intervals: dict[str, list[tuple[int, int]]]) -> None:
+    """The intervals of ``write_bed`` as BED6 (name ``repeat``, score 0, no strand): a repeat annotation for prepare-reference."""
+
+    with Path(path).open("w", encoding="utf-8") as handle:
+        for contig in sorted(intervals):
+            for a, b in intervals[contig]:
+                handle.write(f"{contig}\t{a}\t{b}\t{BED6_NAME}\t0\t.\n")
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with Path(path).open("rb") as handle:
@@ -230,11 +246,13 @@ def build_repeat_map(*, reference_fasta: Path, output: Path, contigs: Iterable[s
         lines.extend((output / f"hits_{i}.tsv").read_text(encoding="utf-8").splitlines())
     iv = merge_intervals(intervals_from_hits(lines, chosen, known=lengths))
     count, bases = write_bed(output / BED, iv)
+    write_bed6(output / BED6, iv)
     summary = {
         "reference_bases": sum(lengths.values()), "contigs": list(chosen), "windows": windows,
         "constants": {"window": WINDOW, "step": STEP, "min_identity": MIN_IDENTITY, "min_aligned": MIN_ALIGNED, "self_bp": SELF_BP,
                       "evalue": EVALUE, "max_subjects": MAX_SUBJECTS, "max_hsps": MAX_HSPS},
         "intervals": count, "bases": bases, "reference_sha256": identity["reference_sha256"], "bed_sha256": _sha256(output / BED),
+        "bed6_sha256": _sha256(output / BED6),
     }
     (output / SUMMARY).write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     progress(f"repeat map: intervals {count} bases {bases}")

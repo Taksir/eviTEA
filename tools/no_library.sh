@@ -5,11 +5,15 @@
 #
 #   ASSETS=<prepared reference assets> SAMPLE=<prepared sample assets> DS=<sample id> OUT=<new folder> \
 #     [CONTIGS=chr1,chr2] [MAPDIR=<repeat map folder>] [CALL_OPTS="--threads 8"] [PYTHON=python3] bash tools/no_library.sh
+# or, with no repeat annotation at all, REFERENCE=<reference FASTA> instead of ASSETS: the repeat map is built from the FASTA
+# first and its BED6 copy (repeat_map_bed6.bed) is the annotation of the reference prepared in $OUT/reference (as
+# `evitea run --no-library` does without --repeat-annotation).
 #
 # The map is built only when $MAPDIR/repeat_map.bed (default $OUT/repeat_map) does not exist yet; it needs BLAST+ on PATH.
 # The result is $OUT/record_pass/added/calls.combined.tsv.
 set -euo pipefail
-: "${ASSETS:?set ASSETS}" "${SAMPLE:?set SAMPLE}" "${DS:?set DS}" "${OUT:?set OUT}"
+: "${SAMPLE:?set SAMPLE}" "${DS:?set DS}" "${OUT:?set OUT}"
+[ -n "${ASSETS:-}${REFERENCE:-}" ] || { echo "set ASSETS (prepared reference) or REFERENCE (reference FASTA)"; exit 2; }
 PYTHON=${PYTHON:-python3}
 MAPDIR=${MAPDIR:-$OUT/repeat_map}
 CONTIG_OPTS=()
@@ -17,7 +21,17 @@ CONTIG_OPTS=()
 read -r -a CALL_EXTRA <<< "${CALL_OPTS:-}"
 ev() { "$PYTHON" -m evitea "$@"; }
 mkdir -p "$OUT"
-if [ ! -e "$MAPDIR/repeat_map.bed" ]; then
+if [ -z "${ASSETS:-}" ]; then
+  if [ ! -e "$MAPDIR/repeat_map.bed" ]; then
+    echo "repeat map (from the FASTA) -> $MAPDIR"
+    ev build-repeat-map --reference-fasta "$REFERENCE" --output "$MAPDIR" "${CONTIG_OPTS[@]}"
+  fi
+  ASSETS=$OUT/reference
+  if [ ! -e "$ASSETS/reference_manifest.json" ]; then
+    echo "reference, annotated by the repeat map -> $ASSETS"
+    ev prepare-reference --reference "$REFERENCE" --repeat-annotation "$MAPDIR/repeat_map_bed6.bed" --output "$ASSETS"
+  fi
+elif [ ! -e "$MAPDIR/repeat_map.bed" ]; then
   echo "repeat map -> $MAPDIR"
   ev build-repeat-map --reference-assets "$ASSETS" --output "$MAPDIR" "${CONTIG_OPTS[@]}"
 fi
