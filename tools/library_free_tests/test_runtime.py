@@ -9,6 +9,8 @@ U6  the command line: no switch gives the default switches, --previous-behaviour
     polya-cross without anchored extension is refused.
 U7  the repeat map (--repeat-map): with an empty library layer it feeds the resident-copy test (the summary's TE share is the map's); with
     library calls it is not used and the files equal the run without it; an explicit annotation wins over the map; with neither, the test is off.
+U8  identity evidence and relative depth floor: with --identity-min-comparisons 0 and the floor off, the files equal those of the dev-merged
+    version before these switches (BASELINE_SRC = its src folder; skipped without it); the command line reads both switches.
 U5  default switches: the extra outputs exist (second scan tables) and the summary carries the options and the assembly.
 """
 import hashlib
@@ -23,6 +25,8 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 # PREVIOUS_SRC: the src folder of the previous version (a checkout of the checkpoint branch); U1 is skipped without it.
 PREVIOUS = os.environ.get("PREVIOUS_SRC")
+# BASELINE_SRC: the src folder of the dev-merged commit before the identity-evidence and relative-floor switches; U8 is skipped without it.
+BASELINE = os.environ.get("BASELINE_SRC")
 FAIL, NCHK = [], [0]
 
 
@@ -142,6 +146,34 @@ def main():
     same = {n: sha(p0 / n) == sha(p1 / n) for n in names + ["library_free_second_places.tsv"] if (p0 / n).exists()}
     check("U7 with library calls the map changes nothing", all(same.values()) and len(same) >= 5 and guard(p0) == guard(p1)
           and rep(p1)["used"] is False and rep(p1)["library_calls"] > 0, (same, rep(p1)))
+
+    # U8
+    names8 = ["library_free_places.tsv", "library_free_segments.fa", "library_free_family_calls.tsv", "calls.library_free.tsv", "calls.combined.tsv",
+              "library_free_second_places.tsv", "library_free_second_segments.fa"]
+    if BASELINE:
+        ob, on_ = t / "base8", t / "new8"
+        rb = run(ob, BASELINE, base, ["--het"])
+        rn = run(on_, ROOT / "src", json.dumps({"identity_min_comparisons": 0, "relative_depth_floor": False}), ["--het"])
+        check("U8 both runs finish", rb.returncode == 0 and rn.returncode == 0, (rb.stderr[-300:], rn.stderr[-300:]))
+        same = {n: sha(ob / n) == sha(on_ / n) for n in names8 if (ob / n).exists()}
+        check("U8 limit 0 and the floor off: the files equal the version before the switches", all(same.values()) and len(same) == 7, same)
+    else:
+        print("U8 skipped: BASELINE_SRC is not set")
+    from evitea import cli as _cli
+    from evitea.library_free.options import Options as _O, from_args as _fa
+    _p = lambda *a: _cli.build_parser().parse_args(["library-free", "--run-dir", "r", "--reference-assets", "a", "--output", "o", "--msbwt-index", "m", *a])
+    o8 = _fa(_p())
+    check("U8 defaults: limit 3, floor off", o8.identity_min_comparisons == 3 and o8.relative_depth_floor is False)
+    o9 = _fa(_p("--identity-min-comparisons", "0", "--relative-depth-floor", "on"))
+    check("U8 the command line reads both switches", o9.identity_min_comparisons == 0 and o9.relative_depth_floor is True)
+    check("U8 --previous-behaviour: limit 0, floor off", _fa(_p("--previous-behaviour")).identity_min_comparisons == 0 and not _fa(_p("--previous-behaviour")).relative_depth_floor)
+    try:
+        _O(identity_min_comparisons=-1)
+        check("U8 a negative limit is refused", False)
+    except ValueError:
+        check("U8 a negative limit is refused", True)
+    check("U8 the floor is part of the detection identity, the limit is not", _O(relative_depth_floor=True).detection_identity != _O().detection_identity
+          and _O(identity_min_comparisons=0).detection_identity == _O().detection_identity)
 
     print("\n%d checks, %d failed" % (NCHK[0], len(FAIL)))
     sys.exit(1 if FAIL else 0)

@@ -91,16 +91,30 @@ def _fnum(v):
     return CL._num(v)
 
 
-def _family_similarity(places, segments, priority, aligner):
+def _judged(used, all_members, minimum, aligner):
+    """(c, pairs, usable pairs) of a family from at least ``minimum`` usable member comparisons: the members ``used`` (the frozen-extension
+    members when the first-pass priority picked them) when they give that many, otherwise all members; with fewer the family is not judged
+    (c = NaN, which the family-identity filter never drops).  ``minimum`` 0 is the plain measure on ``used``."""
+    r = CL.feat_c(used, aligner)
+    if minimum == 0 or r[2] >= minimum:
+        return r
+    r = CL.feat_c(all_members, aligner) if all_members != used else r
+    if r[2] >= minimum:
+        return r
+    return (float("nan"), r[1], r[2])
+
+
+def _family_similarity(places, segments, priority, aligner, minimum=0):
     members = PR.cluster_members(places, segments, priority=priority)
+    allm = PR.cluster_members(places, segments, priority=False) if priority and minimum else members
     wanted = sorted({p["cluster"] for p in places if CL.is_family_call(p)}, key=int)
-    return {c: CL.feat_c(members.get(c, []), aligner) for c in wanted}
+    return {c: _judged(members.get(c, []), allm.get(c, []), minimum, aligner) for c in wanted}
 
 
-def _prepare(scan, places, segments, index, priority, aligner):
+def _prepare(scan, places, segments, index, priority, aligner, minimum=0):
     calls = [i for i, p in enumerate(places) if CL.is_family_call(p)]
     e = {i: CL.e_value(places[i]["fracL"], places[i]["fracR"], places[i]["rstat"]) for i in calls}
-    c = _family_similarity(places, segments, priority, aligner)
+    c = _family_similarity(places, segments, priority, aligner, minimum)
     near = {i: index.near(places[i]["chrom"], int(places[i]["bL"])) for i in calls}
     sides = {i: CK.side_inputs(places[i]) for i in calls}
     return _Pass(scan, places, segments, calls, e, c, near, sides, {})
@@ -183,7 +197,7 @@ def _first_status(pa, i, opts, identity_filter, scope):
     return "ADDED"
 
 
-def _trusted_identity_filter(second: _Pass, trusted: list[int], priority: bool, polya_tsd: bool, aligner):
+def _trusted_identity_filter(second: _Pass, trusted: list[int], priority: bool, polya_tsd: bool, aligner, minimum=0):
     """Group the trusted places among themselves; (cluster2, family vtsd2, c2 tuple, the family-identity filter dropped2) per place index."""
     G, back = [], []
     for i in trusted:
@@ -210,8 +224,9 @@ def _trusted_identity_filter(second: _Pass, trusted: list[int], priority: bool, 
         if not f["vtsd"]:
             continue
         fz = [g["fz_segs"] for g in mem[c]]
-        use = fz if (priority and sum(1 for m in fz if m) >= 2) else [g["all_segs"] for g in mem[c]]
-        c2[c] = CL.feat_c(use, aligner)
+        every = [g["all_segs"] for g in mem[c]]
+        use = fz if (priority and sum(1 for m in fz if m) >= 2) else every
+        c2[c] = _judged(use, every, minimum, aligner)
     out = {}
     for k, i in enumerate(back):
         c = cl[k]
@@ -230,11 +245,15 @@ def assemble(first, second, index: CL.CallIndex, opts: Options, *, identity_filt
     if second is not None and scope == "none":
         raise InputContractError("the haplotype scan joins calls through the one-site check; use --check-scope path-dropped or "
                                  "unconfirmed with --het-scan")
-    F = _prepare("first", first[0], first[1], index, opts.first_pass_priority, aligner)
-    H = _prepare("second", second[0], second[1], index, opts.first_pass_priority, aligner) if second is not None else None
+    minimum = opts.identity_min_comparisons
+    F = _prepare("first", first[0], first[1], index, opts.first_pass_priority, aligner, minimum)
+    H = _prepare("second", second[0], second[1], index, opts.first_pass_priority, aligner, minimum) if second is not None else None
     summary: dict = {"check_scope": scope, "first_pass_family_calls": len(F.calls),
                      "second_scan_family_calls": len(H.calls) if H else 0,
                      "families_with_similarity": len(F.c) + (len(H.c) if H else 0)}
+    if minimum:
+        summary["identity_min_comparisons"] = minimum
+        summary["families_not_judged"] = sum(math.isnan(v[0]) for v in F.c.values()) + (sum(math.isnan(v[0]) for v in H.c.values()) if H else 0)
     tol = None
     if scope != "none":
         if F.calls:
@@ -267,7 +286,7 @@ def assemble(first, second, index: CL.CallIndex, opts: Options, *, identity_filt
         fpos = _positions([F.places[i] for i in F.calls])
         member = {i: _within(fpos, H.places[i]["chrom"], int(H.places[i]["bL"]), NEAR_FIRST_BP) for i in H.calls}
         trusted = [i for i in H.calls if member[i] or (T_E <= H.e[i] <= REFERENCE_PATH_CEILING and H.check.get(i) == 1)]
-        rct = _trusted_identity_filter(H, trusted, opts.first_pass_priority, opts.polya_tsd, aligner) if identity_filter else {}
+        rct = _trusted_identity_filter(H, trusted, opts.first_pass_priority, opts.polya_tsd, aligner, minimum) if identity_filter else {}
         for i in H.calls:
             e = H.e[i]
             _c, dc = _identity_filter_of(H, i)

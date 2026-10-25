@@ -16,6 +16,8 @@ previous release's files byte for byte; `tools/library_free_tests/test_runtime.p
 | Poly-A TSD | `--polya-tsd` | off | a poly-A tail counts toward the two TSDs of the family rule |
 | Het scan | `--het-scan off\|safe-start\|second-walk\|full` | full | a second scan that follows both letters at a het SNP |
 | | `--early-start`, `--right-fallback`, `--second-chance`, `--second-scan-anchored`, `--het-yield` | on | parts of the full mode; `--het-yield`: an early-start or right-side-alone place yields to the plain or second-chance walk of its duplicate chain |
+| Identity evidence | `--identity-min-comparisons N` | 3 | the family-identity filter judges a family only on at least N member comparisons (each of at least 50 aligned columns): the frozen-extension members when they give N, otherwise all members. A family with fewer is not judged (its similarity is NaN, which the filter never drops); the one-site check and the resident-copy test decide. Applies to the first pass and to the haplotype scan's trusted members. 0 judges on whatever comparisons the members give (the previous rule). |
+| Relative depth floor | `--relative-depth-floor on\|off` | off | the lower bound of the local-depth window is the smaller of 10 reads and half the median local depth of the contig (valid words); at a median of 20 or more it stays 10. The upper bound is `--depth-cap`. The floor is part of the identity of a saved scan piece. |
 | One-site check | `--check-scope none\|path-dropped\|unconfirmed` | unconfirmed | which calls must show one-site evidence: none (the previous release's rule), the calls the reference-path filter drops, or every call the library layer does not make |
 | | `--tol p95\|p99` | p99 | depth tolerance of the check |
 | | `--tol-source library\|own-calls` | library | tolerance from library-confirmed calls (own two-sided calls when there are none) |
@@ -121,4 +123,4 @@ filters gets a consensus record (unless the record guard drops it), and the libr
 
 ## Tests (`tools/library_free_tests/`, run with `PYTHONPATH=src`)
 
-`test_depth_window`, `test_depth_tool`, `test_assemble`, `test_records`, `test_runtime`, `test_repeat_map` (needs BLAST+ on PATH for its build checks), `test_slurm_tools`; `tools/library_free_tests/run_all.sh` runs them all.
+`test_depth_window`, `test_depth_tool`, `test_assemble`, `test_records`, `test_runtime` (`PREVIOUS_SRC`: the previous release's src for U1; `BASELINE_SRC`: the src of the commit before the identity-evidence and relative-floor switches for U8), `test_repeat_map` (needs BLAST+ on PATH for its build checks), `test_slurm_tools`; `tools/library_free_tests/run_all.sh` runs them all.

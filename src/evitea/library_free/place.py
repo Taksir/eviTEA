@@ -32,8 +32,9 @@ INS_USE = 30
 class PlaceContext:
     """What one contig's places need: the counter, the contig, the repeat words, the firewall, the extension."""
 
-    def __init__(self, C, ref, rm, fw, chrom, extender=None, words=None, record_check=False):
+    def __init__(self, C, ref, rm, fw, chrom, extender=None, words=None, record_check=False, d_min=None):
         self.C, self.ref, self.rm, self.fw, self.chrom = C, ref, rm, fw, chrom
+        self.d_min = d_min          # lower bound of the local-depth window; None = the fixed ``_p4_lib.D_MIN``
         self.extender = extender or P.extend
         self.words = words
         self.record_check = record_check
@@ -112,7 +113,7 @@ def process_place(pc, cand, *, left_strides=1, right_after_bL=False, safe_right=
         return pl, lw, None
     pl["bL"] = lw["i"]
     why = []
-    if not (P.D_MIN <= D <= P.D_MAX):
+    if not ((P.D_MIN if pc.d_min is None else pc.d_min) <= D <= P.D_MAX):
         why.append("depth")
     b = cand["last"] + P.STRIDE
     if right_after_bL:
@@ -223,7 +224,7 @@ def right_only_place(pc, cand, walk_fn_plain, walk_fn_follow, fork=P.FORK):
     pl = dict(chrom=pc.chrom, first=cand["first"], last=cand["last"], n_low=cand["n_low"], D=round(D, 2))
     pl["bL"] = bR
     why = []
-    if not (P.D_MIN <= D <= P.D_MAX):
+    if not ((P.D_MIN if pc.d_min is None else pc.d_min) <= D <= P.D_MAX):
         why.append("depth")
     w = ref[b:b + P.K]
     if len(w) < P.K or not P.is_acgt(w) or rm.word_multi(w) or C.cnt(w) > P.ANCHOR_RC * D:

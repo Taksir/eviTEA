@@ -30,7 +30,7 @@ from .options import Options
 from .place import PlaceContext, process_place, right_only_place
 from .walks import walk_fn_for
 
-__all__ = ["TAU", "X_LEN", "candidates_from_low", "count_x", "low_masks", "pick_strides", "scan_contig_passes"]
+__all__ = ["TAU", "X_LEN", "candidates_from_low", "count_x", "depth_floor", "low_masks", "pick_strides", "scan_contig_passes"]
 
 TAU = 1 - P.REF_OK
 X_LEN = P.K + 10  # 41-mer
@@ -93,9 +93,20 @@ def pick_strides(j0, pos, ok, low):
     return 1
 
 
-def _first_pass(counter, ref, chrom, rm, fw, opts: Options, words, cands, info, record_check):
+def depth_floor(depth, opts: Options):
+    """Lower bound of the local-depth window of a contig: None (the fixed ``_p4_lib.D_MIN``) or, with the relative floor, the smaller of
+    ``D_MIN`` and half the median local depth of the contig's valid words."""
+    if not opts.relative_depth_floor:
+        return None
+    valid = depth[~np.isnan(depth)]
+    if not len(valid):
+        return None
+    return min(float(P.D_MIN), 0.5 * float(np.median(valid)))
+
+
+def _first_pass(counter, ref, chrom, rm, fw, opts: Options, words, cands, info, record_check, d_min=None):
     ext = Extender(anchored=opts.anchored_extension, cross=opts.polya_cross)
-    pc = PlaceContext(counter, ref, rm, fw, chrom, ext, words if opts.walk_out else None, record_check)
+    pc = PlaceContext(counter, ref, rm, fw, chrom, ext, words if opts.walk_out else None, record_check, d_min)
     places = []
     for cand in cands:
         pl, _, _ = process_place(pc, cand, walkout=opts.walk_out)
@@ -106,11 +117,11 @@ def _first_pass(counter, ref, chrom, rm, fw, opts: Options, words, cands, info, 
     return places, pc.walk_log, ext.cross_log
 
 
-def _het_pass(counter, ref, chrom, rm, fw, opts: Options, cands, pos, m, info, record_check):
+def _het_pass(counter, ref, chrom, rm, fw, opts: Options, cands, pos, m, info, record_check, d_min=None):
     mode = opts.het_scan
     anchored = opts.anchored_extension and opts.second_scan_anchored
     ext = Extender(anchored=anchored, cross=anchored and opts.polya_cross)
-    pc = PlaceContext(counter, ref, rm, fw, chrom, ext, None, record_check)
+    pc = PlaceContext(counter, ref, rm, fw, chrom, ext, None, record_check, d_min)
     plain, follow = walk_fn_for(False), walk_fn_for(True)
     n = dict(second_chance_runs=0, second_chance_places=0, early_start_runs=0, early_start_places=0, right_only_runs=0,
              right_only_places=0)
@@ -173,8 +184,11 @@ def scan_contig_passes(counter, sequence, chrom, rm, firewall, opts: Options, wo
                     n_low=int(m["low"].sum()))
     counter.use = True
     record = opts.check_scope != "none"
-    first, walk_log, cross_log = _first_pass(counter, ref, chrom, rm, firewall, opts, words, cands, info, record)
+    d_min = depth_floor(depth, opts)
+    if d_min is not None:
+        info["depth_floor"] = round(d_min, 2)
+    first, walk_log, cross_log = _first_pass(counter, ref, chrom, rm, firewall, opts, words, cands, info, record, d_min)
     second = None
     if het:
-        second = _het_pass(counter, ref, chrom, rm, firewall, opts, hcands, pos, m, info, record)
+        second = _het_pass(counter, ref, chrom, rm, firewall, opts, hcands, pos, m, info, record, d_min)
     return first, second, dict(info, walk_log=walk_log, cross_log=cross_log)

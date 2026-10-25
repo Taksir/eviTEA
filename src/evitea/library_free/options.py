@@ -6,6 +6,8 @@ Rules (see LIBRARY_FREE_OPTIONS.md):
   walk-out             move a repeated walk-start word outward to the nearest unique word
   first-pass priority  second-chance sources add calls and never change a first-pass duplicate choice, grouping or the family-identity filter
   het scan             a second scan that follows both letters at a het SNP (modes safe-start, second-walk, full)
+  identity evidence    the family-identity filter judges a family only on enough member comparisons
+  relative depth floor the lower bound of the local-depth window is the smaller of 10 reads and half the contig's median local depth
   one-site check       a library-free call is kept only if its junction is new sequence at single-copy depth
   resident-copy test   a library-free call inside an annotated reference TE copy is dropped when its family sits mostly in such copies
 """
@@ -41,6 +43,8 @@ class Options:
     tol: str = "p99"
     tol_source: str = "library"
     resident_guard: str = "family"
+    identity_min_comparisons: int = 3
+    relative_depth_floor: bool = False
 
     def __post_init__(self):
         for name, allowed in (("het_scan", HET_MODES), ("check_scope", CHECK_SCOPES), ("tol", TOLERANCES),
@@ -49,6 +53,9 @@ class Options:
                 raise ValueError(f"{name} must be one of {allowed}, got {getattr(self, name)!r}")
         if self.polya_cross and not self.anchored_extension:
             raise ValueError("--polya-cross needs --anchored-extension on")
+        if not isinstance(self.identity_min_comparisons, int) or isinstance(self.identity_min_comparisons, bool) \
+                or self.identity_min_comparisons < 0:
+            raise ValueError(f"identity_min_comparisons must be an integer of 0 or more, got {self.identity_min_comparisons!r}")
 
     @classmethod
     def previous(cls) -> "Options":
@@ -56,7 +63,8 @@ class Options:
         return cls(anchored_extension=False, walk_out=False, first_pass_priority=False, polya_cross=False, polya_tsd=False,
                    het_scan="off", early_start=False, right_fallback=False, second_scan_anchored=False, second_chance=False,
                    het_yield=False,
-                   check_scope="none", tol="p99", tol_source="library", resident_guard="off")
+                   check_scope="none", tol="p99", tol_source="library", resident_guard="off", identity_min_comparisons=0,
+                   relative_depth_floor=False)
 
     @property
     def is_previous(self) -> bool:
@@ -71,7 +79,7 @@ class Options:
     def detection_identity(self) -> dict:
         """The switches that change what a detection writes (part of the identity of a saved scan piece)."""
         keys = ("anchored_extension", "walk_out", "polya_cross", "het_scan", "second_chance", "early_start", "right_fallback",
-                "second_scan_anchored")
+                "second_scan_anchored", "relative_depth_floor")
         return {**{k: getattr(self, k) for k in keys}, "record_check": self.check_scope != "none"}
 
     def as_dict(self) -> dict:
@@ -97,6 +105,7 @@ SWITCHES = (
     ("--second-scan-anchored", "second_scan_anchored", "on", "use the anchored extension in the het scan"),
     ("--second-chance", "second_chance", "on", "het scan (second-walk and full): walk again, following the other letter, a run that ends with no left break"),
     ("--het-yield", "het_yield", "on", "an early-start or right-only place yields to another place of its duplicate group"),
+    ("--relative-depth-floor", "relative_depth_floor", "off", "the lower bound of the local-depth window is the smaller of 10 reads and half the contig's median local depth"),
 )
 
 
@@ -104,6 +113,10 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     g = parser.add_argument_group("library-free rules (each on its own switch)")
     for flag, dest, default, text in SWITCHES:
         g.add_argument(flag, dest=dest, choices=("on", "off"), default=None, help=f"{text} (default {default})")
+    g.add_argument("--identity-min-comparisons", type=int, default=None, metavar="N",
+                   help="the family-identity filter judges a family only on at least N member comparisons (the frozen-extension members when they give N, "
+                        "otherwise all members); a family with fewer is not judged and the one-site check and the resident-copy test decide. "
+                        "0 judges on whatever comparisons exist (default 3)")
     g.add_argument("--het-scan", choices=HET_MODES, default=None,
                    help="second scan that follows both letters at a het SNP: off | safe-start (safe left start) | second-walk (+ second-chance walk) | "
                         "full (+ early start and right-side fallback) (default full)")
@@ -131,6 +144,8 @@ def from_args(args: argparse.Namespace) -> Options:
         v = getattr(args, dest, None)
         if v is not None:
             kw[dest] = _onoff(v)
+    if getattr(args, "identity_min_comparisons", None) is not None:
+        kw["identity_min_comparisons"] = args.identity_min_comparisons
     for dest in ("het_scan", "check_scope", "tol", "tol_source", "resident_guard"):
         v = getattr(args, dest, None)
         if v is not None:

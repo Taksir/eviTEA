@@ -1,4 +1,4 @@
-"""Tests of the depth window (upper bound of the local-depth window).  Run: PYTHONPATH=src python tests/test_depth_window.py
+"""Tests of the depth window (upper bound of the local-depth window; D9: the relative lower bound, --relative-depth-floor).  Run: PYTHONPATH=src python tests/test_depth_window.py
 Set PREVIOUS_SRC to the previous version's src folder to also compare against the previous package byte for byte."""
 import json
 import math
@@ -135,8 +135,37 @@ def t_cli():
     RESULTS["D8"] = "call, refine-breakpoints and library-free take --depth-cap (default none); a value below 10 exits with code 2"
 
 
+def t_relative_floor():
+    """--relative-depth-floor: the lower bound is min(10, half the contig's median local depth); off (default) keeps the fixed 10."""
+    import hashlib
+    from collections import Counter
+
+    import numpy as np
+
+    from evitea.library_free import tables as TB
+    from evitea.library_free.options import Options
+    from evitea.library_free.scan import depth_floor, scan_contig_passes
+    on, off = Options.previous().with_(relative_depth_floor=True), Options.previous()
+    assert Options().relative_depth_floor is False
+    assert depth_floor(np.array([np.nan, 6.0, 6.0, 8.0]), on) == 3.0 and depth_floor(np.array([30.0, 40.0]), on) == 10.0
+    assert depth_floor(np.array([np.nan]), on) is None and depth_floor(np.array([6.0]), off) is None
+    out = {}
+    for depth in (8, 30):
+        ref, sites, C = synth.build(depth=depth, sites=((3000, 1.0), (6000, 1.0), (9000, 1.0), (12000, 1.0), (15000, 1.0)), glen=24000)
+        rm = D.reference_multi({"synth": ref})
+        for name, opts in (("off", off), ("on", on)):
+            first, second, info = scan_contig_passes(C, ref, "synth", rm, synth.NoFirewall(), opts)
+            out[(depth, name)] = (Counter(p["stage"] for p in first), hashlib.sha256(TB.places_tsv_bytes(first, opts)).hexdigest(), info.get("depth_floor"))
+            C.use, C.cache = False, {}
+    assert out[(8, "off")][0].get("S4_pass", 0) == 0 and out[(8, "off")][2] is None, out[(8, "off")]
+    assert out[(8, "on")][0].get("S4_pass", 0) == 5 and out[(8, "on")][2] < 10, out[(8, "on")]
+    assert out[(30, "on")][1] == out[(30, "off")][1] and out[(30, "on")][2] == 10.0, (out[(30, "on")], out[(30, "off")])
+    RESULTS["D9"] = (f"relative floor: depth 8 (floor {out[(8, 'on')][2]}) gives {out[(8, 'on')][0]['S4_pass']} S4_pass places where the fixed 10 gives none; "
+                     "depth 30 gives the same places table with the floor on (floor stays 10) as with it off")
+
+
 def main():
-    for t in (t_parse, t_set_and_modules, t_env_inherited, t_scan_in_window, t_scan_above_window, t_lower_bound, t_walker_window, t_cli):
+    for t in (t_parse, t_set_and_modules, t_env_inherited, t_scan_in_window, t_scan_above_window, t_lower_bound, t_walker_window, t_cli, t_relative_floor):
         t()
     for k, v in RESULTS.items():
         print(k, v)

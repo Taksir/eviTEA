@@ -11,6 +11,10 @@
 - New command `build-repeat-map` and switch `--repeat-map` (`library-free`, `build-family-records`): for a run whose library layer
   made no call, the resident-copy test and the record guard read a repeat map built from the reference's alignment to itself
   (BLAST+ on PATH). Runs with library calls are unchanged. Slurm files for the chain: `tools/slurm/no_library.sh`.
+- Library-free layer: `--identity-min-comparisons` (default 3; 0 is the previous rule): the family-identity filter judges a family only on
+  at least that many member comparisons, using all members when the frozen-extension members give fewer, and leaves a family with fewer
+  comparisons to the one-site check and the resident-copy test. `--relative-depth-floor` (default off): the lower bound of the
+  local-depth window follows the contig's own depth below 20 reads.
 - Checks for the new code in `tools/library_free_tests/`.
 
 ## 0.1.0.dev0 (first public release, tagged v0.1)

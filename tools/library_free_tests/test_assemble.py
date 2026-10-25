@@ -10,11 +10,15 @@ A6  second scan: NOT_HET / NEAR_FIRST_PASS / DROPPED_CHECK / ADDED by the rules;
 A7  family-identity filter on trusted members keeps a family that its own grouping dropped because of untrusted diverged members.
 A8  resident-copy test: family and per-call modes; off without an annotation.
 A9  the check refuses tables with no recorded junctions.
+A10 identity evidence (--identity-min-comparisons): a family whose frozen-extension members give one comparison below the cutoff but whose
+    members as a whole give many above it is kept at 3 and dropped at 0; a family with one comparison in all is not judged at 3 (kept)
+    and judged at 0 (dropped); the same holds for the family-identity filter on trusted members of the haplotype scan.
 """
 import os
 import random
 import sys
 import tempfile
+import types
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -248,6 +252,56 @@ def main():
     except InputContractError:
         ok = True
     check("A9 tables without recorded junctions are refused when a check is asked for", ok)
+    # ---------------------------------------------------------------- A10
+    def crafted(sites, frozen, body, rates):
+        """A family of two-sided calls: member k has the left segment mutate(body, rates[k]); its extension stopped at the frozen end
+        (support) for the indices in ``frozen`` and at an anchored end (a_x) for the others."""
+        t = Table()
+        cl = t.family(sites)
+        for k, (row, bL) in enumerate(zip(t.rows, sites)):
+            ls = body if rates[k] == 0 else mutate(body, rates[k])
+            t.segs[("chrS", str(bL), cl)]["lseg"] = ls
+            row["lseg_len"] = str(len(ls))
+            row["lstop"] = row["rstop"] = "support" if k in frozen else "a_x"
+        return t, cl
+
+    body = rnd(200)
+    sites = [1000, 3000, 5000, 7000, 9000]
+    pri = Options.previous().with_(first_pass_priority=True, check_scope="none")
+    for min_ in (0, 3):
+        t, cl = crafted(sites, {0, 1}, body, [0, 0.06, 0, 0, 0])
+        rows, summ = run(t, opts=pri.with_(identity_min_comparisons=min_), identity_filter=True)
+        st = {r.status for r in rows}
+        c, used = rows[0].c, rows[0].c_used
+        if min_ == 0:
+            check("A10 limit 0: two frozen members give one comparison below the cutoff; the family is dropped",
+                  st == {"DROPPED_RULE_C"} and used == 1 and c <= CL.RULE_C_MAX, (st, c, used))
+        else:
+            check("A10 limit 3: the frozen members give one comparison, so all members (10 comparisons, median above the cutoff) judge; the family is kept",
+                  st == {"ADDED"} and used == 10 and c > CL.RULE_C_MAX and summ["identity_min_comparisons"] == 3, (st, c, used))
+    t, cl = crafted(sites, {0, 1, 2}, body, [0, 0.06, 0.06, 0, 0])
+    rows, _ = run(t, opts=pri.with_(identity_min_comparisons=3), identity_filter=True)
+    check("A10 limit 3: three frozen members give three comparisons and are used (median below the cutoff: dropped)",
+          {r.status for r in rows} == {"DROPPED_RULE_C"} and rows[0].c_used == 3, (rows[0].c, rows[0].c_used))
+    two = [1000, 3000]
+    for min_ in (0, 3):
+        t, cl = crafted(two, {0, 1}, body, [0, 0.06])
+        rows, summ = run(t, opts=pri.with_(identity_min_comparisons=min_), identity_filter=True)
+        if min_ == 0:
+            check("A10 limit 0: a family of two members is judged on its one comparison (dropped)", {r.status for r in rows} == {"DROPPED_RULE_C"})
+        else:
+            check("A10 limit 3: a family with one comparison is not judged (c is NaN), the filter keeps it, and the summary counts it",
+                  {r.status for r in rows} == {"ADDED"} and rows[0].c != rows[0].c and rows[0].c_used == 1 and summ["families_not_judged"] == 1,
+                  (rows[0].c, rows[0].c_used, summ.get("families_not_judged")))
+    # trusted members of the haplotype scan
+    for min_ in (0, 3):
+        t, cl = crafted(sites, {0, 1}, body, [0, 0.06, 0, 0, 0])
+        out = AS._trusted_identity_filter(types.SimpleNamespace(places=t.rows, segments=t.segs), list(range(len(t.rows))), True, False, None, min_)
+        dropped = {v["dropped2"] for v in out.values()}
+        check(f"A10 trusted members, limit {min_}: " + ("one frozen comparison below the cutoff drops the family" if min_ == 0
+                                                     else "all members judge and keep it"),
+              dropped == ({True} if min_ == 0 else {False}), dropped)
+
     print("RESULT", ("FAIL " + ",".join(FAIL)) if FAIL else "ALL PASS (%d/%d)" % (NCHK[0], NCHK[0]))
     sys.exit(1 if FAIL else 0)
 
