@@ -1,7 +1,8 @@
 """The repeat map (src/evitea/repeat_map.py).   Run: PYTHONPATH=src python -B tools/library_free_tests/test_repeat_map.py
 
 M1  hit lines to intervals: the window's own locus, hits below 80% identity or 100 aligned bases are left out; a reversed subject
-    is read in forward coordinates; subject sides are marked only on the chosen contigs; an unknown subject is refused.
+    is read in forward coordinates; subject sides are marked only on the chosen contigs; blastn's wrapped ids of accession-like names
+    (ref|NW_001845059.1|, gi|..|ref|..|) are read as the reference's names; an unknown subject is refused.
 M2  windows: step 250, a window of more than half N is left out, a contig shorter than a window has none.
 M3  a reference with a planted repeat (BLAST+ on PATH; skipped without it): the map covers the planted copies (forward,
     diverged and reverse-complement) and nothing else, does not depend on the number of parts, refuses to replace a map, and a
@@ -47,6 +48,12 @@ def main():
     iv = RM.intervals_from_hits(hits, ["chrA", "chrB"])
     merged = RM.merge_intervals(iv)
     check("M1 intervals", merged == {"chrA": [(1010, 1310), (1999, 2299), (3100, 3300), (4000, 4150)], "chrB": [(700, 900)]}, merged)
+    names = {"chrA", "chrB", "NW_001845059.1", "NW_001845060.1"}
+    acc = RM.intervals_from_hits(["chrA|1000\tref|NW_001845059.1|\t95.0\t300\t1\t300\t50\t349",
+                                  "chrA|3000\tgi|123|ref|NW_001845060.1|\t95.0\t300\t1\t300\t500\t201",
+                                  "chrA|5000\tgb|chrB|\t95.0\t200\t1\t200\t10\t209"], ["chrA", "chrB"], known=names)
+    check("M1 wrapped accession ids are read as the reference's names; hits to contigs not chosen mark the query side only",
+          RM.merge_intervals(acc) == {"chrA": [(1000, 1300), (3000, 3300), (5000, 5200)], "chrB": [(9, 209)]}, RM.merge_intervals(acc))
     try:
         RM.intervals_from_hits(["chrA|0\tchrZ\t90.0\t200\t1\t200\t1\t200"], ["chrA"], known=["chrA", "chrB"])
         check("M1 an unknown subject is refused", False)
@@ -82,7 +89,9 @@ def main():
     c = contig([seq(2000), rc(elem), seq(2000)])             # reverse complement at 2000
     d = seq(4000)                                            # nothing repeated, not chosen
     ref = t / "ref.fa"
-    ref.write_text("".join(f">{n}\n{s}\n" for n, s in (("chrA", a), ("chrB", b), ("chrC", c), ("chrD", d))))
+    unplaced = seq(300) + elem[:400] + seq(300)                 # an unplaced contig with an NCBI-style name, not chosen
+    ref.write_text("".join(f">{n}{' desc' if n.startswith('NW') else ''}\n{s}\n"
+                           for n, s in (("chrA", a), ("chrB", b), ("NW_001845059.1", unplaced), ("chrC", c), ("chrD", d))))
     planted = {"chrA": (1000, 1700), "chrB": (3000, 3700), "chrC": (2000, 2700)}
     if not all(shutil.which(x) for x in RM.TOOLS):
         print("M3 skipped: BLAST+ (makeblastdb, blastn) is not on PATH")
@@ -102,6 +111,8 @@ def main():
         outside = {n: [(x, y) for x, y in v if x < planted[n][0] - 40 or y > planted[n][1] + 40] for n, v in got.items()}
         check("M3 nothing outside the planted copies, and chrD (not chosen, no repeat) has no interval",
               not any(outside.values()) and "chrD" not in got, outside)
+        check("M3 the NCBI-style unplaced contig (not chosen) has no interval, and its copy still marks the other contigs",
+              "NW_001845059.1" not in got and cover["chrA"] >= 630, got)
         check("M3 summary counts", s["intervals"] == len(rows) and s["bases"] == sum(int(y) - int(x) for _, x, y in rows)
               and s["contigs"] == ["chrA", "chrB", "chrC"], s)
         try:

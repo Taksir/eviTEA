@@ -106,9 +106,25 @@ def merge_intervals(intervals: dict[str, list[tuple[int, int]]]) -> dict[str, li
     return out
 
 
+def subject_name(subject: str, names: set[str] | None) -> str:
+    """The reference's own name of a blastn subject id.  With ``-parse_seqids`` blastn prints an id that looks like a database
+    accession with its wrappers (``ref|NW_001845059.1|``, ``gb|CM000001.1|``, ``gi|123|ref|NW_001845059.1|``) and a plain name as
+    is or as ``lcl|name``.  The name is the last field of the id that is a contig of the reference; with ``names`` None only a
+    ``lcl|`` prefix is removed.  An id with no such field is an error."""
+
+    if names is None:
+        return subject[4:] if subject.startswith("lcl|") else subject
+    if subject in names:
+        return subject
+    for field in reversed(subject.split("|")):
+        if field in names:
+            return field
+    raise InputContractError(f"blastn reported the subject {subject!r}, which is not a contig of the reference")
+
+
 def intervals_from_hits(lines: Iterable[str], contigs: Iterable[str], known: Iterable[str] | None = None) -> dict[str, list[tuple[int, int]]]:
     """Repeated intervals (0-based, end exclusive, not yet merged) from blastn lines in ``HIT_FORMAT``.  Query ids are
-    ``<contig>|<window start>``.  ``known`` (all contig names of the reference) makes an unrecognised subject id an error."""
+    ``<contig>|<window start>``.  ``known`` (all contig names of the reference) turns the subject ids back into the reference's names (see ``subject_name``)."""
 
     chosen = set(contigs)
     names = set(known) if known is not None else None
@@ -118,10 +134,7 @@ def intervals_from_hits(lines: Iterable[str], contigs: Iterable[str], known: Ite
         if len(f) < 8:
             continue
         q, s, pident, length, qs, qe, ss, se = f[:8]
-        if s.startswith("lcl|"):
-            s = s[4:]
-        if names is not None and s not in names:
-            raise InputContractError(f"blastn reported the subject {s!r}, which is not a contig of the reference")
+        s = subject_name(s, names)
         if float(pident) < MIN_IDENTITY or int(length) < MIN_ALIGNED:
             continue
         contig, window = q.rsplit("|", 1)
