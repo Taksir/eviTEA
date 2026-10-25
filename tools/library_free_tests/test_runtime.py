@@ -1,4 +1,4 @@
-"""The library-free run flow on a synthetic sample (rt_driver.py).   Run: python -B tests/test_runtime.py   (venv python)
+"""The library-free run flow on a synthetic sample (rt_driver.py).   Run: python -B tools/library_free_tests/test_runtime.py   (venv python)
 
 U1  previous behaviour (options None) writes the previous version's files byte for byte (the previous package is run on the same sample).
 U2  a regroup arm in the same work directory (only grouping / assembly switches differ, here also the check scope) reuses the saved pieces and gives the
@@ -9,8 +9,8 @@ U6  the command line: no switch gives the default switches, --previous-behaviour
     polya-cross without anchored extension is refused.
 U7  the repeat map (--repeat-map): with an empty library layer it feeds the resident-copy test (the summary's TE share is the map's); with
     library calls it is not used and the files equal the run without it; an explicit annotation wins over the map; with neither, the test is off.
-U8  identity evidence and relative depth floor: with --identity-min-comparisons 0 and the floor off, the files equal those of the dev-merged
-    version before these switches (BASELINE_SRC = its src folder; skipped without it); the command line reads both switches.
+U8  identity evidence and relative depth floor: with --identity-min-comparisons 0 and the floor off, the files equal those of a version
+    without these switches (BASELINE_SRC = its src folder; skipped without it); the command line reads both switches.
 U5  default switches: the extra outputs exist (second scan tables) and the summary carries the options and the assembly.
 """
 import hashlib
@@ -25,7 +25,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 # PREVIOUS_SRC: the src folder of the previous version (a checkout of the checkpoint branch); U1 is skipped without it.
 PREVIOUS = os.environ.get("PREVIOUS_SRC")
-# BASELINE_SRC: the src folder of the dev-merged commit before the identity-evidence and relative-floor switches; U8 is skipped without it.
+# BASELINE_SRC: the src folder of a version without the identity-evidence and relative-floor switches; U8 is skipped without it.
 BASELINE = os.environ.get("BASELINE_SRC")
 FAIL, NCHK = [], [0]
 

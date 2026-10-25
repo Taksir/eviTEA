@@ -1,4 +1,4 @@
-"""Synthetic reference and reads for the cloud tests (no msBWT, no mappy needed for the scan itself)."""
+"""Synthetic reference and reads for the library-free tests (the scan itself needs no msBWT or mappy)."""
 import random
 
 from evitea.library_free import _p4_lib as P
@@ -7,7 +7,7 @@ BASES = "ACGT"
 
 
 class NoFirewall:
-    """Segment firewall that never rejects (as the het tests)."""
+    """Segment firewall that rejects nothing."""
 
     def local(self, *a):
         return False
@@ -26,7 +26,7 @@ def rnd(rng, n):
 def build(seed=7, glen=36000, sites=((3000, 1.0), (6000, 1.0), (9000, 0.5), (12000, 0.5), (15000, 0.5),
                                       (18000, 0.25), (21000, 0.25), (24000, 0.25), (27000, 0.25), (30000, 0.5)),
           tsd=5, ins_len=400, depth=30, rl=125):
-    """Reference and mixed-haplotype reads; allele with insertion at x is ref[:x] + INS + ref[x-tsd:].  Returns ref, sites, counter."""
+    """Return ref, sites and a counter over mixed-haplotype reads. The allele with an insertion at x is ref[:x] + INS + ref[x-tsd:]."""
     rng = random.Random(seed)
     ref = rnd(rng, glen)
     inserts = {x: rnd(rng, ins_len) for x, _ in sites}

@@ -1,5 +1,5 @@
 """Family records: flagging, the record guard, the record builder, the build outputs, and the second-pass calls.
-Run: PYTHONPATH=src python -B tests/test_records.py
+Run: PYTHONPATH=src python -B tools/library_free_tests/test_records.py
 
 F1  flag rules kept / before-filters / both on crafted rows (away >= 2 and away > near; scans apart; statuses counted as stated).
 F2  guard threshold = max(0.5, 2 x TE share); inside share from the annotation or the table's column.
@@ -156,8 +156,7 @@ def main():
     for scan, name in (("first", "seg1.fa"), ("second", "seg2.fa")):
         (tmp / name).write_text("".join(">%s:%s:lseg:cl%s\n%s\n>%s:%s:rseg:cl%s\n%s\n" % (c, b, cl, l, c, b, cl, r)
                                         for (sc, c, b, cl), (l, r) in seg.items() if sc == scan))
-    # the real library builder needs a real reference; the end-word step is replaced by a stub here (the real one needs a
-    # full reference)
+    # The real codebook-building step requires a full reference, so a stub replaces it here.
     real_languages = B.languages
     B.languages = lambda te, fm, bed, ref: (b"te_id\tword\n" + b"".join(("%s\tAAAA\n" % ln.strip()[1:]).encode() for ln in open(te) if ln.startswith(">")),
                                             b"te_id\tword\n")

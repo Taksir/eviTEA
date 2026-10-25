@@ -1,4 +1,5 @@
-"""Tests of the depth window (upper bound of the local-depth window; D9: the relative lower bound, --relative-depth-floor).  Run: PYTHONPATH=src python tests/test_depth_window.py
+"""Tests of the depth window: the upper bound of the local depth, and the relative lower bound set by --relative-depth-floor.
+Run: PYTHONPATH=src python tools/library_free_tests/test_depth_window.py
 Set PREVIOUS_SRC to the previous version's src folder to also compare against the previous package byte for byte."""
 import json
 import math
@@ -60,7 +61,7 @@ def t_env_inherited():
 
 
 def t_scan_in_window():
-    """Depth inside the old window: places and segments byte-identical to the previous package, with and without a cap."""
+    """Depth inside the previous version's window: places and segments byte-identical to the previous package, with and without a cap."""
     new_none, new_100 = probe(SRC, 30), probe(SRC, 30, "100")
     assert new_none["places_sha"] == new_100["places_sha"] and new_none["segments_sha"] == new_100["segments_sha"]
     assert new_none["stages"]["S4_pass"] == 5
@@ -74,7 +75,7 @@ def t_scan_in_window():
 
 
 def t_scan_above_window():
-    """Depth 150 (D median 115): the old window abstains at every candidate, the new default calls them."""
+    """Depth 150 (D median 115): with --depth-cap 100 the scan abstains at every candidate; with no cap it calls them."""
     capped, free = probe(SRC, 150, "100"), probe(SRC, 150, "none")
     assert capped["stages"].get("S4_pass", 0) == 0 and capped["why"] == {"depth": 5}, capped
     assert free["stages"]["S4_pass"] == 5 and not free["why"], free

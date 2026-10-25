@@ -1,18 +1,19 @@
 """Family-call assembly on crafted tables: the one-site check, check scopes, the resident-copy test, the join of the first pass
-with the haplotype scan, and family-identity filter on trusted members.   Run: PYTHONPATH=src python -B tests/test_assemble.py
+with the haplotype scan, and the family-identity filter on trusted members.
+Run: PYTHONPATH=src python -B tools/library_free_tests/test_assemble.py
 
 A1  scope none: assemble gives calling.family_calls' rows (status, e, c) on the same tables.
 A2  unconfirmed: a junction at twice the single-copy depth is dropped (DROPPED_CHECK); one at single-copy depth is added.
-A3  unconfirmed: a junction whose words are in the reference is dropped at single-copy depth.
+A3  unconfirmed: a junction whose k-mers are in the reference is dropped at single-copy depth.
 A4  scope path-dropped: a call with e below T_E is not checked; one above is, and e above REFERENCE_PATH_CEILING stays dropped by the reference-path filter.
 A5  tolerance: the p99 of the library-confirmed sides; own-calls source and the fallback when none is confirmed.
 A6  second scan: NOT_HET / NEAR_FIRST_PASS / DROPPED_CHECK / ADDED by the rules; a call within 500 bp of a first-pass family call is not added.
 A7  family-identity filter on trusted members keeps a family that its own grouping dropped because of untrusted diverged members.
 A8  resident-copy test: family and per-call modes; off without an annotation.
 A9  the check refuses tables with no recorded junctions.
-A10 identity evidence (--identity-min-comparisons): a family whose frozen-extension members give one comparison below the cutoff but whose
-    members as a whole give many above it is kept at 3 and dropped at 0; a family with one comparison in all is not judged at 3 (kept)
-    and judged at 0 (dropped); the same holds for the family-identity filter on trusted members of the haplotype scan.
+A10 identity evidence (--identity-min-comparisons): a family whose plain-extension members give one comparison below the cutoff but whose
+    members as a whole give many above it is kept at 3 and dropped at 0. A family with one comparison in all is not judged at 3 (kept)
+    and judged at 0 (dropped). The same holds for the family-identity filter on trusted members of the haplotype scan.
 """
 import os
 import random
@@ -118,7 +119,7 @@ def main():
     t.family([5000, 9000], ratio=1.0)                 # single-copy depth, novel junction
     t.family([12000, 15000], ratio=2.0)               # twice the single-copy depth
     ref_junc = GENOME["chrS"][30000:30060]
-    t.family([20000, 22000], ratio=1.0, junction=ref_junc)   # junction words are in the reference
+    t.family([20000, 22000], ratio=1.0, junction=ref_junc)   # junction k-mers are in the reference
     idx = index(1000, 1010)
     # tolerance sides: ratios 1.0 for the library-confirmed calls
     rows, summ = run(t, idx=idx)
@@ -166,7 +167,7 @@ def main():
     f.family([1000, 1010], ratio=1.0)
     f.family([30000, 30500], ratio=1.0)                 # first-pass family call at 30000
     h = Table()
-    h.family([5000, 9000], e=0.30, ratio=1.0)          # new het site
+    h.family([5000, 9000], e=0.30, ratio=1.0)          # het site absent from the first pass
     h.family([12000, 15000], e=0.30, ratio=2.0)        # fails the check
     h.family([30100, 41000], e=0.30, ratio=1.0)        # one place within 500 bp of a first-pass call: that call is NEAR_FIRST_PASS
     h.family([45000, 47000], e=0.0, ratio=1.0)         # no allele-share evidence
@@ -254,7 +255,7 @@ def main():
     check("A9 tables without recorded junctions are refused when a check is asked for", ok)
     # ---------------------------------------------------------------- A10
     def crafted(sites, frozen, body, rates):
-        """A family of two-sided calls: member k has the left segment mutate(body, rates[k]); its extension stopped at the frozen end
+        """A family of two-sided calls: member k has the left segment mutate(body, rates[k]). Its extension stopped at a plain-extension end
         (support) for the indices in ``frozen`` and at an anchored end (a_x) for the others."""
         t = Table()
         cl = t.family(sites)
