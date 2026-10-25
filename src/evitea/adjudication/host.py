@@ -1,4 +1,4 @@
-"""Host-mate adjudication over raw mapper observations."""
+"""Host-mate mapping classification from raw mapper alignments."""
 
 from __future__ import annotations
 

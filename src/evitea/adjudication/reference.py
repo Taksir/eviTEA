@@ -1,4 +1,4 @@
-"""Evidence-complete finite reference competition."""
+"""Evidence-complete finite reference alternatives."""
 
 from __future__ import annotations
 
@@ -116,7 +116,10 @@ class ReferenceAlignmentObservation:
 
 @dataclass(frozen=True, slots=True)
 class ReferenceObservationResult:
-    """Finite S30 alternatives and their fail-closed reference reduction."""
+    """Finite reference alternatives and their reduction to one explanation state.
+
+    A censored search gives an indeterminate state.
+    """
 
     observations: tuple[ReferenceAlignmentObservation, ...]
     alternatives: tuple[ReferenceAlternative, ...]
@@ -126,7 +129,7 @@ class ReferenceObservationResult:
 def _proper_signature(
     row: RawAlignment,
 ) -> tuple[str, int, int, int] | None:
-    """Return the frozen LOCAL proper-pair signature for one SAM row."""
+    """Return the LOCAL proper-pair signature for one SAM row."""
 
     if (
         not row.is_mapped
@@ -157,15 +160,15 @@ def reference_observations_from_alignments(
     *,
     censor_state: CensorState = CensorState.COMPLETE,
 ) -> tuple[ReferenceAlignmentObservation, ...]:
-    """Produce S30 observations from every complete LOCAL proper signature.
+    """Produce observations from every complete LOCAL proper signature.
 
-    Secondary rows are intentionally retained.  A signature is finite only
-    when both physical mates are represented, matching the frozen producer.
+    Secondary rows are retained.  A signature is finite only when both
+    physical mates are represented.
     """
 
     if pair_evidence.te_positive_mate is None:
         raise InputContractError(
-            "reference observation production requires a TE-positive mate"
+            "building reference observations requires a TE-positive mate"
         )
     if not isinstance(censor_state, CensorState):
         raise InputContractError("censor_state must be a CensorState")
@@ -230,7 +233,7 @@ def produce_reference_observation_state(
     *,
     search_censor_state: CensorState = CensorState.COMPLETE,
 ) -> ReferenceObservationResult:
-    """Run the complete pure S30 observation-to-state reduction."""
+    """Reduce alignments to observations, alternatives and one reference explanation state."""
 
     observations = reference_observations_from_alignments(
         pair_evidence,
@@ -255,7 +258,7 @@ def build_reference_alternatives(
     relevant_query_spans0: Iterable[BaseSpan0],
     observations: Iterable[ReferenceAlignmentObservation],
 ) -> tuple[ReferenceAlternative, ...]:
-    """Evaluate every supplied finite placement; never select first/nearest."""
+    """Evaluate every provided finite placement; never select the first or nearest."""
 
     if pair_evidence.resolved_family is None:
         raise InputContractError("reference competition requires resolved family evidence")

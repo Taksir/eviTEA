@@ -1,4 +1,4 @@
-"""Host and evidence-complete reference adjudication."""
+"""Host mapping and evidence-complete reference classification."""
 
 from .host import HostMappingResult, adjudicate_host_alignments
 from .reference import (
