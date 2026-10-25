@@ -4,7 +4,7 @@
   placeholders were not filled in, so the head was used, as instructed). The relative depth floor default was taken from it
   unchanged (off).
 - Branch: `release-cleanup` (the name asked for in the request; the work order says `dev-release-cleanup`).
-- Last code commit: `35e6327`; this report is the commit after it.
+- Last code commit: `76bcbbf` (the two fixes before the freeze, below); this report is updated in the commit after it.
 - Commits are authored as `Md Taksir Hasan Majumder <Taksir@users.noreply.github.com>` with no AI attribution lines, as the work order's rule 6 asks.
 - Python 3.14.6, pymsbwt 0.5.0, numpy 2.5.4, mappy 2.31, parasail 1.3.4, edlib 1.3.9, Bowtie2 2.5.4, BLAST+ 2.16.0, Linux.
 
@@ -103,6 +103,31 @@ All of Part B leaves the calls unchanged (checked below).
 **Part B leaves the calls unchanged**: `tools/synthetic/compare_call.sh` at `3c4e295` against the base commit (development values passed) gives 25/25 identical files. The follow-up `ddfbd0f` changes only the library-free VCF writer.
 
 One Part B regression was found and fixed: B1 made `library-free` write `calls.combined.vcf` through the `calls.tsv` views, which failed on the six-column library table of `tools/library_free_tests/test_runtime.py` (the failure showed in `run_all.sh` at `3c4e295`). Fixed in `ddfbd0f`; `test_runtime.py` then passes (30 checks).
+
+## Two fixes before the freeze (after the first report)
+
+| fix | commit | checks |
+|---|---|---|
+| The 1,024-row rescue panel is always kept when it fits the row limit | `68968c6` | `tests/unit/test_rescue_panel.py`: on a library whose words are all rare, the 256-, 512- and 1,024-row panels score the same and the old `max()` would keep 256 rows; the 1,024-row panel is kept and the pair-aware reselection accepts it. A 1,024-row panel over `MATERIALIZE_ROW_HARD_CAP` stops with a plain error |
+| A run without a library takes no repeat annotation: the repeat map's BED6 copy stands in | `76bcbbf` | `build-repeat-map` also writes `repeat_map_bed6.bed` (name `repeat`, score 0, strand `.`; `repeat_map.bed` unchanged). `evitea run --no-library` without `--repeat-annotation` builds the map from the FASTA first and prepares the reference with that copy; `tools/no_library.sh` does the same with `REFERENCE=<FASTA>`. Unit test of the step order; `test_repeat_map.py` 15/15 (the copy holds the same intervals and prepare-reference reads it) |
+
+Results on the synthetic data, at `76bcbbf`:
+
+- **Identity:** `tools/synthetic/compare_call.sh` against the base commit: 25/25 files identical.
+- **The no-library chain now runs to its end**, with and without an annotation. `tools/synthetic/compare_run.sh`: 69 files
+  compared, all identical: `evitea run` against the separate commands with a library (and library-free); `evitea run
+  --no-library --repeat-annotation ...` against `tools/no_library.sh` on prepared assets; and `evitea run --no-library` with
+  no annotation against `tools/no_library.sh` with `REFERENCE=`. Each no-library chain gives 19 library-free calls, 23 record-
+  pass calls and 20 calls in `record_pass/added/calls.combined.tsv` (one record-pass call added).
+- **With an explicit annotation the outputs match the earlier ones:** the repeat map, the library-free tables and the records
+  of the shell chain, made fresh with the fixed code, equal those `evitea run` made before the fixes (the record pass did not
+  finish then, so it has no earlier output).
+- **Curated annotation against the repeat map:** on this data set the two no-library chains give byte-identical library-free
+  calls, record-pass calls and final calls, as expected: the same-family tests never match self-built records.
+- pytest: 226 passed, 0 failed, 3 skipped (the same three opt-in tests).
+
+The first entry of "Noticed, out of scope" (the library layer refusing genomes whose TE words are all rare) is fixed by
+`68968c6`; the entry about `--repeat-annotation` being needed by `run --no-library` is fixed by `76bcbbf`.
 
 ## Tests
 
