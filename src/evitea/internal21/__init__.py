@@ -1,14 +1,15 @@
-"""INTERNAL21 strict-A observability supplementation (fourth frozen layer).
+"""Internal 21-mer supplement to exact junction evidence ("A" in names).
 
-* ``acquisition``    frozen internal-only safe 21-mer language projected on the
+* ``acquisition``    the internal-only safe 21-mer codebook projected on the
   msBWT; one-mate family-resolved pairs get the same finite host / reference
   state as the terminal branch (reference completeness judged on the pair's
-  own observed internal probes) and yield internal strict-A witnesses;
-* ``observability``  under the *fixed* terminal proposal memory, per 3/2 fold
-  rotation, exact events certified with OLD + INTERNAL A but not with OLD A
-  alone; same-family 500-bp locus components classified against prior
-  validated full-memory events and cross-family local competition.
+  own observed internal probes) and yield internal exact-junction witnesses;
+* ``observability``  under the *fixed* terminal proposals, per 3/2 fold
+  rotation, exact events confirmed with the existing plus internal A evidence
+  but not with the existing A evidence alone; same-family 500-bp locus
+  components classified against prior validated full-memory events and
+  cross-family local competition.
 
-INTERNAL21 never creates or widens proposals and never votes an event in by
-itself; it only makes strict A observable.
+Internal 21-mers never create or widen proposals and never confirm an event
+by themselves.  They only make exact junction evidence observable.
 """

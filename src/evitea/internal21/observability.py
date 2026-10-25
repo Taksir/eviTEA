@@ -1,4 +1,4 @@
-"""Fixed-proposal INTERNAL21 strict-A observability increment."""
+"""Increment in observable exact junction evidence from internal 21-mers, under fixed proposals."""
 
 from __future__ import annotations
 
@@ -73,9 +73,9 @@ def _certify(witnesses: list[Mapping], index: BIndex, heldout: set[int], proposa
         b_ids = set(b["left_B_pair_ids"]) | set(b["right_B_pair_ids"])
         discovery = {as_int(x) for x in str(proposal["discovery_pair_ids"]).split(";") if x}
         if a_ids & b_ids:
-            raise InputContractError("A/B physical pair overlap")
+            raise InputContractError("exact junction evidence and paired-end anchor support share a physical pair")
         if discovery & (a_ids | b_ids):
-            raise InputContractError("proposal discovery/certification pair overlap")
+            raise InputContractError("pairs that discovered the proposal also appear in its confirming evidence")
         out.append({**event, "proposal_id": proposal["candidate_id"], "internal_A_pair_ids": sorted(a_ids & internal_ids)})
     return out
 
@@ -132,7 +132,7 @@ def observe_increment(
 ) -> tuple[list[dict], list[IncrementalLocus]]:
     """Incremental exact events per rotation and their classified loci.
 
-    ``prior_events`` is the full-memory event ledger; its validated events
+    ``prior_events`` is the full-memory event table; its validated events
     (``validated_anchorpe == 1``) are the prior same-family representation.
     """
 
