@@ -1,20 +1,21 @@
-"""Validation-only: the clean v3 extension engine end to end, per sample.
+"""Validation-only: run the extension engine end to end, per sample.
 
 ``evitea.extension_engine.run_extension`` runs from each prepared msBWT (plus
-the frozen safe terminal and internal-only codebooks, TE library, family map,
-RepeatMasker BED and host Bowtie2 index) and composes the four frozen layers
-on the R9E bytes.  Required, per sample:
+the recorded safe terminal and internal-only codebooks, TE library, family map,
+RepeatMasker BED and host Bowtie2 index). It adds the four extension layers to
+the library-layer callset bytes.  Required, per sample:
 
-* AnchorPE candidates equal to the frozen tables;
-* full-memory proposals (full data + ten rotations), event ledger and
-  selected events equal to the frozen tables;
-* INTERNAL21 strict-A witnesses equal to the frozen R2 witness table, and the
-  incremental event instances and locus ledger equal to the frozen
-  observability outputs;
+* paired-end anchor support candidates equal to the recorded tables;
+* full-memory proposals (full data + ten rotations), event table and
+  selected events equal to the recorded tables;
+* internal 21-mer exact-junction-evidence witnesses equal to the recorded
+  witness table, and the incremental event instances and locus table equal to
+  the recorded observability outputs;
 * layers byte-identical: AKA017 801 / 820 / 835 / 838, ISO1 192 / 193 / 194 / 194.
 
-Host read-name profiles: AKA017 ``aka-historical`` (reproduction only), ISO1 ``pid`` (production).  Resumable.
-No truth, comparator or GIM-024 file is read.
+Host read-name profiles: AKA017 ``aka-historical`` (for reproduction only),
+ISO1 ``pid`` (the default).  Resumable.
+No truth file, comparator file or file of any other sample is read.
 """
 
 from __future__ import annotations

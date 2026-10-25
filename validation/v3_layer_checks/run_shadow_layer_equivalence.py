@@ -1,14 +1,15 @@
-"""Validation-only: frozen v3 layer tables -> clean S100 integration -> layer hashes.
+"""Validation-only: merge the recorded extension-layer tables into the callset and check the layer hashes.
 
-Feeds the frozen research candidate tables (the direct inputs of the four
-historical integration freezes) into ``evitea.shadow_layers`` on top of the
-frozen R9E incumbent bytes, and checks the byte identity of every layer:
+Feeds the recorded candidate tables (the inputs of the four layer merges) into
+``evitea.shadow_layers`` on top of the recorded library-layer callset bytes, and
+checks the byte identity of every layer:
 
-    AKA017  792 -> 801 -> 820 -> 835 -> 838
-    ISO1    192 -> 192 -> 193 -> 194 -> 194
+    AKA017  792, 801, 820, 835, 838
+    ISO1    192, 192, 193, 194, 194
 
-This isolates S100 integration semantics from the upstream evidence stages.
-It reads no truth, comparator, or GIM-024 file.  Production never imports it.
+This isolates the merge of the layers into the callset from the upstream
+evidence stages.  It reads no truth file, comparator file or file of any other
+sample.  Production never imports it.
 """
 
 from __future__ import annotations
@@ -50,7 +51,7 @@ CANDIDATES = {
 }
 FULL_MEMORY = f"{V3}/V3_FULL_MEMORY_ANCHORPE_HOSTILE_SPECIFICITY_AUDIT_20260922/results/FROZEN_A_ONLY_SELECTED_ANCHORS.tsv"
 INT21_DIR = f"{V3}/V3_SAFE_INTERNAL21_STRICT_A_JUNCTION_OBSERVABILITY_FALSIFICATION_20260923"
-# Frozen per-layer integration ledgers (decision + nearest existing call).
+# Recorded per-layer integration tables (decision and nearest existing call).
 LEDGERS = {
     ("AKA017", "BILATERAL"): f"{V3}/V3_ANCHOR_PE_PRODUCTION_SHADOW_FREEZE_20260920/ANCHOR_PE_PRODUCTION_EVENTS.tsv",
     ("ISO1", "BILATERAL"): f"{V3}/V3_ANCHOR_PE_ISO1_TRANSFER_20260920/ISO1_ANCHOR_PE_PRODUCTION_EVENTS.tsv",
@@ -87,7 +88,7 @@ LAYERS = ("R9E", "bilateral", "asymmetric", "full-memory", "final INTERNAL21")
 def _guard(path: Path) -> Path:
     lowered = str(path).lower()
     if any(token in lowered for token in FORBIDDEN):
-        raise RuntimeError(f"truth/comparator firewall blocked {path}")
+        raise RuntimeError(f"blocked {path}: truth and comparator files must not be read")
     return path
 
 
@@ -115,7 +116,7 @@ def anchor_candidates(path: Path) -> tuple[AnchorPECandidate, ...]:
             left_b_pair_ids=_ids(row["left_B_pair_ids"]),
             right_b_pair_ids=_ids(row["right_B_pair_ids"]),
         )
-        # The frozen table's summary columns must agree with the typed ids.
+        # The recorded table's summary columns must agree with the parsed ids.
         _check(int(row["channel_A_pairs"]) == len(cand.a_pair_ids), f"A count drift {row['cluster_id']}")
         _check(int(row["left_B_pairs"]) == len(cand.left_b_pair_ids), f"left count drift {row['cluster_id']}")
         _check(int(row["right_B_pairs"]) == len(cand.right_b_pair_ids), f"right count drift {row['cluster_id']}")
@@ -231,7 +232,7 @@ def main(argv=None) -> int:
     ap.add_argument("--route-b-v2", type=Path, required=True)
     ap.add_argument("--route-b-v3", type=Path, required=True)
     ap.add_argument("--incumbent-aka017", type=Path, default=None,
-                    help="R9E bytes to build on (default: frozen R9E; pass the clean engine output to chain it)")
+                    help="library-layer callset to build on (default: the recorded callset; pass the engine output to chain it)")
     ap.add_argument("--output", type=Path, default=None, help="optional JSON report path")
     args = ap.parse_args(argv)
 
