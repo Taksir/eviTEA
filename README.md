@@ -22,36 +22,46 @@ benchmark. It has been validated only on dm6 with 125 bp paired-end reads. See
 
 ## Requirements
 
-- Linux or Windows, x86-64
-- CPython 3.14 (`>=3.14,<3.15`)
-- A C compiler, if you build msBWT from source
-- [Bowtie2](https://github.com/BenLangmead/bowtie2) 2.5.x on `PATH` (an external program, not installed by pip)
-- Optional: `edlib` (no CPython 3.14 Windows wheel exists; see `--edlib-python` below)
-
-For scale: in the validation runs on the author's laptop, AKA017 took about 3.2 hours and
-ISO1 about 2 hours. These are observations, not guarantees.
+- **CPython 3.14** (`>=3.14,<3.15`); other Python versions are not supported.
+- Linux or Windows (x86-64) for the library layer (`prepare-*`, `call`). The library-free layer, the family-record
+  commands and `--refine-breakpoints` need `mappy` and run on **Linux or WSL only**.
+- [Bowtie2](https://github.com/BenLangmead/bowtie2) 2.5.x on `PATH` (an external program, not installed by pip).
+- [BLAST+](https://blast.ncbi.nlm.nih.gov) (`makeblastdb`, `blastn`) on `PATH`, only for `build-repeat-map` (runs without a
+  TE library).
 
 ## Installation
 
-EviTEA reads the sample through a multi-string BWT built by
-[pymsbwt](https://pypi.org/project/pymsbwt/) (version 0.5 or later). It is a normal
-dependency, so `pip install` of EviTEA pulls it in; to install it on its own:
-
 ```bash
-python -m pip install pymsbwt
+python -m pip install evitea                        # from a release; or, from a clone: python -m pip install .
+python -m pip install "evitea[anchorpe]"            # + edlib: the fragment decoder of the paired-end channel
+python -m pip install "evitea[library-free]"        # + mappy and parasail: library-free layer, family records (Linux/WSL)
+python -m pip install "evitea[anchorpe,library-free]"
+evitea check-install
 ```
 
-Then install EviTEA:
+`pip install evitea` pulls in its two required Python packages, [pymsbwt](https://pypi.org/project/pymsbwt/) (version 0.5 or
+later; it builds the multi-string BWT of the reads) and NumPy. The extras add optional packages:
+
+| extra | packages | needed for |
+|---|---|---|
+| `anchorpe` | edlib | the whole-read fragment decoder of `call` (or point `--edlib-python` at an interpreter that has edlib; edlib has no CPython 3.14 Windows wheel) |
+| `library-free` | mappy, parasail | `library-free`, `build-family-records`, `--refine-breakpoints` (Linux or WSL) |
+
+`evitea check-install` lists every program and module EviTEA uses (Python, pymsbwt, NumPy, Bowtie2, edlib, mappy, parasail,
+BLAST+) with its version, or says that it is missing; it exits with code 8 when a required one is missing.
+
+Bowtie2, BLAST+, mappy and parasail are easiest to get from conda. `environment.yml` (repository root) creates an
+environment with CPython 3.14, Bowtie2, BLAST+ and EviTEA with both extras:
 
 ```bash
-git clone https://github.com/Taksir/eviTEA.git
-cd eviTEA
-python -m pip install .
-python -m pip install ".[anchorpe]"   # optional: edlib
-evitea version --json
+conda env create -f environment.yml     # or: micromamba create -f environment.yml
+conda activate evitea && evitea check-install
 ```
 
-To run the test suite: `python -m pip install pytest`, then `python -m pytest`.
+`containers/Containerfile` builds a container image from the same file (`docker build -f containers/Containerfile -t evitea .`;
+for Apptainer, `apptainer build evitea.sif docker-daemon://evitea:latest`).
+
+To run the tests: `python -m pip install pytest`, then `python -m pytest`.
 
 ## Input files, and where to put them
 

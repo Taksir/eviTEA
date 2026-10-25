@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -441,6 +442,12 @@ def build_parser() -> argparse.ArgumentParser:
     run_validation = targets.add_parser("run")
     run_validation.add_argument("--output", type=Path, required=True)
 
+    check = commands.add_parser(
+        "check-install",
+        help="list every program and Python module EviTEA uses, with its version, or say that it is missing",
+    )
+    check.add_argument("--json", action="store_true")
+
     version = commands.add_parser("version")
     version.add_argument("--json", action="store_true")
     return parser
@@ -591,6 +598,69 @@ def _validate(args: argparse.Namespace) -> None:
         verify_prepared_sample(load_prepared_sample(args.sample_assets))
     elif target == "run":
         _validate_run(args.output)
+
+
+# (name, what needs it, required, how to find the version)
+_INSTALL_ITEMS = (
+    ("python", "everything (CPython 3.14)", True, "python"),
+    ("pymsbwt", "the msBWT of the sample (prepare-sample, call)", True, "module:MUSCython.MultiStringBWTCython"),
+    ("numpy", "everything", True, "module:numpy"),
+    ("bowtie2", "call (read mapping)", True, "program:bowtie2"),
+    ("bowtie2-build", "prepare-reference, prepare-te (indexes)", True, "program:bowtie2-build"),
+    ("edlib", "call: the paired-end fragment decoder (or --edlib-python); extra 'anchorpe'", False, "module:edlib"),
+    ("mappy", "library-free, build-family-records, --refine-breakpoints; extra 'library-free'", False, "module:mappy"),
+    ("parasail", "library-free; extra 'library-free'", False, "module:parasail"),
+    ("makeblastdb", "build-repeat-map (BLAST+)", False, "program:makeblastdb"),
+    ("blastn", "build-repeat-map (BLAST+)", False, "program:blastn"),
+)
+
+
+def _install_status(name: str, probe: str) -> str | None:
+    """The version of an item, ``installed`` when it has none to report, or None when it is missing."""
+
+    import importlib
+
+    if probe == "python":
+        version = sys.version.split()[0]
+        return version if sys.version_info[:2] == (3, 14) else None
+    kind, target = probe.split(":", 1)
+    if kind == "module":
+        try:
+            importlib.import_module(target)
+        except Exception:
+            return None
+        if name == "pymsbwt":
+            return _msbwt_distribution()[1] or "installed"
+        return _distribution_version(name) or "installed"
+    found = shutil.which(target)
+    if found is None:
+        return None
+    for flag in ("--version", "-version"):
+        try:
+            completed = subprocess.run((found, flag), check=False, capture_output=True, text=True, timeout=20)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        lines = (completed.stdout or completed.stderr).splitlines()
+        if completed.returncode == 0 and lines:
+            number = re.search(r"(\d+\.\d+[\w.+-]*)\s*$", lines[0])
+            return number.group() if number else lines[0].strip()
+    return "installed"
+
+
+def _check_install(args: argparse.Namespace) -> int:
+    rows = [(name, need, required, _install_status(name, probe)) for name, need, required, probe in _INSTALL_ITEMS]
+    if args.json:
+        print(json.dumps([{"name": n, "used_by": u, "required": r, "version": v} for n, u, r, v in rows], sort_keys=True))
+    else:
+        print(f"EviTEA {__version__} ({sys.platform})")
+        for name, need, required, version in rows:
+            state = version if version is not None else ("MISSING (required)" if required else "missing")
+            print(f"  {name:<14} {state:<45} {need}")
+        if sys.version_info[:2] != (3, 14):
+            print(f"  EviTEA needs CPython 3.14; this is {sys.version.split()[0]}")
+        if not sys.platform.startswith("linux"):
+            print("  the library-free layer and the family-record commands run on Linux (or WSL) only")
+    return 0 if all(version is not None for _, _, required, version in rows if required) else 8
 
 
 def _version(args: argparse.Namespace) -> None:
@@ -1221,6 +1291,8 @@ def main(
             _validate(args)
         elif args.command == "version":
             _version(args)
+        elif args.command == "check-install":
+            return _check_install(args)
         return 0
     except EviTEAError as error:
         print(f"evitea: {error}", file=sys.stderr)

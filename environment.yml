@@ -1,0 +1,20 @@
+# Conda environment for EviTEA: CPython 3.14 and the external programs pip cannot install (Bowtie2, BLAST+).
+# The Python packages come from PyPI through pip, as listed in pyproject.toml.
+#   conda env create -f environment.yml && conda activate evitea && evitea check-install
+# The library-free layer and the family-record commands run on Linux (or WSL) only.
+name: evitea
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.14
+  - pip
+  - bowtie2>=2.5,<2.6
+  - blast>=2.12
+  # compilers, for the Python packages that have no wheel for this platform (mappy, parasail, edlib)
+  - c-compiler
+  - cxx-compiler
+  - make
+  - zlib
+  - pip:
+      - ".[anchorpe,library-free]"   # this repository (the environment file sits at its root)

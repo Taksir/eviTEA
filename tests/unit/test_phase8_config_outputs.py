@@ -205,3 +205,22 @@ def test_validate_run_requires_every_canonical_output_hash(tmp_path: Path) -> No
 def test_stable_exit_codes(error: BaseException, code: int) -> None:
     assert exit_code_for_error(error) == code
 
+
+
+def test_check_install_lists_versions_and_missing_programs(monkeypatch, capsys) -> None:
+    import json as _json
+    import shutil as _shutil
+
+    from evitea import cli
+    from evitea.cli import main
+
+    assert main(["check-install", "--json"]) in (0, 8)
+    rows = {row["name"]: row for row in _json.loads(capsys.readouterr().out)}
+    assert {"python", "pymsbwt", "numpy", "bowtie2", "bowtie2-build", "edlib", "mappy", "parasail", "makeblastdb",
+            "blastn"} == set(rows)
+    assert rows["numpy"]["version"] and rows["bowtie2"]["required"] and not rows["blastn"]["required"]
+    monkeypatch.setattr(cli.shutil, "which", lambda name: None)
+    assert _shutil.which is cli.shutil.which
+    assert main(["check-install"]) == 8
+    text = capsys.readouterr().out
+    assert "bowtie2        MISSING (required)" in text and "blastn         missing" in text

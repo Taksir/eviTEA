@@ -1,0 +1,14 @@
+# Container image with EviTEA and every program it uses (Bowtie2, BLAST+, pymsbwt, numpy, mappy, parasail, edlib).
+# Build from the repository root:   docker build -f containers/Containerfile -t evitea .
+#   or for Apptainer:                 apptainer build evitea.sif docker-daemon://evitea:latest
+# Run:                               docker run --rm -v "$PWD:/data" -w /data evitea evitea check-install
+FROM mambaorg/micromamba:2.0.5
+COPY --chown=$MAMBA_USER:$MAMBA_USER . /tmp/evitea
+WORKDIR /tmp/evitea
+RUN micromamba install -y -n base -f environment.yml \
+ && micromamba clean --all --yes \
+ && rm -rf /tmp/evitea
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
+WORKDIR /data
+ENTRYPOINT ["/usr/local/bin/_entrypoint.sh"]
+CMD ["evitea", "check-install"]
