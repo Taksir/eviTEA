@@ -1,13 +1,10 @@
-"""Shared primitives of the v3 language builders (ported, semantics frozen).
+"""Shared primitives of the codebook builders.
 
-Ported from the frozen Route-B v3 research builders
-(``route_b_v3_rebuild_safe_terminal21_codebook.py`` and
-``route_b_v3_fill_underpowered_terminal_codebook.py``).  Where the two research
-scripts carried slightly different helpers, both variants are kept and named
-after the stage that used them; outputs must stay byte-identical to the
-frozen tables.
+The rebuild and gap-fill stages need slightly different helpers. Both variants
+are kept and named after the stage that uses them. Output tables must stay
+byte-identical to those of the original builder scripts.
 
-Exact k-mer scanning is vectorized with NumPy but emits exactly the research
+Exact k-mer scanning is vectorized with NumPy but emits exactly the original
 scanner's hits, in the same order: every window of ``k`` A/C/G/T bases whose
 2-bit code is a query, by increasing start (per ``k`` in query-map order).
 """
@@ -102,7 +99,7 @@ def encode(seq: str) -> int:
 
 
 def oriented_code_map(canonical_probes: Iterable[str]) -> dict[int, str]:
-    """Both orientations of every probe -> the canonical probe (collision-checked)."""
+    """Map both orientations of every probe to the canonical probe (collision-checked)."""
 
     qmap: dict[int, str] = {}
     for probe in canonical_probes:
@@ -128,7 +125,7 @@ def _window_codes(values: np.ndarray, k: int, start: int, stop: int) -> np.ndarr
 
 
 def scan_exact(seq: str, qmap: Mapping[int, str], k: int) -> Iterator[tuple[int, int, str]]:
-    """Exact hits ``(start0, end0, canonical probe)`` of the research scanner, in order."""
+    """Exact hits ``(start0, end0, canonical probe)`` of the original scanner, in order."""
 
     n = len(seq)
     if not qmap or n < k:
@@ -155,7 +152,7 @@ def scan_exact(seq: str, qmap: Mapping[int, str], k: int) -> Iterator[tuple[int,
 
 
 # ---------------------------------------------------------------------------
-# Identifiers and families (per-stage research variants)
+# Identifiers and families (per-stage variants)
 # ---------------------------------------------------------------------------
 
 
@@ -353,7 +350,7 @@ def reference_hit_class(target_family: str, target_te_id: str, start: int, end: 
 
 
 # ---------------------------------------------------------------------------
-# TSV (the research writers' exact text)
+# TSV (the original writers' exact text)
 # ---------------------------------------------------------------------------
 
 
@@ -376,7 +373,7 @@ def _norm_internal(value: Any) -> Any:
 
 
 def tsv_bytes(rows: Sequence[Mapping[str, Any]], fields: Sequence[str] | None = None, *, style: str = "rebuild") -> bytes:
-    """Serialize like the research ``write_tsv`` of the given stage.
+    """Serialize like the original ``write_tsv`` of the given stage.
 
     ``rebuild``/``gapfill``: values normalized (bool -> 1/0, lists ';'-joined);
     ``internal``: bool -> int, lists ';'-joined; ``raw``: values as given.

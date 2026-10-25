@@ -1,19 +1,17 @@
-"""Final safe terminal codebook: rebuild -> mixed-k gap fill -> finalizer.
+"""Final safe terminal codebook in three steps: rebuild, mixed-k gap fill, finalizer.
 
-Faithful port of the frozen Route-B v3 builders (spec section 8):
+* :func:`rebuild_terminal21`: clean terminal k=21 anchor catalogue
+  candidates; exhaustive TE-library family compatibility;
+  RepeatMasker-aware reference safety; up to four non-overlapping probes per
+  TE record, two per side first.
+* :func:`fill_underpowered`: for records with fewer than two selected
+  probes, terminal anchor catalogue candidates at k in {21, 25, 31, 35};
+  cardinality/side-balanced interval selection.
+* :func:`finalize_terminal`: deterministic repair of duplicate canonical
+  probes within a record.
 
-* :func:`rebuild_terminal21` - ``route_b_v3_rebuild_safe_terminal21_codebook.py``
-  (clean terminal k=21 G1A candidates; exhaustive TE-library family
-  compatibility; RepeatMasker-aware reference safety; up to four
-  non-overlapping probes per TE record, two per side first);
-* :func:`fill_underpowered` - ``route_b_v3_fill_underpowered_terminal_codebook.py``
-  (records with fewer than two selected probes: frozen terminal candidates at
-  k in {21, 25, 31, 35}; cardinality/side-balanced interval selection);
-* :func:`finalize_terminal` - ``route_b_v3_finalize_safe_terminal_codebook.py``
-  (deterministic repair of duplicate canonical probes within a record).
-
-Stages exchange TSV bytes exactly as the research scripts exchanged files, so
-every intermediate table can be compared byte for byte with the frozen one.
+The steps exchange TSV bytes exactly as the original scripts exchanged files,
+so every intermediate table can be compared byte for byte with the original.
 No sample data are read.
 """
 
@@ -78,12 +76,12 @@ def _g1a_family_by_te(provenance: Sequence[Mapping[str, str]], *, terminal21_onl
             continue
         old = family_by_te.setdefault(row["te_id"], row["family"])
         if old != row["family"]:
-            raise RuntimeError(f"Inconsistent G1A family for {row['te_id']}: {old} vs {row['family']}")
+            raise RuntimeError(f"Inconsistent anchor provenance family for {row['te_id']}: {old} vs {row['family']}")
     return family_by_te
 
 
 # ---------------------------------------------------------------------------
-# Stage A - rebuild the safe terminal k=21 codebook
+# Rebuild the safe terminal k=21 codebook
 # ---------------------------------------------------------------------------
 
 
@@ -155,7 +153,7 @@ def rebuild_terminal21(
             continue
         old = family_by_te.setdefault(p["te_id"], p["family"])
         if old != p["family"]:
-            raise RuntimeError(f"Inconsistent G1A family for {p['te_id']}: {old} vs {p['family']}")
+            raise RuntimeError(f"Inconsistent anchor provenance family for {p['te_id']}: {old} vs {p['family']}")
         source_rows.append({
             "canonical_strand_probe": c["canonical_strand_key"], "te_id": p["te_id"], "family": p["family"],
             "terminal_side": "5p" if p["region"] == "5p_terminal" else "3p",
@@ -184,7 +182,7 @@ def rebuild_terminal21(
             te_hits[probe].append((te, family, start, end))
     missing = sorted(set(family_by_te) - set(te_len))
     if missing:
-        raise RuntimeError(f"TE library missing G1A records: {missing[:20]}")
+        raise RuntimeError(f"TE library missing anchor catalogue records: {missing[:20]}")
 
     rm_index = build_interval_index(load_repeatmasker_rebuild(repeatmasker_bed, parse_family_map_rebuild(family_map)))
     context: dict[str, Counter] = defaultdict(Counter)
@@ -327,7 +325,7 @@ def rebuild_terminal21(
 
 
 # ---------------------------------------------------------------------------
-# Stage B - mixed-k gap fill of underpowered records
+# Mixed-k gap fill of underpowered records
 # ---------------------------------------------------------------------------
 
 
@@ -549,7 +547,7 @@ def fill_underpowered(
 
 
 # ---------------------------------------------------------------------------
-# Stage C - finalizer (duplicate-sequence repair)
+# Finalizer (duplicate-sequence repair)
 # ---------------------------------------------------------------------------
 
 
@@ -609,7 +607,7 @@ def finalize_terminal(
     hybrid = read_tsv_bytes(hybrid_codebook)
     source21 = read_tsv_bytes(rebuilt_source_audit)
     if any(r.get("k", "") not in {"", "21"} for r in source21):
-        raise RuntimeError("Legacy terminal-21 source audit contains a non-21 k value.")
+        raise RuntimeError("Terminal-21 source audit contains a non-21 k value.")
     for r in source21:
         r["k"] = "21"
     source_rows = source21 + read_tsv_bytes(gapfill_source_audit)

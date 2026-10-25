@@ -1,11 +1,11 @@
 """Safe internal-21 codebooks (full and internal-only).
 
-Faithful port of ``route_b_v3_safe_internal21_codebook_gate.py``: the frozen
-G1A k=21 internal candidates (``has_internal_provenance``, not low
-complexity) under the terminal rebuild's exhaustive TE-family and
-RepeatMasker-aware reference safety; units already in the final terminal
-codebook are excluded from the internal-only codebook.  No sample data are
-read and no selection threshold is introduced.
+Selects the anchor catalogue's k=21 internal candidates
+(``has_internal_provenance``, not low complexity) under the terminal
+rebuild's exhaustive TE-family and RepeatMasker-aware reference safety.
+Units in the final terminal codebook are excluded from the
+internal-only codebook.  No sample data are read and no selection threshold
+is introduced.
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ def build_internal21(
     for r in provenance:
         old = family_by_te.setdefault(r["te_id"], r["family"])
         if old != r["family"]:
-            raise RuntimeError(f"Inconsistent frozen G1A family for {r['te_id']}")
+            raise RuntimeError(f"Inconsistent anchor provenance family for {r['te_id']}")
     cat_by_qid, candidates = {}, set()
     for r in catalogue:
         if int(r["k"]) != K or int(r["has_internal_provenance"]) != 1 or int(r["low_complexity"]) != 0:
@@ -99,7 +99,7 @@ def build_internal21(
             te_hits[probe].append((te, family, st, en))
     missing = sorted(set(family_by_te) - set(te_len))
     if missing:
-        raise RuntimeError(f"TE library missing frozen G1A records: {missing[:20]}")
+        raise RuntimeError(f"TE library missing anchor catalogue records: {missing[:20]}")
 
     probe_state, family_safe, failures = {}, set(), Counter()
     for probe in sorted(candidates):
