@@ -1,4 +1,4 @@
-"""Insertion-specific junction groups on one-sided incumbent loci (frozen R7).
+"""Insertion-specific junction groups on one-sided loci.
 
 For every one-sided target locus, reads of the msBWT-routed physical pairs are
 scanned for contiguous host|TE or TE|host boundaries.  An accepted adjacency
@@ -6,12 +6,13 @@ needs: an exact globally unique host half near the nominated locus on the
 missing genomic side, no contiguous reference explanation of the 40-bp
 signature within two edits, and a complete bounded exact msBWT locate of the
 signature.  Located pairs are collapsed into exact pair-sequence groups
-(``sha256(mate1 + "|" + mate2)``), groups touching already-committed physical
-pairs are excluded, one realization per (locus, side) competes globally, and
-each surviving group adds at most one representative pair to one locus side.
+(``sha256(mate1 + "|" + mate2)``), groups touching physical pairs that earlier
+calls or strict winners use are excluded, one realization per (locus, side)
+competes globally, and each surviving group adds at most one representative
+pair to one locus side.
 
-The output is the locus aggregation ledger and the per-group junction source
-needed for full TE-segment certification.
+The output is the locus aggregation record and the per-group junction source
+needed for full TE-segment confirmation.
 """
 
 from __future__ import annotations
@@ -63,7 +64,7 @@ class ReadJunction:
 def infer_read_junctions(
     read: str, family_kmers: set[str], scope: str, scope_start: int
 ) -> list[ReadJunction]:
-    """Direct boundary candidates in one read (both views), strongest first."""
+    """Return the direct boundary candidates in one read (both views), strongest first."""
 
     if not family_kmers:
         return []
@@ -254,10 +255,10 @@ def discover_proposal_block(
     counts: dict[str, int],
     counter_start: int = 0,
 ) -> tuple[list[JunctionProposal], int]:
-    """Discovery over a contiguous target block; returns the next query counter.
+    """Run discovery over a contiguous target block and return the next query counter.
 
     Query IDs ``J%08d`` number every local proposal in target order, so a
-    block starting at ``counter_start`` continues the frozen numbering.
+    block starting at ``counter_start`` continues the numbering.
     """
 
     discovery: list[JunctionProposal] = []
@@ -325,7 +326,7 @@ def screen_proposals(
     work_directory: Path,
     counts: dict[str, int],
 ) -> tuple[list[tuple[JunctionProposal, float, str]], dict[str, str]]:
-    """Global exact-unique host half + contiguous-reference competition."""
+    """Screen proposals by a globally exact-unique host half and competition with the contiguous reference."""
 
     work_directory.mkdir(parents=True, exist_ok=True)
     host_fasta = work_directory / "junction_host_halves.fa"
@@ -476,7 +477,7 @@ def run_junction_groups(
     work_directory: Path,
     pair_reader,
 ) -> JunctionGroupsResult:
-    """``pair_reader(pair_ids) -> {pair_id: (mate1, mate2)}`` fetches exact-hit pairs."""
+    """``pair_reader(pair_ids)`` fetches the exact-hit pairs and returns ``{pair_id: (mate1, mate2)}``."""
 
     counts: dict[str, int] = {}
     target_ids = {target.locus_id for target in targets}

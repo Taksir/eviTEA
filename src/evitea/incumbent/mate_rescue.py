@@ -1,26 +1,27 @@
-"""Paired-end mate rescue (incumbent class 2) and strict reference-discriminative
-pair evidence consumed by junction completion.
+"""Paired-end mate-anchored search and strict reference-discriminative pair evidence.
 
-Orientation-corrected mate rescue (frozen R4)
+The strict evidence is used by junction completion.
+
+Orientation-corrected mate-anchored search
     Candidate loci not within 50 bp of a same-family split-junction call are
-    examined.  For each candidate pair both TE-mate/host-mate directions are
-    tested.  The host mate needs one unique best local placement (<= 5 edits,
-    midpoint within 250 bp of the candidate envelope).  Side is geometric:
+    examined. For each candidate pair both TE-mate/host-mate directions are
+    tested. The host mate needs one unique best local placement (<= 5 edits,
+    midpoint within 250 bp of the candidate envelope). Side is geometric:
     LEFT = forward host left of the candidate midpoint, RIGHT = reverse host
-    right of it.  The TE mate needs a candidate-family-rich window whose unique
+    right of it. The TE mate needs a candidate-family-rich window whose unique
     best TE family matches the candidate (alias-compatible) and that is not
-    explained by the local reference.  One physical pair supports one
-    (locus, side); equal-strength conflicts fail closed.  Loci with >= 2 LEFT
-    and >= 2 RIGHT pairs become range calls.
+    explained by the local reference. One physical pair supports one
+    (locus, side); an equal-strength conflict gives no winner. Loci with >= 2
+    LEFT and >= 2 RIGHT pairs become range calls.
 
-Reference-discriminative pair evidence (frozen R6)
+Reference-discriminative pair evidence
     One-sided non-passing loci are routed with bounded exact msBWT host seeds
     on the missing flank, locally prefiltered, globally host-mapped with
-    Bowtie2, rejected when an ordinary inward concordant pair within the frozen
-    fragment-size 95th percentile (the sample's own; 494 bp by default) explains
-    the pair, and TE-certified with
-    strand-symmetric local-reference rejection.  Only kept per-pair winners are
-    emitted; they feed junction completion as strict side support.
+    Bowtie2, and rejected when an ordinary inward concordant pair within the
+    fragment-size 95th percentile (the sample's own; 494 bp by default)
+    explains the pair. The remaining pairs are TE-confirmed with
+    strand-symmetric local-reference rejection. Only the retained per-pair
+    winners are emitted; they feed junction completion as strict side support.
 """
 
 from __future__ import annotations
@@ -72,7 +73,7 @@ GLOBAL_PLACEMENT_CAP = 20
 
 
 def quantize(value: float) -> float:
-    """Frozen one-decimal ledger quantization applied from R4 onward."""
+    """Round to one decimal, the quantization of the locus records from the mate-anchored search onward."""
 
     return float(f"{value:.1f}")
 
@@ -181,7 +182,7 @@ def _record_conflict(first: TEWindow, second: TEWindow) -> bool:
 def best_te_mate_window(
     read: str, candidate_family: str, family_kmers: set[str], te_index: LocalTEIndex, scope: str
 ) -> tuple[TEWindow | None, str]:
-    """R4 TE-mate certification (any local-reference explanation fails closed)."""
+    """Return the confirmed TE-mate window for the mate-anchored search; windows explained by the local reference are rejected."""
 
     windows = candidate_te_windows(read, family_kmers)
     if not windows:
@@ -232,7 +233,7 @@ def _best_symmetric_local(sequence: str, scope: str, max_edits: int) -> int | No
 def best_te_window_symmetric(
     read: str, candidate_family: str, family_kmers: set[str], te_index: LocalTEIndex, scope: str
 ) -> tuple[TEWindow | None, str]:
-    """R6 TE-mate certification with strand-symmetric local-reference rejection."""
+    """Return the confirmed TE-mate window for one-sided loci; windows explained by the local reference on either strand are rejected."""
 
     windows = candidate_te_windows(read, family_kmers)
     if not windows:
@@ -271,7 +272,7 @@ def best_te_window_symmetric(
 
 
 # --------------------------------------------------------------------------
-# R4 orientation-corrected mate rescue
+# Orientation-corrected mate-anchored search
 # --------------------------------------------------------------------------
 
 
@@ -337,7 +338,7 @@ def resolve_pair_evidence(rows: Sequence[MateEvidence]) -> tuple[MateEvidence | 
 
 @dataclass(frozen=True, slots=True)
 class MateRescueLocus:
-    """Frozen R4 locus-ledger row (coordinates already one-decimal quantized)."""
+    """One row of the locus record of the mate-anchored search (coordinates quantized to one decimal)."""
 
     locus_id: str
     chrom: str
@@ -371,7 +372,7 @@ def locus_redundant_with_calls(locus: CandidateLocus, calls: Sequence[IncumbentC
 def guard_candidate_loci(
     loci: Sequence[CandidateLocus], split_junction_calls: Sequence[IncumbentCall]
 ) -> tuple[list[CandidateLocus], list[str]]:
-    """Loci not redundant with a split-junction call, and the guarded locus IDs."""
+    """Return the loci not redundant with a split-junction call, and the guarded locus IDs."""
 
     eligible: list[CandidateLocus] = []
     guarded: list[str] = []
@@ -392,7 +393,7 @@ def mate_rescue_evidence(
     te_index: LocalTEIndex,
     progress: Callable[[int, int], None] | None = None,
 ) -> tuple[list[MateEvidence], dict[str, int]]:
-    """Certified mate evidence of eligible ``loci`` in locus order (batchable)."""
+    """Return the confirmed mate evidence of the eligible ``loci`` in locus order (batchable)."""
 
     counts: Counter[str] = Counter()
     evidence: list[MateEvidence] = []
@@ -495,7 +496,7 @@ def run_mate_rescue(
 
 
 # --------------------------------------------------------------------------
-# R6 reference-discriminative strict pair evidence
+# Reference-discriminative strict pair evidence
 # --------------------------------------------------------------------------
 
 
