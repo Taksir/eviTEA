@@ -1,13 +1,16 @@
-"""Candidate physical pairs and loci of the frozen incumbent lineage.
+"""Build the candidate read pairs and loci from panel acquisition.
 
-The candidate universe is the repaired candidate-pair set produced by panel
-acquisition (G1F working pairs plus G1H-R rescue pairs).  A pair is localized
-by its host-mate record: the G1F record when one exists, otherwise the G1H-R
-record, using the primary alignment of *any* mapped status (unique, multiple or
-low-confidence).  Its family set comes from the resident-compatibility pair
-families, falling back to rescue then sparse-panel evidence.  A pair with
-several families joins every family bucket.  Loci are single-link clusters of
-float host midpoints per ``(chrom, family)`` (gap 500 bp, >= 2 distinct pairs).
+The candidate set is the working pairs plus the pairs added by the wide-anchor
+step. A pair is localized by its host-mate record: the working-pair record
+when one exists, otherwise the wide-anchor record, using the primary alignment
+of *any* mapped status (unique, multiple or low-confidence). Its family set
+comes from the resident-compatibility pair families, falling back to
+wide-anchor then sparse-panel evidence. A pair with several families joins
+every family bucket. Loci are single-link clusters of float host midpoints per
+``(chrom, family)`` (gap 500 bp, >= 2 distinct pairs).
+
+The ``source`` field of a pair is "G1F" for a working pair and "G1HR_RESCUE"
+for a pair added by the wide-anchor step.
 """
 
 from __future__ import annotations

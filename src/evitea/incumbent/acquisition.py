@@ -1,11 +1,9 @@
-"""Candidate-locus acquisition for the incumbent branch (stages G1A..G1H-R).
+"""Find the candidate read pairs and loci for the split-junction layer.
 
-This composes the anchor census, sparse panel, coverage rescue, pair-aware
-reselection, host-mate gate, resident pair families and recall repair into
-the candidate physical pairs and loci consumed by the split-junction layer.
-Every quantity comes from the prepared sample index, the TE consensus
-library, its family map and the host Bowtie2 index; no historical artifact is
-read.
+Runs the anchor census, sparse panel, coverage panel, pair-aware reselection,
+host-mate filter, resident pair families and the wide-anchor step in order.
+Every quantity comes from the prepared sample index, the TE consensus library,
+its family map and the host Bowtie2 index; nothing else is read.
 """
 
 from __future__ import annotations

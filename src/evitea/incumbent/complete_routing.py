@@ -1,18 +1,18 @@
-"""Optional complete routing with a partner-read gate (off by default; ``--complete-routing``).
+"""Optional complete routing with a partner-read filter (off by default; ``--complete-routing``).
 
-The frozen first stage routes reads through a coverage-optimised subset of
-exact TE anchor words.  This layer adds, for routing only, every other catalogue
-anchor query that is not low-complexity, comes from exactly one family and has
-an msBWT width in ``[1, COMPLETE_ROUTING_CAP]``.  It never changes a pair the
-frozen panel already routes: only *extra* pairs are considered, i.e. pairs not
-routed by the frozen panel whose extra-word hits fall on exactly one mate.
+By default, reads are routed through a coverage-optimized subset of exact TE
+anchor words. Complete routing adds every other catalogue anchor query that is
+not low-complexity, comes from exactly one family and has an msBWT width in
+``[1, COMPLETE_ROUTING_CAP]``. It never changes a pair the default panel
+routes. Only *extra* pairs are considered: pairs the default panel
+does not route, whose extra-word hits fall on exactly one mate.
 
 An extra pair is kept only if it is not an ordinary reference pair: the
 TE-side mate (``-k 20``) has no alignment on the host-side mate's chromosome
-within ``Q99`` bp of the host-side mate's primary alignment.  This is the
-discordant-pair entry rule that TEMP2 and TEforest use.  Kept extra pairs join
-the panel with read count 1, so the unchanged downstream code localises them
-like any other one-mate pair.  Later stages keep the frozen TE library.
+within ``Q99`` bp of the host-side mate's primary alignment. This is the usual
+discordant-pair entry rule. Kept extra pairs join the panel with read count 1,
+so the downstream code localizes them like any other one-mate pair. Later
+steps use the TE library unchanged.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ TE_MATE_OPTIONS = ("-k", "20", "--very-sensitive", "--no-hd")
 
 
 def _member(sorted_ref: np.ndarray, values: np.ndarray) -> np.ndarray:
-    """Boolean membership of ``values`` in the sorted unique array ``sorted_ref`` (O(len(values) log n))."""
+    """Return a boolean mask of the ``values`` found in the sorted unique array ``sorted_ref`` (O(len(values) log n))."""
 
     if len(sorted_ref) == 0 or len(values) == 0:
         return np.zeros(len(values), dtype=bool)
@@ -56,7 +56,7 @@ def _member(sorted_ref: np.ndarray, values: np.ndarray) -> np.ndarray:
 
 
 def extra_queries(catalogue: AnchorCatalogue, selected: Iterable[str], cap: int = COMPLETE_ROUTING_CAP) -> list[AnchorQuery]:
-    """Catalogue queries outside the frozen panel that the complete routing adds (sorted by sequence)."""
+    """Return the catalogue queries outside the default panel that complete routing adds, sorted by sequence."""
 
     taken = set(selected)
     out = [
@@ -76,15 +76,15 @@ def extra_queries(catalogue: AnchorCatalogue, selected: Iterable[str], cap: int 
 def collect_extra_pairs(
     queries: Sequence[AnchorQuery], frozen_pairs: Iterable[int], index, progress=None
 ) -> tuple[dict[int, int], dict[str, np.ndarray], dict[int, np.ndarray]]:
-    """Extra one-mate pairs.
+    """Return the extra one-mate pairs as ``(te_file, pair_sets, te_dollars)``.
 
-    Returns ``(te_file, pair_sets, te_dollars)``: ``te_file[pair] = file id of
-    the only mate carrying extra words``; ``pair_sets[seq]`` = extra one-mate
-    pairs carrying ``seq``; ``te_dollars[pair]`` = the dollar IDs (reads) of
-    that mate that carry extra words (one read, kept as an array).
+    ``te_file[pair]`` is the file id of the only mate carrying extra words.
+    ``pair_sets[seq]`` holds the extra one-mate pairs carrying ``seq``.
+    ``te_dollars[pair]`` holds the dollar IDs (reads) of that mate that carry
+    extra words (one read, stored as an array).
     """
 
-    # one boolean mask over all pair IDs (a per-word np.isin against the frozen set costs ~1 s each)
+    # one boolean mask over all pair IDs (a per-word np.isin against the default-panel set costs ~1 s each)
     frozen_mask = np.zeros(int(index.pair_count), dtype=bool)
     frozen_list = np.asarray(sorted(set(int(x) for x in frozen_pairs)), dtype=np.int64)
     frozen_mask[frozen_list] = True
@@ -109,7 +109,7 @@ def collect_extra_pairs(
     one = up[nfiles == 1]
     one_file = kf[_member(one, kp)]
     te_file = {int(a): int(b) for a, b in zip(one.tolist(), one_file.tolist())}
-    # per-word membership by binary search (np.isin per word against ~370 k pairs cost ~0.15 s each)
+    # per-word membership by binary search (np.isin per word against ~370 k pairs costs ~0.15 s each)
     pair_sets = {s: ps[_member(one, ps)] for s, ps in per_seq}
     sel = _member(one, p)
     order = np.lexsort((d[sel], p[sel]))
@@ -123,7 +123,7 @@ def collect_extra_pairs(
 
 
 def concordant(host_rows: Sequence[tuple[int, str, int]], te_rows: Sequence[tuple[int, str, int]], q99: int = Q99) -> bool:
-    """True if the pair looks like an ordinary reference pair (then the gate drops it).
+    """Return True if the pair looks like an ordinary reference pair, which the filter drops.
 
     ``host_rows``/``te_rows`` are ``(flag, chrom, pos)`` SAM rows of one read.
     The host-side mate's primary alignment is its first row that is mapped,
@@ -139,7 +139,7 @@ def concordant(host_rows: Sequence[tuple[int, str, int]], te_rows: Sequence[tupl
 
 
 def sam_records(sam: Path) -> Iterator[tuple[str, list[tuple[int, str, int]]]]:
-    """Stream a headerless SAM; yield ``(qname, rows)``; rows of one read are contiguous in Bowtie2 output."""
+    """Yield ``(qname, rows)`` from a headerless SAM, streaming. Rows of one read are contiguous in Bowtie2 output."""
 
     current: str | None = None
     rows: list[tuple[int, str, int]] = []
@@ -168,7 +168,7 @@ def gate_extra_pairs(
     q99: int = Q99,
     progress=None,
 ) -> set[int]:
-    """Kept extra pairs (not concordant reference pairs)."""
+    """Return the extra pairs to keep: those that are not ordinary reference pairs."""
 
     pairs = sorted(te_file)
     if not pairs:
@@ -202,7 +202,7 @@ def augment_panel(
     pair_sets: Mapping[str, np.ndarray],
     te_dollars: Mapping[int, np.ndarray],
 ) -> PairAwarePanel:
-    """The frozen panel plus kept extra pairs (count 1); frozen pairs are untouched."""
+    """Return the default panel plus the kept extra pairs (read count 1). Pairs in the panel are unchanged."""
 
     keep = np.asarray(sorted(set(int(x) for x in kept)), dtype=np.uint64)
     if len(keep) == 0:

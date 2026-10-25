@@ -1,10 +1,10 @@
-"""Exact TE anchor catalogue and its sample interval census (lineage stage G1A).
+"""Build the exact TE anchor catalogue and count each anchor in the sample.
 
 Every TE consensus record contributes k-mers (k = 21/25/31/35) from its two
 120 bp terminal windows (stride 5, last start always kept), its interior
 (stride 50 starting at 120, last interior start always kept) or, for records
-too short to have an interior, every remaining start.  Each source k-mer is
-queried in both orientations.  Distinct ``(k, query)`` strings are numbered
+too short to have an interior, every remaining start. Each source k-mer is
+queried in both orientations. Distinct ``(k, query)`` strings are numbered
 ``Q0000001...`` in sorted order and counted exactly in the sample msBWT.
 """
 
@@ -88,7 +88,7 @@ class AnchorCatalogue:
 
 
 def parse_te_consensus(path: str | Path) -> dict[str, str]:
-    """TE consensus FASTA keyed by the first token of each header (before ``|``)."""
+    """Read the TE consensus FASTA, keyed by the first token of each header (before ``|``)."""
 
     records: dict[str, str] = {}
     name: str | None = None
@@ -119,8 +119,11 @@ def parse_te_consensus(path: str | Path) -> dict[str, str]:
 
 
 def load_te_family_map(path: str | Path) -> dict[str, str]:
-    """Raw ``record -> family`` labels (no alias normalization): a FlyBase table (``FBte_ID``, ``FlyBase_Family``) or a
-    two-column ``record<TAB>family`` table (``evitea.family_table``)."""
+    """Read the record-to-family labels without alias normalization.
+
+    The table is either a FlyBase table (``FBte_ID``, ``FlyBase_Family``) or a
+    two-column ``record<TAB>family`` table (``evitea.family_table``).
+    """
 
     import csv
 
@@ -243,7 +246,7 @@ def build_anchor_catalogue(records: Mapping[str, str], family_map: Mapping[str, 
 
 
 def census_anchor_intervals(catalogue: AnchorCatalogue, index) -> None:
-    """Attach exact sample msBWT intervals to every catalogue query (in place)."""
+    """Set the exact sample msBWT interval on every catalogue query, in place."""
 
     for query in sorted(catalogue.queries, key=lambda q: (q.k, q.query_seq)):
         query.interval_lo, query.interval_hi = index.interval(query.query_seq)

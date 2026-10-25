@@ -1,9 +1,9 @@
-"""Frozen incumbent (repeat-aware R9E) caller branch.
+"""Library layer caller with repeat-aware calls.
 
-``run_incumbent_caller`` derives the incumbent callset from the prepared
-sample msBWT, the TE consensus library and family map, the host reference and
-its Bowtie2 index.  The typed repeat-aware core (``run_repeat_aware_incumbent``)
-remains available for observation-level use.
+``run_incumbent_caller`` builds the call set from the prepared sample msBWT,
+the TE consensus library and family map, the host reference and its Bowtie2
+index. The typed repeat-aware core (``run_repeat_aware_incumbent``) can also be
+used directly on observation-level input.
 """
 
 from .acquisition import CandidateAcquisition, acquire_candidate_loci

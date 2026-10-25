@@ -1,22 +1,21 @@
-"""Pure-Python infix edit-distance kernel with frozen edlib ``HW`` semantics.
+"""Pure-Python infix edit-distance kernel with edlib ``HW`` semantics.
 
-The frozen incumbent lineage used ``edlib.align(query, target, mode="HW",
-task=..., k=max_edits)``.  This module reproduces the two observable results
-that lineage consumed, without a compiled dependency:
+It reproduces two results of ``edlib.align(query, target, mode="HW",
+task=..., k=max_edits)`` without a compiled dependency:
 
 * ``hw_distance``: the minimum Levenshtein distance between the complete query
   and any substring of the target, or ``None`` when it exceeds ``max_edits``;
 * ``hw_locations``: that distance plus every ``(start, end)`` pair, where
   ``end`` ranges over all target positions attaining the minimum (ascending)
   and ``start`` is the *smallest* start whose substring attains the same
-  distance for that end.  This is edlib's rule: it reruns a prefix-anchored
-  (``SHW``) search on the reversed query/target and keeps the last reported
-  position.
+  distance for that end. This is edlib's rule: it reruns a prefix-anchored
+  (``SHW``) search on the reversed query and target and takes the last
+  reported position.
 
-Characters compare by exact identity (``N`` is an ordinary symbol), matching
-edlib's default equality.  The implementation is Myers' bit-parallel algorithm
-on Python integers; a pigeonhole exact-piece filter is used only to prove that
-no alignment within ``max_edits`` exists, so it cannot change any result.
+Characters compare by exact identity (``N`` is an ordinary symbol), as in
+edlib's default equality. The implementation is Myers' bit-parallel algorithm
+on Python integers. A pigeonhole exact-piece filter only proves that no
+alignment within ``max_edits`` exists, so it cannot change any result.
 """
 
 from __future__ import annotations
@@ -91,11 +90,11 @@ def _valid(query: str, target: str, max_edits: int) -> bool:
 
 
 def _candidate_windows(query: str, target: str, max_edits: int) -> list[tuple[int, int]] | None:
-    """Merged target windows that contain every alignment within ``max_edits``.
+    """Return merged target windows that contain every alignment within ``max_edits``.
 
     Any alignment with at most ``max_edits`` edits leaves one of the
     ``max_edits + 1`` disjoint query pieces unedited, so it contains an exact
-    piece occurrence.  Returns ``None`` when the query is too short to split.
+    piece occurrence. Return ``None`` when the query is too short to split.
     """
 
     pieces = max_edits + 1
@@ -131,7 +130,7 @@ def _candidate_windows(query: str, target: str, max_edits: int) -> list[tuple[in
 
 
 def hw_distance(query: str, target: str, max_edits: int) -> int | None:
-    """Infix edit distance of the complete query, or ``None`` if > max_edits."""
+    """Return the infix edit distance of the complete query, or ``None`` if it exceeds ``max_edits``."""
 
     if not _valid(query, target, max_edits):
         return None
@@ -153,7 +152,7 @@ def hw_distance(query: str, target: str, max_edits: int) -> int | None:
 def hw_locations(
     query: str, target: str, max_edits: int
 ) -> tuple[int | None, tuple[tuple[int, int], ...]]:
-    """Distance and all edlib-equivalent ``(start, end)`` locations (0-based, inclusive)."""
+    """Return the distance and all edlib-equivalent ``(start, end)`` locations (0-based, inclusive)."""
 
     if not _valid(query, target, max_edits):
         return None, ()
@@ -184,7 +183,7 @@ def hw_locations(
 
 
 def best_symmetric(scores: Sequence[int | None]) -> int | None:
-    """Minimum over non-missing distances; ``None`` when all are missing."""
+    """Return the minimum over non-missing distances, or ``None`` when all are missing."""
 
     values = [value for value in scores if value is not None]
     return min(values) if values else None
