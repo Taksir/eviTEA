@@ -7,7 +7,7 @@ Each call becomes one record with a symbolic insertion allele ``<INS:ME:family>`
   and ``END = end``, with ``CIPOS=0,<end - start>`` and the ``IMPRECISE`` flag: the insertion lies somewhere in the range.
 * ``REF`` is the reference base at ``POS`` (``N`` when the reference is not given).
 * ``INFO`` carries ``SVTYPE=INS``, the family (``FAMILY``, and ``FAMILIES`` when several were listed), the call source
-  (``SOURCE=library`` or ``library-free``), the stage that made the call (``ORIGIN``), its supports and, for library-free
+  (``SOURCE=library`` or ``library-free``), the stage that made the call (``ORIGIN``), its support counts and, for library-free
   calls, the target-site duplication length (``TSD``).
 * ``FILTER`` is ``PASS``: the call set holds only reported calls.  No genotype is given (sites-only VCF).
 
@@ -66,7 +66,7 @@ def _info_value(value: object) -> str:
 
 
 def native_vcf_calls(views: Iterable[Mapping[str, object]]) -> list[VcfCall]:
-    """Calls of the library layer, from the ``calls.tsv`` views (``callset._sorted_views``)."""
+    """Return the calls of the library layer, from the ``calls.tsv`` views (``callset._sorted_views``)."""
 
     out = []
     for view in views:
@@ -87,8 +87,8 @@ def native_vcf_calls(views: Iterable[Mapping[str, object]]) -> list[VcfCall]:
 
 
 def native_row_vcf_calls(rows: Iterable[Mapping[str, str]]) -> list[VcfCall]:
-    """Calls of a native call table (``calls.native.tsv`` rows); a call with ``start == end`` is a point. Only ``event_id``,
-    ``chr``, ``start``, ``end`` and ``family`` are needed; the other columns are used when present."""
+    """Return the calls of a native call table (``calls.native.tsv`` rows); a call with ``start == end`` is a point.  Only
+    ``event_id``, ``chr``, ``start``, ``end`` and ``family`` are required; the other columns are used when present."""
 
     from .callset import CALL_ORIGINS
 
@@ -106,7 +106,7 @@ def native_row_vcf_calls(rows: Iterable[Mapping[str, str]]) -> list[VcfCall]:
 
 
 def fasta_contigs(fasta: str | Path) -> list[tuple[str, int]]:
-    """(name, length) of every FASTA record, in file order."""
+    """Return (name, length) of every FASTA record, in file order."""
 
     contigs: list[tuple[str, int]] = []
     with Path(fasta).open("r", encoding="ascii", errors="replace") as handle:
@@ -119,7 +119,7 @@ def fasta_contigs(fasta: str | Path) -> list[tuple[str, int]]:
 
 
 def library_free_vcf_calls(added: bytes) -> list[VcfCall]:
-    """Calls of ``calls.library_free.tsv`` (columns event_id, chr, start, end, family, ..., tsd)."""
+    """Return the calls of ``calls.library_free.tsv`` (columns event_id, chr, start, end, family, ..., tsd)."""
 
     lines = added.decode("utf-8").splitlines()
     if not lines:
@@ -156,13 +156,13 @@ _HEADER_INFO = (
 
 
 def vcf_position(call: VcfCall) -> int:
-    """``POS`` of a call (1-based): the base before the point or range."""
+    """Return ``POS`` of a call (1-based): the base before the point or range."""
 
     return max(1, call.start)
 
 
 def reference_bases(fasta: str | Path, calls: Iterable[VcfCall]) -> dict[tuple[str, int], str]:
-    """The REF base of every call, read from the FASTA in one pass without holding whole contigs."""
+    """Return the REF base of every call, read from the FASTA in one pass without holding whole contigs."""
 
     wanted: dict[str, set[int]] = {}
     for call in calls:
@@ -192,8 +192,8 @@ def calls_vcf_bytes(
     bases: Mapping[tuple[str, int], str] | None = None,
     reference_name: str | None = None,
 ) -> bytes:
-    """VCF 4.2 text of ``calls``; ``contigs`` (name, length) in reference order; ``bases`` gives the REF bases
-    (``reference_bases``; ``N`` without it)."""
+    """Return the VCF 4.2 text of ``calls``.  ``contigs`` is (name, length) in reference order.  ``bases`` gives the REF
+    bases (``reference_bases``; ``N`` without it)."""
 
     order = {name: rank for rank, (name, _) in enumerate(contigs)}
     lengths = dict(contigs)

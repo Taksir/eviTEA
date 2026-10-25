@@ -1,12 +1,12 @@
-"""Own-family resident-copy switch (``evitea filter-resident-copies``): a post-filter on a finished call table.
+"""Own-family resident-copy filter (``evitea filter-resident-copies``): a post-filter on a finished call table.
 
-A core call is dropped when a reference-genome copy of the call's own TE family touches or overlaps it.  This is the
-mechanism by which TEMP2 avoids such calls.  It is a separate subcommand over finished tables: the ``call`` command and
+A core call is dropped when a reference-genome copy of the call's own TE family touches or overlaps it.  It is a
+separate subcommand over finished tables: the ``call`` command and
 the library-free layer never run it, so a run's bytes cannot change because this module exists.
 
-Rule (the same one the wrong-call anatomy measured):
+Rule:
 
-* the copy is a RepeatMasker ``.out`` line on the same chromosome (chromosome names normalised as ``norm_chrom``:
+* the copy is a RepeatMasker ``.out`` line on the same chromosome (chromosome names normalized as ``norm_chrom``:
   a bare name such as ``2L`` or ``1`` gets ``chr`` when the reference has that ``chr`` contig), copy begin taken 0-based (``int(f[5]) - 1``), copy end
   ``int(f[6])``, copy id the record id (FBte id) in column 10, divergence column 2; lines with fewer than 15 fields, or whose first
   field is not a number (the header), are skipped;
@@ -53,7 +53,7 @@ __all__ = [
 LIBRARY_FREE_PREFIX = "LF_"
 REQUIRED_COLUMNS = ("event_id", "chr", "start", "end", "family")
 
-# sha256 of the reference copy tables this switch may read without ``--allow-unlisted-copies``
+# sha256 of the reference copy tables this filter may read without ``--allow-unlisted-copies``
 LISTED_COPY_TABLES = {
     "b141b76497d5446e30e3d9a67da68db08983c9ec6e2aedddf0c15cff9008516d":
         "dm6_TEMP2_compatible.fa.out (RepeatMasker, 43,971 lines; the table of the wrong-call anatomy)",
@@ -61,7 +61,7 @@ LISTED_COPY_TABLES = {
 
 
 def norm_chrom(value: str, contigs: Collection[str]) -> str:
-    """A bare name becomes ``chr`` + name when that contig exists in the reference (``contigs``); see ``evitea.contigs``."""
+    """Return ``chr`` + name for a bare name when that contig exists in the reference (``contigs``); see ``evitea.contigs``."""
 
     return match_contig_name(str(value).strip(), contigs)
 
@@ -85,7 +85,7 @@ class CopyIndex:
         return sum(len(v) for v in self.by_chrom.values())
 
     def match(self, chrom: str, start: int, end: int, fbte_ids: frozenset[str]) -> tuple[str, int, int, str, str] | None:
-        """The first copy (sorted order) of any id in ``fbte_ids`` at gap 0 from ``[start, end]``, or None."""
+        """Return the first copy (sorted order) of any id in ``fbte_ids`` at gap 0 from ``[start, end]``, or None."""
 
         chrom = norm_chrom(chrom, self.contigs)
         copies = self.by_chrom.get(chrom)
@@ -101,7 +101,7 @@ class CopyIndex:
 
 
 def parse_copy_table(lines: Iterable[str]) -> list[tuple[str, int, int, str, str]]:
-    """(chrom, 0-based begin, end, FBte id, divergence) per RepeatMasker ``.out`` line."""
+    """Return (chrom, 0-based begin, end, FBte id, divergence) for each RepeatMasker ``.out`` line."""
 
     records = []
     for line in lines:
@@ -118,7 +118,7 @@ def load_copy_table(path: str | Path) -> list[tuple[str, int, int, str, str]]:
 
 
 def verify_copy_table(path: str | Path, *, allow_unlisted: bool) -> tuple[str, bool]:
-    """(sha256, listed).  A table whose hash is not in ``LISTED_COPY_TABLES`` is refused unless allowed."""
+    """Return (sha256, listed).  A table whose hash is not in ``LISTED_COPY_TABLES`` is refused unless allowed."""
 
     digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()
     listed = digest in LISTED_COPY_TABLES
@@ -131,7 +131,7 @@ def verify_copy_table(path: str | Path, *, allow_unlisted: bool) -> tuple[str, b
 
 
 class FamilyIds:
-    """Family name -> the record ids (FBte ids, or the record names of a two-column map) that stand for it."""
+    """Map a family name to the record ids (FBte ids, or the record names of a two-column map) that stand for it."""
 
     def __init__(self, ids_by_name: Mapping[str, Iterable[str]]):
         self._ids = {name: frozenset(ids) for name, ids in ids_by_name.items()}
@@ -144,7 +144,7 @@ class FamilyIds:
 
 
 def load_family_ids(path: str | Path) -> FamilyIds:
-    """Family map: the FlyBase table (``FBte_ID``, ``FlyBase_Family``) or two columns ``record<TAB>family``."""
+    """Read the family map: the FlyBase table (``FBte_ID``, ``FlyBase_Family``) or two columns ``record<TAB>family``."""
 
     ids: dict[str, set[str]] = defaultdict(set)
     for record, name in family_pairs(path):
@@ -187,7 +187,7 @@ def _integer(value: str, name: str, event_id: str) -> int:
 
 
 def call_contigs(calls: bytes) -> frozenset[str]:
-    """Contig names of a call table's ``chr`` column (reference names), used when the reference is not given."""
+    """Return the contig names of a call table's ``chr`` column (reference names), used when the reference is not given."""
 
     lines = calls.decode("utf-8-sig").splitlines()
     if not lines:

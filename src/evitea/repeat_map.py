@@ -9,7 +9,7 @@ and merged.
 
 Output: ``<output>/repeat_map.bed`` (contig, 0-based start, end), read by ``--repeat-map`` of ``library-free`` and
 ``build-family-records``; ``<output>/repeat_map_bed6.bed``, the same intervals as BED6 (name ``repeat``, score 0, strand
-``.``), which ``prepare-reference --repeat-annotation`` accepts, so that a run without a library needs no curated annotation;
+``.``), which ``prepare-reference --repeat-annotation`` accepts, so that a run without a library requires no curated annotation;
 ``<output>/repeat_map_summary.json`` holds the constants, the counts and the checksums.
 """
 
@@ -66,7 +66,7 @@ def _fasta(path: Path) -> Iterator[tuple[str, str]]:
 
 
 def read_lengths(reference_fasta: Path) -> dict[str, int]:
-    """Contig name -> length, in reference order."""
+    """Return a dict of contig name to length, in reference order."""
 
     lengths: dict[str, int] = {}
     for name, seq in _fasta(reference_fasta):
@@ -77,7 +77,7 @@ def read_lengths(reference_fasta: Path) -> dict[str, int]:
 
 
 def default_contigs(reference_fasta: Path) -> tuple[str, ...]:
-    """The contigs that ``library-free`` scans by default: those of at least 1 Mb, in reference order."""
+    """Return the contigs that ``library-free`` scans by default: those of at least 1 Mb, in reference order."""
 
     from .library_free.runtime import MIN_DEFAULT_CONTIG
 
@@ -85,8 +85,8 @@ def default_contigs(reference_fasta: Path) -> tuple[str, ...]:
 
 
 def window_records(reference_fasta: Path, contigs: Iterable[str]) -> Iterator[tuple[str, int, str]]:
-    """(contig, start, window sequence) of every 500 bp window (step 250) of the chosen contigs, in reference order; a window
-    of more than half N is left out."""
+    """Yield (contig, start, window sequence) for every 500 bp window (step 250) of the chosen contigs, in reference order.
+    A window of more than half N is left out."""
 
     chosen = set(contigs)
     for name, seq in _fasta(reference_fasta):
@@ -114,7 +114,7 @@ def merge_intervals(intervals: dict[str, list[tuple[int, int]]]) -> dict[str, li
 
 
 def subject_name(subject: str, names: set[str] | None) -> str:
-    """The reference's own name of a blastn subject id.  With ``-parse_seqids`` blastn prints an id that looks like a database
+    """Return the reference's own name of a blastn subject id.  With ``-parse_seqids`` blastn prints an id that looks like a database
     accession with its wrappers (``ref|NW_001845059.1|``, ``gb|CM000001.1|``, ``gi|123|ref|NW_001845059.1|``) and a plain name as
     is or as ``lcl|name``.  The name is the last field of the id that is a contig of the reference; with ``names`` None only a
     ``lcl|`` prefix is removed.  An id with no such field is an error."""
@@ -130,7 +130,7 @@ def subject_name(subject: str, names: set[str] | None) -> str:
 
 
 def intervals_from_hits(lines: Iterable[str], contigs: Iterable[str], known: Iterable[str] | None = None) -> dict[str, list[tuple[int, int]]]:
-    """Repeated intervals (0-based, end exclusive, not yet merged) from blastn lines in ``HIT_FORMAT``.  Query ids are
+    """Return the repeated intervals (0-based, end exclusive, not yet merged) from blastn lines in ``HIT_FORMAT``.  Query ids are
     ``<contig>|<window start>``.  ``known`` (all contig names of the reference) turns the subject ids back into the reference's names (see ``subject_name``)."""
 
     chosen = set(contigs)
@@ -156,7 +156,7 @@ def intervals_from_hits(lines: Iterable[str], contigs: Iterable[str], known: Ite
 
 
 def write_bed(path: Path, intervals: dict[str, list[tuple[int, int]]]) -> tuple[int, int]:
-    """Write the merged intervals, contigs sorted by name; returns (intervals, bases)."""
+    """Write the merged intervals, contigs sorted by name, and return (intervals, bases)."""
 
     n = bases = 0
     with Path(path).open("w", encoding="utf-8") as handle:
@@ -169,7 +169,7 @@ def write_bed(path: Path, intervals: dict[str, list[tuple[int, int]]]) -> tuple[
 
 
 def write_bed6(path: Path, intervals: dict[str, list[tuple[int, int]]]) -> None:
-    """The intervals of ``write_bed`` as BED6 (name ``repeat``, score 0, no strand): a repeat annotation for prepare-reference."""
+    """Write the intervals of ``write_bed`` as BED6 (name ``repeat``, score 0, no strand), a repeat annotation for prepare-reference."""
 
     with Path(path).open("w", encoding="utf-8") as handle:
         for contig in sorted(intervals):
@@ -189,13 +189,13 @@ def _require_blast() -> None:
     missing = [t for t in TOOLS if shutil.which(t) is None]
     if missing:
         raise OperationalResourceError(
-            "build-repeat-map needs BLAST+ (makeblastdb and blastn) on PATH; not found: " + ", ".join(missing))
+            "build-repeat-map requires BLAST+ (makeblastdb and blastn) on PATH; not found: " + ", ".join(missing))
 
 
 def build_repeat_map(*, reference_fasta: Path, output: Path, contigs: Iterable[str] | None = None, parts: int | None = None,
                      progress=print) -> dict:
-    """Build ``<output>/repeat_map.bed``.  Saved BLAST work in ``output`` is reused when the reference and the settings are the
-    same (the build resumes); an existing BED is never replaced."""
+    """Build ``<output>/repeat_map.bed``.  Saved BLAST work in ``output`` is reused when the reference and the parameters are the
+    same (the build resumes).  An existing BED is never replaced."""
 
     reference_fasta, output = Path(reference_fasta), Path(output)
     lengths = read_lengths(reference_fasta)
@@ -215,7 +215,7 @@ def build_repeat_map(*, reference_fasta: Path, output: Path, contigs: Iterable[s
     }
     marker = output / IDENTITY
     if marker.exists() and json.loads(marker.read_text(encoding="utf-8")) != identity:
-        raise InputContractError(f"{output} holds BLAST work of another reference or other settings; use an output folder of its own")
+        raise InputContractError(f"{output} holds BLAST work of another reference or other parameters; use an output folder of its own")
     marker.write_text(json.dumps(identity, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     db = output / "db"
     if not (output / "db.done").exists():

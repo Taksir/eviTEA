@@ -93,7 +93,7 @@ def validate_read_length(value: Any) -> int:
 
 
 def read_length_from_index(index_dir: str | Path) -> int:
-    """Read length of a uniform-length msBWT index, from its symbol counts."""
+    """Return the read length of a uniform-length msBWT index, from its symbol counts."""
 
     import numpy as np
 
@@ -143,7 +143,7 @@ def validate_fragment_size(value: Any, name: str) -> Any:
 
 
 def nearest_rank_percentile(sorted_values: list[int], percent: float) -> int:
-    """The smallest value with at least ``percent`` % of the values at or below it."""
+    """Return the smallest value with at least ``percent`` % of the values at or below it."""
 
     if not sorted_values:
         raise ValueError("no values")
@@ -152,7 +152,7 @@ def nearest_rank_percentile(sorted_values: list[int], percent: float) -> int:
 
 
 def properly_paired_spans(sam_lines: Iterable[str], min_mapq: int = FRAGMENT_MIN_MAPQ) -> list[int]:
-    """Fragment spans (|TLEN|) of properly paired, primary pairs with both mates at ``min_mapq`` or above."""
+    """Return the fragment spans (|TLEN|) of properly paired, primary pairs with both mates at ``min_mapq`` or above."""
 
     first: dict[str, tuple[int, int]] = {}
     spans: list[int] = []
