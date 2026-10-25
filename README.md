@@ -195,6 +195,8 @@ copyright and license notices in any copy or derivative, as the GPL requires.
 
 ## License
 
+The licences of the programs and packages EviTEA uses are listed in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
+
 Copyright (C) 2026 Md Taksir Hasan Majumder. Licensed under the GNU General Public
 License v3.0 or later. Any distributed derivative work must also be released under the
 GPL with its source and must retain the original copyright and attribution.

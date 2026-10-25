@@ -1,0 +1,74 @@
+THIRD-PARTY NOTICES
+
+EviTEA is licensed under GPL-3.0-or-later (see LICENSE). It does not bundle or
+copy the source code of the programs and libraries below: Python packages are
+installed by pip as dependencies, and Bowtie2 and BLAST+ are separate programs
+that EviTEA runs. Their licences are listed here so that users and packagers
+know the terms of the full working set. Check each project for the current
+terms of the version you install.
+
+Python packages
+---------------
+
+pymsbwt (multi-string BWT; required)
+  Licence: MIT. Copyright (C) 2014 UNC-CH CS Dept.
+  Source: https://github.com/Taksir/msbwt
+  pymsbwt is a modernised packaging of msBWT by James Holt and Leonard McMillan
+  (University of North Carolina at Chapel Hill), https://github.com/holtjma/msbwt,
+  also under the MIT licence.
+  Compatible with GPL-3.0-or-later.
+
+NumPy (required)
+  Licence: BSD-3-Clause; bundled parts under 0BSD, MIT, Zlib and CC0-1.0.
+  Source: https://numpy.org
+  Compatible with GPL-3.0-or-later.
+
+mappy (minimap2 Python binding; extra "library-free")
+  Licence: MIT. Author: Heng Li.
+  Source: https://github.com/lh3/minimap2
+  Compatible with GPL-3.0-or-later.
+
+parasail (extra "library-free")
+  Licence: Battelle Memorial Institute BSD-style licence (2015).
+  Source: https://github.com/jeffdaily/parasail-python
+  Note: besides the usual BSD conditions, the licence asks that redistributions
+  and publications based on work done with the software cite Daily, J. (2016),
+  Parasail: SIMD C library for global, semi-global, and local pairwise sequence
+  alignments, BMC Bioinformatics 17(1), 1-11, doi:10.1186/s12859-016-0930-z,
+  and it forbids use of the name Battelle without consent. The citation request
+  is worded "should", not "must"; read as a request it does not conflict with
+  GPL-3.0-or-later. If it were read as a binding condition on redistribution,
+  it would be an additional requirement beyond the GPL. EviTEA does not
+  redistribute parasail, so this matters only to anyone who packages the two
+  together (for example in a container image): keep parasail's COPYING file
+  and cite the paper.
+
+edlib (extra "anchorpe")
+  Licence: MIT. Author: Martin Sosic.
+  Source: https://github.com/Martinsos/edlib
+  Compatible with GPL-3.0-or-later.
+
+External programs
+-----------------
+
+Bowtie2 (required on PATH)
+  Licence: GPL-3.0. Authors: Ben Langmead and contributors.
+  Source: https://github.com/BenLangmead/bowtie2
+  Compatible with GPL-3.0-or-later.
+
+BLAST+ (makeblastdb and blastn; only for build-repeat-map)
+  Licence: public domain in the United States ("United States Government Work",
+  NCBI Public Domain Notice). The distribution also contains third-party
+  libraries under their own permissive licences, listed in its LICENSE file.
+  Source: https://blast.ncbi.nlm.nih.gov
+  Compatible with GPL-3.0-or-later.
+
+Container and environment files
+-------------------------------
+
+The container recipe and the conda environment file in this repository install
+the programs above from their own channels. An image built from them contains
+all of these packages; whoever distributes such an image must pass on each
+package's licence text (the files the packages install, for example
+pymsbwt-*.dist-info/licenses/LICENSE and parasail-*.dist-info/COPYING) and the
+corresponding source offers for the GPL programs (Bowtie2, EviTEA).
