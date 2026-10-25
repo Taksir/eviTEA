@@ -1,4 +1,4 @@
-"""Fail-closed orchestration, marker-last checkpoints, and finalization."""
+"""Run orchestration, checkpoints with the completion marker written last, and output finalization."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ CANONICAL_OUTPUTS = (
 )
 BREAKPOINTS_OUTPUT = "breakpoints.tsv"  # written only when refinement.breakpoints is on
 ANNOTATIONS_OUTPUT = "call_annotations.tsv"  # written only when refinement.call_annotations is on
-VCF_OUTPUT = "calls.vcf"  # the calls of calls.tsv as VCF; runs before it existed have none
+VCF_OUTPUT = "calls.vcf"  # the calls of calls.tsv as VCF
 OPTIONAL_OUTPUTS = (BREAKPOINTS_OUTPUT, ANNOTATIONS_OUTPUT, VCF_OUTPUT)
 CHECKPOINT_SCHEMA = "evitea.checkpoint.v1"
 RAW_SAMPLE_DIRECTORY = "prepared-sample"
@@ -113,7 +113,7 @@ def _atomic_bytes(path: Path, data: bytes) -> None:
 
 
 def prepare_output_directory(path: str | Path, *, resume: bool) -> Path:
-    """Apply absent/empty/incomplete/completed/arbitrary directory policy."""
+    """Return the output directory, creating it if absent.  Raise if it holds a completed run, work state without resume, or other files."""
 
     output = Path(path).expanduser().resolve()
     if not output.exists():
@@ -137,7 +137,7 @@ def prepare_output_directory(path: str | Path, *, resume: bool) -> Path:
 
 
 class CheckpointManager:
-    """Transactional JSON checkpoints with completion marker written last."""
+    """JSON checkpoints with the completion marker written last."""
 
     def __init__(self, work_directory: str | Path, *, resume: bool) -> None:
         self.root = Path(work_directory).expanduser().resolve()
@@ -229,7 +229,7 @@ class CheckpointManager:
 
 
 def prepare_assets(config: EviTEAConfig) -> PreparedAssets:
-    """Load and cross-check prepared assets without performing scientific work."""
+    """Load and cross-check the prepared assets.  No scientific step runs here."""
 
     if config.assets.reference_assets is None or config.assets.te_assets is None:
         raise InputContractError("reference_assets and te_assets are required")
@@ -250,7 +250,7 @@ def prepare_assets(config: EviTEAConfig) -> PreparedAssets:
 
 
 def derive_sample_id(read1: str | Path, sample_id: str | None = None) -> str:
-    """Use the same explicit-or-R1-basename rule for every sample preparation path."""
+    """Return ``sample_id`` if given, else the base name of ``read1`` (without ``.gz`` and the extension).  Every sample preparation path uses this rule."""
 
     if sample_id:
         return sample_id
@@ -366,11 +366,11 @@ def run_sample(
     sample_builder: RawSampleBuilder | None = None,
     breakpoint_refiner: Callable[[CallsetState], Sequence[Any]] | None = None,
 ) -> RunResult:
-    """Orchestrate a supplied scientific engine and finalize canonical outputs.
+    """Run the supplied call engine and write the canonical outputs.
 
     ``breakpoint_refiner`` is required exactly when ``refinement.breakpoints``
-    is on.  It never changes ``calls.native.tsv``; refined ranges go to the
-    ``calls.tsv`` / ``calls.bed`` views and to ``breakpoints.tsv``.
+    is on.  It never changes ``calls.native.tsv``.  Refined ranges go to the
+    ``calls.tsv`` and ``calls.bed`` views and to ``breakpoints.tsv``.
     """
 
     if config.output.directory is None:
@@ -501,7 +501,7 @@ def run_sample(
 
 
 # ---------------------------------------------------------------------------
-# Default scientific engine assembly (incumbent + frozen v3 extension)
+# Default scientific engine assembly (library layer + extension layers)
 # ---------------------------------------------------------------------------
 
 ENGINE_STAGE = "engine"
@@ -573,10 +573,10 @@ def default_call_engine(
     *,
     progress: Callable[[str], None] | None = None,
 ) -> CallsetState:
-    """Run the clean incumbent and the v3 extension; return the native callset.
+    """Run the library layer and the extension layers, and return the callset state.
 
-    Stage checkpoints live under ``<work>/engine``; an existing engine work
-    directory is reused only with explicit resume.
+    Stage checkpoints are written under ``<work>/engine``.  An existing engine
+    work directory is reused only with explicit resume.
     """
 
     from .engine import run_engine

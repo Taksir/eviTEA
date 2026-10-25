@@ -115,7 +115,7 @@ def finalize_output_hashes(
     *,
     output_counts: Mapping[str, int] | None = None,
 ) -> ProvenanceRecord:
-    """Bind canonical outputs; the manifest must never hash itself."""
+    """Record the hash of each output file in the manifest.  The manifest never hashes itself."""
 
     if "run_manifest.json" in filenames:
         raise InputContractError("run manifest cannot recursively hash itself")

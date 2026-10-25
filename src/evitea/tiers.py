@@ -14,12 +14,12 @@ Tiers (1 = most confident; the first rule that applies decides):
 * tier 5 ``RESIDENT``: the call interval overlaps a reference copy of the
   call's own family;
 * tier 4 ``LOW_SUPPORT``: total support below ``MIN_SUPPORT`` (4) fragments;
-* tier 2 ``REPEAT_RESCUE``: the repeat-aware rescue stage;
+* tier 2 ``REPEAT_RESCUE``: calls retained by the repeat-aware step, which credits edits that recur in other junction groups;
 * tier 1 ``DIRECT``: every other call (exact junction on one or both sides,
   read pairs on both sides, anchor-pair extension) with support of 4 or more
   that is not inside a copy of its own family.
 
-``STRICT_TIERS`` (tier 1) is the documented strict mode: keep only those calls.
+``STRICT_TIERS`` (tier 1) is the strict mode: retain only those calls.
 
 The evidence class of a call is the stage that made it, read from the native
 ``evidence_type`` and reported beside the tier.  Reference copies come from
@@ -80,7 +80,7 @@ LIBRARY_FREE_CLASS = "LIBRARY_FREE"
 
 
 def evidence_class(evidence_type: str) -> str:
-    """The stage class of a native ``evidence_type``; an unknown type is an error (a new stage needs a tier decision)."""
+    """Return the stage class of a native ``evidence_type``.  An unknown type raises an error, because a new stage needs a tier."""
 
     try:
         return EVIDENCE_CLASS[evidence_type]
@@ -90,7 +90,7 @@ def evidence_class(evidence_type: str) -> str:
 
 def assign_tier(source: str, evidence_type: str | None, total_support: int | None, *, inside_own_family: bool,
                 near_any: bool) -> int:
-    """The tier of one call (module docstring)."""
+    """Return the tier of one call (rules in the module docstring)."""
 
     if source == "LIBRARY_FREE":
         return 5 if near_any else 3
@@ -119,7 +119,7 @@ class ResidentIndex:
         self.max_len = {chrom: max(e - s for s, e, _ in v) for chrom, v in self.by_chrom.items()}
 
     def context(self, chrom: str, start: int, end: int, family: str | None) -> tuple[bool, bool]:
-        """(inside a copy of ``family`` — overlap, inclusive ends —, any copy within the near distance)."""
+        """Return (inside, near): whether the interval overlaps a copy of ``family`` (inclusive ends), and whether any copy lies within the near distance."""
 
         copies = self.by_chrom.get(chrom)
         if not copies:
@@ -141,13 +141,13 @@ class ResidentIndex:
 
 
 def _family_map(path: Path) -> dict[str, str]:
-    """FlyBase-style table (FBte_ID, FlyBase_Family) or two columns record<TAB>family; labels kept as written."""
+    """Return the family map from a FlyBase table (FBte_ID, FlyBase_Family) or a two-column record<TAB>family table; labels are kept as written."""
 
     return dict(family_pairs(path))
 
 
 def load_resident_index(repeat_annotation: Path, family_map: Path) -> ResidentIndex:
-    """Reference copies from the prepared BED6 repeat annotation, named through the family map."""
+    """Return the reference copies from the prepared BED6 repeat annotation, named through the family map."""
 
     names = _family_map(family_map)
     records = []
@@ -198,7 +198,7 @@ def _added_rows(added: bytes | None) -> list[dict[str, str]]:
 
 
 def tier_rows(native: bytes, added: bytes | None, resident: ResidentIndex) -> tuple[TierRow, ...]:
-    """One row per call of the combined call table: the native calls, then the added library-free calls."""
+    """Return one row per call of the combined call table: the native calls, then the added library-free calls."""
 
     callset = ShadowCallset.from_bytes(native)
     missing = {"evidence_type", "total_support"} - set(callset.fields)
