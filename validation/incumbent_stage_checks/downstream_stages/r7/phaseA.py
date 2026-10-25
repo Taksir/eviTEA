@@ -26,7 +26,7 @@ hist=[r for r in rd(R/"V2_MIXED_EVIDENCE_COMPLETION_R7"/"V2R7_DISCOVERY_JUNCTION
 key=lambda p:(p.locus_id,str(p.source_pair_id),str(p.source_mate),p.read_view,p.junction_semantic,str(p.split),str(p.te_bp),str(p.te_seed_hits),str(p.te_seed_fraction),str(p.host_seed_matches_in_scope),str(p.host_seed_first_pos),p.signature,p.host_half,str(p.proposal_score))
 hk=lambda r:(r["locus_id"],r["source_pair_id"],r["source_mate"],r["read_view"],r["junction_semantic"],r["split"],r["te_bp"],r["te_seed_hits"],r["te_seed_fraction"],r["host_seed_matches_in_scope"],r["host_seed_first_pos"],r["signature"],r["host_half"],r["proposal_score"])
 print("discovery equal",[key(p) for p in disc]==[hk(r) for r in hist],len(hist))
-# use historical qids for bowtie2 naming fidelity
+# use the recorded query ids so the Bowtie2 read names match
 qmap={hk(r):r["qid"] for r in hist}
 disc=[jg.JunctionProposal(qmap[key(p)],*[getattr(p,f) for f in jg.JunctionProposal.__slots__[1:]]) for p in disc]
 acc,st=jg.screen_proposals(disc,bowtie2=os.path.expanduser("~/bowtie2-2.5.5-linux-x86_64/bowtie2"),host_index_prefix=os.path.expanduser("~/scratch/bt2/idx/dm6"),work_directory=out/"work",counts=counts)

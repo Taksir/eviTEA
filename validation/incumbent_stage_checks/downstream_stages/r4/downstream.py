@@ -23,7 +23,7 @@ winners=defaultdict(list)
 for p in sorted(ev):
     w,_=mr.resolve_pair_evidence(ev[p])
     if w: winners[w.locus_id].append(w)
-# reuse run_mate_rescue tail by constructing ledger same way
+# build the locus table the same way the end of run_mate_rescue does
 elig=[L for L in loci if L.locus_id not in set(guard)]
 ledger=[];calls=[]
 for L in sorted(elig,key=lambda x:x.locus_id):

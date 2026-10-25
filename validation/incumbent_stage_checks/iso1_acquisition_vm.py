@@ -1,12 +1,12 @@
-"""VM-only: ISO1 candidate acquisition (G1A..G1HR -> candidate loci), stage by stage.
+"""VM-only: ISO1 candidate acquisition, from the anchor catalogue to candidate loci, stage by stage.
 
-Runs the production ``evitea.incumbent`` stage functions on the ISO1 msBWT in
-short resumable steps (each step caches its result under ``--cache``) and
-compares every stage with the historical ISO1 Route-B tables
+Runs the ``evitea.incumbent`` stage functions on the ISO1 msBWT in short
+resumable steps (each step caches its result under ``--cache``) and compares
+every stage with the recorded ISO1 stage tables
 (``TE_locator_route_b/reports/G1*`` and ``TE_locator_route_b_v2/reports``).
 Bowtie2 host mappings are split into chunks (per-read results do not depend on
-batch composition; parsers are order-independent).  Truth-bearing members of
-the historical archives (``*TRUTH*``) are never read.
+batch composition; parsers are order-independent).  Archive members whose names
+contain ``TRUTH`` are never read.
 
     python iso1_acquisition_vm.py g1a|g1b|g1c|g1d|g1e|g1f-fasta|g1f-map N|g1f|
                                   g1hr-plan|g1hr-map N|g1hr|loci|all-status
@@ -284,7 +284,7 @@ def step_g1hr_plan():
         [(r["pair_id"], r["mate1_hit"], r["mate2_hit"], r["families"]) for r in he]
     requests = rescue_host_requests(evidence)
     dollars = idx.mate_dollars(requests)
-    # ISO1 reproduction profile: the historical ISO1 run named these queries {pid}.
+    # ISO1 profile: the recorded run names these queries {pid}.
     chunks = _write_chunks("g1hr_host", [(rescue_query_name(p, "numeric"), idx.recover(dollars[p])) for p in sorted(requests)])
     save("g1hr_plan", (anchors, evidence, requests, chunks))
     record("g1hr_plan", {"anchors": len(anchors), "anchors_equal": anchors_eq, "evidence": len(evidence),

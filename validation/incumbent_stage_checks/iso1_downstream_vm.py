@@ -1,11 +1,12 @@
-"""VM-only: ISO1 incumbent downstream stages (FCRC1 .. R9E) in resumable chunks.
+"""VM-only: the ISO1 stages after candidate acquisition, in resumable chunks.
 
-Follows ``evitea.incumbent.engine.run_incumbent_caller`` step for step, using the
-same production functions, on the ISO1 candidate loci produced (and checked)
-by ``iso1_acquisition_vm.py``.  Per-locus layers run in locus chunks through
+The stages run from split-junction events to repeat-aware calls.  The script
+follows ``evitea.incumbent.engine.run_incumbent_caller`` step for step, using the
+same functions, on the ISO1 candidate loci produced (and checked) by
+``iso1_acquisition_vm.py``.  Per-locus layers run in locus chunks through
 ``map_locus_batches`` (per-locus results are independent; rows are
-concatenated in locus order).  Each stage is compared with the historical ISO1
-Route-B v2 tables; the final callset with the frozen ISO1 R9E bytes
+concatenated in locus order).  Each stage is compared with the recorded ISO1
+stage tables; the final callset with the recorded ISO1 callset bytes
 (192 rows, b3e48681...).
 
     python iso1_downstream_vm.py prep | sj N | sj-final | mr N | mr-final |
@@ -53,7 +54,7 @@ from evitea.incumbent.te_library import (  # noqa: E402
 )
 
 SAMPLE = "ISO1"
-# Loci per resumable chunk (per layer; mate rescue has heavier loci).
+# Loci per resumable chunk (per layer; mate-anchored search has heavier loci).
 CHUNKS = {"split_junction": 400, "mate_rescue": 100}
 V2 = acq.V2
 FROZEN_R9E = "b3e48681568d616142fe534995d3eeb9e5163907992e9d0893919aea42e6ebc5"

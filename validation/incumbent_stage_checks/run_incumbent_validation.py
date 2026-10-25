@@ -1,23 +1,23 @@
-"""Run the clean incumbent engine end to end and compare it to frozen artifacts.
+"""Run the library-layer engine end to end and compare it with the recorded artifacts.
 
 Validation-only.  Production code never imports this module.  It runs
 ``evitea.incumbent.run_incumbent_caller`` from raw inputs (sample msBWT, TE
-library, family map, reference, host Bowtie2 index) and, when a frozen report
-root is given, compares candidate loci and every emitted callset stage to the
-historical Route-B artifacts.  Truth and comparator callsets are never read.
+library, family map, reference, host Bowtie2 index) and, when a recorded report
+root is given, compares the candidate loci and every emitted callset stage with
+the recorded stage tables.  Truth and comparator callsets are never read.
 
 Usage (Windows PowerShell launcher: tools/windows/VALIDATE_INCUMBENT.ps1):
 
     python validation/incumbent_stage_checks/run_incumbent_validation.py --work <work-dir>
     python validation/incumbent_stage_checks/run_incumbent_validation.py --sample ISO1 --work <work-dir>
 
-Per-sample frozen artefacts (``--sample`` sets the defaults):
+Per-sample recorded files (``--sample`` sets the defaults):
 
-* AKA017: msBWT ``AKA017/msbwt_SRR9951105``; stage oracles
-  ``AKA017/route_b_r9e_validation_full55x/shadow_v2/reports``; R9E 792 rows
-  ``1d1110f9...1757``.
-* ISO1: msBWT ``TEMP2_ISO1/msbwt_SRR11906527``; stage oracles
-  ``TE_locator_route_b_v2/reports`` (the historical ISO1 run); R9E 192 rows
+* AKA017: msBWT ``AKA017/msbwt_SRR9951105``; stage tables
+  ``AKA017/route_b_r9e_validation_full55x/shadow_v2/reports``; final callset
+  of 792 rows, SHA-256 ``1d1110f9...1757``.
+* ISO1: msBWT ``TEMP2_ISO1/msbwt_SRR11906527``; stage tables
+  ``TE_locator_route_b_v2/reports``; final callset of 192 rows, SHA-256
   ``b3e48681...6ebc5``.
 
 Both samples share the TE library, FBte family map, dm6 reference and its
@@ -65,7 +65,7 @@ SAMPLE_DEFAULTS = {
     "ISO1": {
         "msbwt": ASSET / "msbwt_SRR11906527",
         "v2_reports": ROUTE_B_V2 / "reports",
-        # The historical ISO1 recall-repair host mapping named queries {pid}.
+        # The recorded ISO1 wide-anchor host mapping names its queries {pid}.
         "rescue_read_names": "numeric",
     },
 }
@@ -74,7 +74,7 @@ SAMPLE_DEFAULTS = {
 def parse_args(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--sample", "--sample-id", dest="sample_id", default="AKA017", choices=sorted(SAMPLE_DEFAULTS))
-    ap.add_argument("--msbwt", type=Path, default=None, help="default: the sample's frozen msBWT")
+    ap.add_argument("--msbwt", type=Path, default=None, help="default: the sample's msBWT")
     ap.add_argument("--te-fasta", type=Path, default=ASSET / "TE consensus library" / "transposon_sequence_set.fa")
     ap.add_argument("--family-map", type=Path, default=ASSET / "fbte_to_flybase_family.tsv")
     ap.add_argument("--reference", type=Path, default=ASSET / "Reference" / "dm6_TEMP2_compatible.fa")
@@ -83,7 +83,7 @@ def parse_args(argv=None):
     ap.add_argument("--bowtie2-build", type=Path, default=ASSET / "tools" / "bowtie2" / "bowtie2-build.bat")
     ap.add_argument("--te-index", type=Path, default=None, help="prebuilt TE-library Bowtie2 prefix (built if omitted)")
     ap.add_argument("--v2-reports", type=Path, default=None,
-                    help="frozen stage-report root to compare against (default: the sample's; 'none' skips)")
+                    help="recorded stage-report root to compare against (default: the sample's; 'none' skips)")
     ap.add_argument("--work", type=Path, required=True, help="work/checkpoint directory (resumable)")
     ap.add_argument("--threads", type=int, default=max(1, (os.cpu_count() or 2) // 2))
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))

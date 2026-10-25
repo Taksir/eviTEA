@@ -14,7 +14,7 @@ print("segment lengths ok",all(len(segments[g.group_hash])==g.te_bp for g in gro
 t=time.time()
 al=tc.align_segments(segments,bowtie2=os.path.expanduser("~/bowtie2-2.5.5-linux-x86_64/bowtie2"),te_index_prefix=os.path.expanduser("~/scratch/teidx/flybase_te"),work_directory=Path(os.path.expanduser("~/scratch/r8/work")))
 print("align secs",round(time.time()-t,1))
-# compare with historical T0 rows
+# compare with the recorded T0 rows
 hist=set()
 for line in open(R/"V2_R8D_BATCHED_TE_CERTIFICATION_REFINEMENT"/"V2R8D_TRIM_VARIANTS.sam",encoding="utf-8"):
     if line.startswith("@") or not line.startswith("T0__"): continue

@@ -1,4 +1,4 @@
-"""Validation-only: merge the recorded extension-layer tables into the callset and check the layer hashes.
+"""Validation-only: merge the recorded layer tables into the callset and check each layer hash.
 
 Feeds the recorded candidate tables (the inputs of the four layer merges) into
 ``evitea.shadow_layers`` on top of the recorded library-layer callset bytes, and
