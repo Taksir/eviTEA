@@ -1,4 +1,4 @@
-"""Typed engineering configuration with immutable scientific constants."""
+"""Typed run configuration; the scientific constants are fixed and not configurable."""
 
 from __future__ import annotations
 
@@ -86,7 +86,7 @@ class RuntimeConfig:
     bowtie2_build: Path | None = None
     edlib_python: Path | None = None
     workers: int = 0
-    # recall-repair resource limit in msBWT interval rows (frozen default 1,500,000)
+    # wide-anchor work limit in msBWT interval rows (default 1,500,000)
     max_rescue_interval_mass: int = 1_500_000
     # read length of the sample; None = taken from the sample (see ``sample_geometry``)
     read_length: int | None = None
@@ -125,7 +125,7 @@ class RuntimeConfig:
         ):
             raise InputContractError("primary_contigs must be a non-empty list of contig names")
         if self.exact_query_backend != "msbwt":
-            raise InputContractError("the frozen profile supports only msbwt")
+            raise InputContractError("exact_query_backend accepts only msbwt")
         if not isinstance(self.resume, bool):
             raise InputContractError("resume must be a boolean")
         if not isinstance(self.keep_intermediates, bool):
@@ -156,12 +156,12 @@ class OutputConfig:
 
 @dataclass(frozen=True, slots=True)
 class RefinementConfig:
-    """Optional post-call layers; all off by default (off = the frozen v1 outputs)."""
+    """Optional post-call layers; all off by default (off leaves the call outputs unchanged)."""
 
     breakpoints: bool = False
-    # first-stage layer: complete routing with a partner-read gate
+    # first-stage layer: complete routing, with a filter on the partner read
     complete_routing: bool = False
-    # breakpoint-layer extras (need ``breakpoints``): one-sided junction positions for calls left
+    # breakpoint-layer extras (require ``breakpoints``): one-sided junction positions for calls left
     # wide, and output-only zygosity / TSD annotations; neither adds, removes or moves a call
     pin_one_sided: bool = False
     call_annotations: bool = False
@@ -172,7 +172,7 @@ class RefinementConfig:
                 raise InputContractError(f"refinement.{name} must be a boolean")
         for name in ("pin_one_sided", "call_annotations"):
             if getattr(self, name) and not self.breakpoints:
-                raise InputContractError(f"refinement.{name} needs refinement.breakpoints")
+                raise InputContractError(f"refinement.{name} requires refinement.breakpoints")
 
 
 @dataclass(frozen=True, slots=True)
@@ -261,7 +261,7 @@ def _validate_document(document: Any) -> dict[str, dict[str, Any]]:
         forbidden = set(values) & _SCIENCE_KEYS
         if forbidden:
             raise InputContractError(
-                f"frozen scientific setting is not configurable: {sorted(forbidden)}"
+                f"scientific setting is fixed and not configurable: {sorted(forbidden)}"
             )
         unknown = set(values) - set(_SECTION_KEYS[section])
         if unknown:
@@ -340,7 +340,7 @@ def merge_config(
     output: OutputConfig | None = None,
     refinement: RefinementConfig | None = None,
 ) -> EviTEAConfig:
-    """Apply legal explicit overrides without exposing science settings."""
+    """Apply the explicit overrides; the scientific parameters are never overridden."""
 
     return EviTEAConfig(
         inputs=inputs or base.inputs,

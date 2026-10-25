@@ -1,4 +1,4 @@
-"""Stable fail-closed exception taxonomy for EviTEA."""
+"""Exception classes for expected EviTEA failures."""
 
 
 class EviTEAError(Exception):
@@ -6,7 +6,7 @@ class EviTEAError(Exception):
 
 
 class InputContractError(EviTEAError, ValueError):
-    """A user-supplied input violates its declared format or semantics."""
+    """A user-provided input violates its declared format or semantics."""
 
 
 class OutputStateError(InputContractError):
@@ -30,7 +30,7 @@ class BackendCompatibilityError(EviTEAError):
 
 
 class ArchitectureInvariantError(EviTEAError, ValueError):
-    """Internal state contradicts the frozen architecture."""
+    """Internal state breaks a rule of the program design."""
 
 
 class ResumeStateError(EviTEAError):
@@ -38,12 +38,12 @@ class ResumeStateError(EviTEAError):
 
 
 class RegressionCompatibilityError(EviTEAError):
-    """A frozen regression adapter cannot preserve required identity."""
+    """A regression adapter cannot preserve the required identity."""
 
 
 class OperationalResourceError(EviTEAError):
-    """A process, storage, memory, or external-resource operation failed."""
+    """A process, storage, memory or external-resource operation failed."""
 
 
 class OutputFinalizationError(EviTEAError):
-    """Canonical output or provenance finalization failed."""
+    """Writing the final outputs and the provenance record failed."""
