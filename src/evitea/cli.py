@@ -330,6 +330,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _fr.add_arguments_add(fr_add)
 
+    rmap = commands.add_parser(
+        "build-repeat-map",
+        help="the repeated part of the reference, from its alignment to itself (BLAST+ on PATH): the map that stands in for a TE "
+        "annotation in runs without a library (see --repeat-map)",
+    )
+    rmap_ref = rmap.add_mutually_exclusive_group(required=True)
+    rmap_ref.add_argument("--reference-fasta", type=Path)
+    rmap_ref.add_argument("--reference-assets", type=Path)
+    rmap.add_argument("--output", type=Path, required=True, help="new folder; the map is <output>/repeat_map.bed")
+    rmap.add_argument("--contigs", help="comma-separated contigs whose windows are aligned (default: contigs >= 1 Mb, the contigs "
+                      "that library-free scans by default)")
+    rmap.add_argument("--parts", type=int, help="blastn processes (default: the CPUs, at most 8); the map does not depend on it")
+
     tiers = commands.add_parser(
         "call-tiers",
         help="confidence tier of every call of a finished run (and of its library-free calls); output only",
@@ -765,10 +778,29 @@ def _build_family_records(args: argparse.Namespace) -> None:
         flag_rule=args.flag_rule,
         record_guard=args.record_guard == "on",
         repeat_annotation=_resolved_cli_path(args.repeat_annotation),
+        repeat_map=_resolved_cli_path(args.repeat_map),
         te_share=args.te_share,
         copy_report=args.copy_report == "on",
         progress=lambda m: print(f"[evitea {time.time() - started:9.1f}s] {m}", file=sys.stderr, flush=True),
     )
+
+
+def _build_repeat_map(args: argparse.Namespace) -> None:
+    from .repeat_map import build_repeat_map
+
+    if args.reference_fasta is not None:
+        reference_fasta = _resolved_cli_path(args.reference_fasta)
+    else:
+        reference_fasta = load_prepared_reference(_resolved_cli_path(args.reference_assets)).reference_fasta_path
+    started = time.time()
+    summary = build_repeat_map(
+        reference_fasta=reference_fasta,
+        output=_resolved_cli_path(args.output),
+        contigs=tuple(c for c in (args.contigs or "").split(",") if c) or None,
+        parts=args.parts,
+        progress=lambda m: print(f"[evitea {time.time() - started:9.1f}s] {m}", file=sys.stderr, flush=True),
+    )
+    print(f"intervals {summary['intervals']} bases {summary['bases']}")
 
 
 def _add_record_calls(args: argparse.Namespace) -> None:
@@ -823,6 +855,7 @@ def _library_free(args: argparse.Namespace) -> None:
         progress=progress,
         options=options,
         repeat_annotation=_resolved_cli_path(Path(args.repeat_annotation)) if args.repeat_annotation else None,
+        repeat_map=_resolved_cli_path(Path(args.repeat_map)) if args.repeat_map else None,
     )
 
 
@@ -1062,6 +1095,8 @@ def main(
             _library_free(args)
         elif args.command == "build-family-records":
             _build_family_records(args)
+        elif args.command == "build-repeat-map":
+            _build_repeat_map(args)
         elif args.command == "add-record-calls":
             _add_record_calls(args)
         elif args.command == "call-tiers":

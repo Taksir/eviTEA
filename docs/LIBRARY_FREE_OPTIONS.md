@@ -20,6 +20,7 @@ previous release's files byte for byte; `tools/library_free_tests/test_runtime.p
 | | `--tol p95\|p99` | p99 | depth tolerance of the check |
 | | `--tol-source library\|own-calls` | library | tolerance from library-confirmed calls (own two-sided calls when there are none) |
 | Resident-copy test | `--resident-guard off\|per-call\|family` | family | drops a call inside an annotated reference TE copy; `family`: only when the family's calls sit in copies more than twice the genome's TE share. Needs `--repeat-annotation` (RepeatMasker .out or BED) or the prepared reference's annotation; off without one. |
+| | `--repeat-map FILE` | none | the repeat map of the reference (`build-repeat-map`): the resident-copy test reads it when the library layer made no call and no `--repeat-annotation` is given; with library calls it is not used and the files are those of a run without it |
 | Family records | `build-family-records`, `add-record-calls` | commands | see below |
 | Record guard | `--record-guard on\|off` | on | a family of old copies gets no record |
 | Copy report | `--copy-report on\|off` | off | per record: share of its words absent from the reference, reference copies |
@@ -75,6 +76,41 @@ evitea add-record-calls --calls <run>/calls.native.tsv --base-calls <existing>/c
   the existing set lies within 500 bp, and keeps one of calls added within 500 bp of each other (the one nearest the contig start).
   Writes `record_calls_added.tsv`, `calls.combined.tsv` (existing + added, source `RECORD`), `record_calls_report.json`.
 
+## Runs without a library
+
+A run whose library layer made no call has no curated TE annotation to read. Three parts replace it, all from the sequence of the
+reference and the sample:
+
+- **Repeat map.** `evitea build-repeat-map --reference-fasta <fa> --output <dir> [--contigs a,b,c] [--parts N]` aligns windows of
+  500 bp (step 250) of the chosen contigs (default: contigs of 1 Mb or more) to the whole reference with BLAST+ (`makeblastdb` and
+  `blastn` on PATH). A base is repeated when a hit of at least 100 aligned bases at 80% identity or more covers it, other than the
+  window's own locus. The map is `<dir>/repeat_map.bed`; `repeat_map_summary.json` holds the constants, the counts and checksums.
+  Build it once per reference. It does not depend on the sample.
+- **Tolerance of the one-site check.** With no library call, the tolerance (99th percentile by default) comes from the layer's own
+  two-sided calls; `--tol-source library` falls back to them on its own, so no switch is needed.
+- **Resident-copy test and record guard.** `library-free --repeat-map <bed>` reads the map for the resident-copy test when the library
+  layer made no call (an explicit `--repeat-annotation` wins; with library calls the map is not used and the run equals one without
+  the option). `build-family-records --repeat-map <bed>` reads it for the record guard.
+
+The sequence, with the library layer's calls left out (an `evitea call` output with the header line only, or a stub of one with the
+sample id in `run_summary.json`):
+
+```
+evitea build-repeat-map --reference-fasta <fa> --output <map dir>
+evitea library-free --run-dir <run without library calls> --msbwt-index <index> --reference-assets <ref> --rule-c \
+    --repeat-map <map dir>/repeat_map.bed --output <lf dir>
+evitea build-family-records --family-calls <lf dir>/library_free_family_calls.tsv --segments <lf dir>/library_free_segments.fa \
+    [--second-segments <lf dir>/library_free_second_segments.fa] --reference-assets <ref> --flag-rule kept \
+    --repeat-map <map dir>/repeat_map.bed --output <records dir>
+evitea prepare-te ...                                          # as in Family records
+evitea call ... --te-assets <assets> ...                       # the library layer on the family records
+evitea add-record-calls --calls <run>/calls.native.tsv --base-calls <lf dir>/calls.combined.tsv --records <records dir> --output <out>
+```
+
+With no library call every family with at least 2 calls away from them is flagged, so every library-free family that survives the
+filters gets a consensus record (unless the record guard drops it), and the library layer then calls the sites of those records.
+`tools/slurm/no_library.sh` submits this chain on Slurm (see `tools/slurm/README.md`).
+
 ## Differences to know
 
 - `--family-records` is not a switch of `library-free`: the second library pass is a separate `evitea call`, so the records are two commands.
@@ -85,4 +121,4 @@ evitea add-record-calls --calls <run>/calls.native.tsv --base-calls <existing>/c
 
 ## Tests (`tools/library_free_tests/`, run with `PYTHONPATH=src`)
 
-`test_depth_window`, `test_depth_tool`, `test_assemble`, `test_records`, `test_runtime`; `tools/library_free_tests/run_all.sh` runs them all.
+`test_depth_window`, `test_depth_tool`, `test_assemble`, `test_records`, `test_runtime`, `test_repeat_map` (needs BLAST+ on PATH for its build checks), `test_slurm_tools`; `tools/library_free_tests/run_all.sh` runs them all.

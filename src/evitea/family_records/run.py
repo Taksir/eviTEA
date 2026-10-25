@@ -65,7 +65,8 @@ def padded_map(records):
 
 
 def build_family_records(*, family_calls, segments, second_segments=None, reference_fasta, output, flag_rule="kept",
-                         record_guard=True, repeat_annotation=None, te_share=None, copy_report=False, progress=print):
+                         record_guard=True, repeat_annotation=None, te_share=None, copy_report=False, progress=print,
+                         repeat_map=None):
     out = Path(output)
     out.mkdir(parents=True, exist_ok=True)
     seg = {"first": _segments(segments), "second": _segments(second_segments)}
@@ -78,6 +79,10 @@ def build_family_records(*, family_calls, segments, second_segments=None, refere
     progress(f"flagged families: {len(flagged)}")
     copies = None
     genome_bp = 0
+    if repeat_annotation is None and repeat_map is not None:
+        repeat_annotation, map_used = repeat_map, True
+    else:
+        map_used = False
     if repeat_annotation is not None:
         names = {h.split()[0] for h, _ in _fasta_headers(reference_fasta)}
         copies = CopyIndex.from_file(repeat_annotation, names)
@@ -148,6 +153,8 @@ def build_family_records(*, family_calls, segments, second_segments=None, refere
                    record_guard=dict(on=bool(record_guard), te_share=None if te_share is None else round(te_share, 4),
                                      threshold=round(threshold, 4),
                                      evaluated=sum(r["family_inside"] != "" for r in info.values())))
+    if map_used:
+        summary["record_guard"]["repeat_map"] = str(repeat_annotation)
     (out / "records_summary.json").write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n")
     lines = [f"records {len(recs)}"]
     names = ["te_library.fa", "family_map.tsv", "family_map_padded.tsv", "annotation.bed", "terminal_codebook.tsv",
@@ -258,6 +265,8 @@ def add_arguments_build(p):
     p.add_argument("--record-guard", choices=("on", "off"), default="on")
     p.add_argument("--repeat-annotation", type=Path,
                    help="RepeatMasker .out or BED of the reference: measures how many of a family's calls lie inside old copies")
+    p.add_argument("--repeat-map", type=Path,
+                   help="repeat map of the reference (evitea build-repeat-map): stands in for --repeat-annotation when the run had no library")
     p.add_argument("--te-share", type=float, help="the genome's TE share, when the annotation is not given")
     p.add_argument("--copy-report", choices=("on", "off"), default="off",
                    help="also write copy_report.tsv: for each record the share of its words absent from the reference and its "

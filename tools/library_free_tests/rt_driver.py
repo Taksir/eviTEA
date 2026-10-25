@@ -1,5 +1,5 @@
 """Run evitea.library_free.runtime.run_library_free on the synthetic sample with the package on PYTHONPATH (previous or current).
-usage: rt_driver.py <out dir> <seed> <options json or -> [--het] [--annotation file] [--detection-dir dir]"""
+usage: rt_driver.py <out dir> <seed> <options json or -> [--het] [--annotation file] [--repeat-map file] [--native none|px] [--detection-dir dir]"""
 import json
 import os
 import random
@@ -19,6 +19,7 @@ seed = int(sys.argv[2])
 opt_json = sys.argv[3]
 het = "--het" in sys.argv
 annotation = sys.argv[sys.argv.index("--annotation") + 1] if "--annotation" in sys.argv else None
+repeat_map = sys.argv[sys.argv.index("--repeat-map") + 1] if "--repeat-map" in sys.argv else None
 detection_dir = sys.argv[sys.argv.index("--detection-dir") + 1] if "--detection-dir" in sys.argv else None
 native_mode = sys.argv[sys.argv.index("--native") + 1] if "--native" in sys.argv else "none"
 
@@ -58,6 +59,8 @@ if opt_json != "-":
     kw["options"] = Options(**json.loads(opt_json))
 if annotation:
     kw["repeat_annotation"] = Path(annotation)
+if repeat_map:
+    kw["repeat_map"] = Path(repeat_map)
 R.MIN_DEFAULT_CONTIG = 1
 R.run_library_free(run_dir=run_dir, reference=reference, msbwt_index=idx, output=out, work_dir=out.parent / (out.name + "_work"),
                    contigs=("chrS",), rule_c=True, detection_dir=Path(detection_dir) if detection_dir else None,

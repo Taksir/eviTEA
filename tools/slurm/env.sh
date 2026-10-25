@@ -8,6 +8,7 @@ case "$(hostname)" in *login*) echo "STOP: login node"; exit 9;; esac
 . "${EVITEA_SITE:-$EVITEA_OUT/site.sh}"
 module load apptainer; unset -f which 2>/dev/null || true
 export APPTAINERENV_PYTHONDONTWRITEBYTECODE=1
+[ -n "${BLAST_BIN:-}" ] && export APPTAINERENV_PREPEND_PATH=$BLAST_BIN   # BLAST+ (makeblastdb, blastn) for build-repeat-map
 export APPTAINERENV_PYTHONPATH=$EVITEA_CODE/src${MSBWT_PATH:+:$MSBWT_PATH}
 # the python of the container that has mappy, parasail and numpy
 if [ -z "${PYBIN:-}" ]; then

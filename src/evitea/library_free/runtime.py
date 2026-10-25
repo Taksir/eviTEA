@@ -191,14 +191,18 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
     return tables, info
 
 
-def _load_copies(opts: Options, reference, repeat_annotation, genome, progress):
-    """(CopyIndex or None, bases of the reference) for the resident-copy test."""
+def _load_copies(opts: Options, reference, repeat_annotation, genome, progress, repeat_map=None, library_calls=None):
+    """(CopyIndex or None, bases of the reference) for the resident-copy test.  The repeat map stands in for the annotation of a run
+    in which the library layer made no call (``library_calls`` == 0), unless ``repeat_annotation`` is given."""
 
     if opts.resident_guard == "off":
         return None, 0
     from .resident import CopyIndex
 
     path = repeat_annotation
+    if path is None and repeat_map is not None and library_calls == 0:
+        progress("library-free: no library call; the resident-copy test reads the repeat map")
+        path = repeat_map
     if path is None:
         try:
             path = reference.repeat_annotation_path
@@ -215,7 +219,7 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
                      contigs: Sequence[str] | None, rule_c: bool, detection_dir: Path | None,
                      command_line: Sequence[str] = (), source_identity: dict | None = None,
                      progress: Callable[[str], None] | None = None, options: Options | None = None,
-                     repeat_annotation: Path | None = None) -> dict:
+                     repeat_annotation: Path | None = None, repeat_map: Path | None = None) -> dict:
     from ..breakpoints.runtime import read_fasta
     from ..pipeline import prepare_output_directory
     from . import assemble as AS
@@ -261,9 +265,14 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     second = (D.parse_places(tables["second"][0]), D.parse_segments(tables["second"][1])) if "second" in tables else None
     if genome is None and (opts.check_scope != "none" or opts.resident_guard != "off"):
         genome = read_fasta(reference_fasta)
-    copies, genome_bp = _load_copies(opts, reference, repeat_annotation, genome, say) if genome is not None else (None, 0)
+    native_rows = ShadowCallset.from_bytes(native).rows
+    copies, genome_bp = (_load_copies(opts, reference, repeat_annotation, genome, say, repeat_map, len(native_rows))
+                         if genome is not None else (None, 0))
+    if repeat_map is not None and (repeat_annotation is not None or native_rows):
+        say("library-free: --repeat-map not used: " + ("--repeat-annotation is given" if repeat_annotation is not None
+                                                      else f"the library layer made {len(native_rows)} calls"))
     c_started = time.time()
-    index = CL.CallIndex.from_native(ShadowCallset.from_bytes(native).rows)
+    index = CL.CallIndex.from_native(native_rows)
     rows, assembly = AS.assemble(first, second, index, opts, identity_filter=rule_c, reference=genome, copies=copies, genome_bp=genome_bp)
     c_seconds = round(time.time() - c_started, 1)
     extended = not opts.is_previous
@@ -293,6 +302,9 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
         "peak_rss_gb": _peak_rss_gb(),
         "output_hashes": {name: _sha256(output / name) for name in names},
     }
+    if repeat_map is not None:
+        summary["repeat_map"] = {"path": str(repeat_map), "used": repeat_annotation is None and not native_rows and copies is not None,
+                                 "library_calls": len(native_rows)}
     write_run_summary(output / SUMMARY, summary)
     say(f"library-free: {len(rows)} family calls, {statuses.get('ADDED', 0)} added")
     return summary

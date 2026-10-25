@@ -10,6 +10,9 @@
 #   RUNDIR  another library run for --run-dir (for example a run with some families removed from the library)
 #   DEPTHCAP value of --depth-cap (default none; 100 is the previous version's window)
 #   PREVIOUS=1  run the previous version's code (PREVIOUS_SRC) instead; OPTS and DEPTHCAP must then be empty
+#   NOLIB=1     run without a library: the library layer's calls are an empty table (a stub of the sample's library run, kept under
+#               $EVITEA_OUT/nolib/<DS>_stub); the one-site check then takes its tolerance from the layer's own two-sided calls
+#   REPEAT_MAP  the repeat map (build-repeat-map output, repeat_map.bed): the resident-copy test reads it when the library layer made no call
 #SBATCH --job-name=evitea_detect
 #SBATCH --partition=small
 #SBATCH --cpus-per-task=2
@@ -21,6 +24,7 @@ set -euo pipefail
 : "${DS:?}" "${TAG:?}"
 if [ -n "${PREVIOUS:-}" ]; then
   [ -z "${OPTS:-}${DEPTHCAP:-}" ] || { echo "PREVIOUS=1 takes no OPTS or DEPTHCAP"; exit 2; }
+  [ -z "${NOLIB:-}${REPEAT_MAP:-}" ] || { echo "PREVIOUS=1 takes no NOLIB or REPEAT_MAP"; exit 2; }
   export APPTAINERENV_PYTHONPATH=$PREVIOUS_SRC${MSBWT_PATH:+:$MSBWT_PATH}
 fi
 OUT=$EVITEA_OUT/runs/${DS}_${TAG}_${SLURM_JOB_ID}
@@ -28,6 +32,16 @@ OUT=$EVITEA_OUT/runs/${DS}_${TAG}_${SLURM_JOB_ID}
 WORKDIR=${WORK:-$EVITEA_OUT/work/${DS}_${TAG}}
 [ -n "${REGROUP:-}" ] && export APPTAINERENV_EVITEA_PIECES_READONLY=1
 RUN=${RUNDIR:-$RUN}
+if [ -n "${NOLIB:-}" ]; then
+  STUB=$EVITEA_OUT/nolib/${DS}_stub
+  if [ ! -e "$STUB/calls.native.tsv" ]; then
+    mkdir -p "$STUB"
+    head -n 1 "$RUN/calls.native.tsv" > "$STUB/calls.native.tsv"
+    $PY -c 'import json,sys; json.dump({"sample_id": json.load(open(sys.argv[1]))["sample_id"]}, open(sys.argv[2], "w"))' \
+        "$RUN/run_summary.json" "$STUB/run_summary.json"
+  fi
+  RUN=$STUB
+fi
 echo "host $(hostname) $(date -u +%FT%TZ) id=${SLURM_JOB_ID:-} DS=$DS TAG=$TAG OPTS=${OPTS:-} work=$WORKDIR"
 mkdir -p "$OUT" "$EVITEA_OUT/work"
 START=$(date +%s)
@@ -35,6 +49,7 @@ sha256sum "$IDX/about.npy" "$REFFA"
 EXTRA=""
 [ -n "${DET:-}" ] && EXTRA="$EXTRA --detection-dir $DET"
 [ -n "${DEPTHCAP:-}" ] && EXTRA="$EXTRA --depth-cap $DEPTHCAP"
+[ -n "${REPEAT_MAP:-}" ] && EXTRA="$EXTRA --repeat-map $REPEAT_MAP"
 $PY -m evitea library-free --run-dir "$RUN" --msbwt-index "$IDX" --reference-assets "$ASSETS" --output "$OUT/library_free" \
     --work-dir "$WORKDIR" --contigs "$CONTIGS" $FAMILY_IDENTITY_FILTER ${OPTS:-} $EXTRA
 echo "wall_seconds $(( $(date +%s) - START ))"

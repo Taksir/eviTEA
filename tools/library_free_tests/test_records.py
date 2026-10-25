@@ -193,6 +193,18 @@ def main():
         s3 = RUN.build_family_records(family_calls=[fam_tsv], segments=tmp / "seg1.fa", second_segments=tmp / "seg2.fa",
                                       reference_fasta=ref_fa, output=out3, repeat_annotation=bed, record_guard=False, progress=lambda m: None)
         check("F7 guard off builds it", s3["built"] == 3 and s3["skipped_guard"] == [])
+        # F7b the repeat map stands in for the annotation; an annotation given wins over it
+        out5 = tmp / "out_map"
+        s5 = RUN.build_family_records(family_calls=[fam_tsv], segments=tmp / "seg1.fa", second_segments=tmp / "seg2.fa",
+                                      reference_fasta=ref_fa, output=out5, repeat_map=bed, progress=lambda m: None)
+        check("F7b the repeat map gives the guard of the annotation", s5["skipped_guard"] == ["LF1"] and s5["built"] == 2
+              and s5["record_guard"]["repeat_map"] == str(bed) and s5["record_guard"]["te_share"] == s2["record_guard"]["te_share"], s5)
+        none_bed = tmp / "none.bed"
+        none_bed.write_text("chrS\t0\t10\tX\n")
+        s6 = RUN.build_family_records(family_calls=[fam_tsv], segments=tmp / "seg1.fa", second_segments=tmp / "seg2.fa",
+                                      reference_fasta=ref_fa, output=tmp / "out_both", repeat_annotation=none_bed, repeat_map=bed,
+                                      progress=lambda m: None)
+        check("F7b an annotation given wins over the map", s6["built"] == 3 and "repeat_map" not in s6["record_guard"], s6)
         out4 = tmp / "out_copy"
         RUN.build_family_records(family_calls=[fam_tsv], segments=tmp / "seg1.fa", second_segments=tmp / "seg2.fa",
                                  reference_fasta=ref_fa, output=out4, copy_report=True, progress=lambda m: None)
@@ -230,7 +242,10 @@ def main():
     check("F9 add-record-calls through the CLI", rc_ == 0 and (tmp / "add2" / "record_calls_report.json").exists())
     p = cli.build_parser()
     ns = p.parse_args(["build-family-records", "--family-calls", str(fam_tsv), "--reference-fasta", str(ref_fa), "--output", str(tmp / "x")])
-    check("F9 build-family-records defaults", ns.flag_rule == "kept" and ns.record_guard == "on" and ns.copy_report == "off")
+    check("F9 build-family-records defaults", ns.flag_rule == "kept" and ns.record_guard == "on" and ns.copy_report == "off" and ns.repeat_map is None)
+    ns2 = p.parse_args(["build-family-records", "--family-calls", str(fam_tsv), "--reference-fasta", str(ref_fa), "--output", str(tmp / "x"),
+                        "--repeat-map", str(tmp / "m.bed")])
+    check("F9 --repeat-map is read", ns2.repeat_map == tmp / "m.bed")
 
     print("\n%d checks, %d failed" % (NCHK[0], len(FAIL)))
     sys.exit(1 if FAIL else 0)

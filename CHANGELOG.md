@@ -8,6 +8,9 @@
   the one-site check and the resident-copy test, each a switch (`docs/LIBRARY_FREE_OPTIONS.md`). `--previous-behaviour` turns
   every new rule off.
 - New commands `build-family-records` and `add-record-calls`: library records for the library-free families that the library lacks.
+- New command `build-repeat-map` and switch `--repeat-map` (`library-free`, `build-family-records`): for a run whose library layer
+  made no call, the resident-copy test and the record guard read a repeat map built from the reference's alignment to itself
+  (BLAST+ on PATH). Runs with library calls are unchanged. Slurm files for the chain: `tools/slurm/no_library.sh`.
 - Checks for the new code in `tools/library_free_tests/`.
 
 ## 0.1.0.dev0 (first public release, tagged v0.1)

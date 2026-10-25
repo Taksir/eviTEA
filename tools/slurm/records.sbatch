@@ -5,6 +5,7 @@
 #   DS    sample name                     SRC   the detect.sbatch output folder whose family calls are used
 #   FLAG  flag rule: kept (default), before-filters or both
 #   RM    repeat annotation (RepeatMasker .out or BED) for the record guard
+#   REPEAT_MAP  the repeat map (build-repeat-map output) for the record guard of a run without a library; RM wins when both are set
 #   COPYREP=1  also write the copy report
 #   FC    space-separated family-call tables (default: the one in SRC)      SEGFILE  segments file (default: the one in SRC)
 #SBATCH --job-name=evitea_records
@@ -21,6 +22,7 @@ OUT=$EVITEA_OUT/records/${DS}_${SLURM_JOB_ID}
 mkdir -p "$OUT"
 EXTRA=""
 [ -n "${RM:-}" ] && EXTRA="$EXTRA --repeat-annotation $RM"
+[ -n "${REPEAT_MAP:-}" ] && EXTRA="$EXTRA --repeat-map $REPEAT_MAP"
 [ -n "${COPYREP:-}" ] && EXTRA="$EXTRA --copy-report on"
 SEG2=""
 [ -z "${FC:-}" ] && [ -f "$SRC/library_free/library_free_second_segments.fa" ] && SEG2="--second-segments $SRC/library_free/library_free_second_segments.fa"

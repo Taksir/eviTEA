@@ -117,6 +117,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     g.add_argument("--resident-guard", choices=GUARDS, default=None,
                    help="resident-copy test: family | per-call | off (default family; off when no annotation is available)")
     g.add_argument("--repeat-annotation", default=None, help="reference TE annotation for the resident-copy test (default: the prepared reference's)")
+    g.add_argument("--repeat-map", default=None,
+                   help="repeat map of the reference (evitea build-repeat-map) for the resident-copy test of a run without a library: used when "
+                        "the library layer made no call and no --repeat-annotation is given; ignored when it made calls")
     g.add_argument("--previous-behaviour", action="store_true",
                    help="every new rule off (the previous version's behaviour); other switches given on the command line still apply")
 

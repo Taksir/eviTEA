@@ -7,6 +7,8 @@ U3  EVITEA_PIECES_READONLY refuses a run whose detection switches differ (it wou
 U4  --detection-dir (saved tables) gives the same family calls as the run that wrote them.
 U6  the command line: no switch gives the default switches, --previous-behaviour gives every rule off, a switch given with it still applies,
     polya-cross without anchored extension is refused.
+U7  the repeat map (--repeat-map): with an empty library layer it feeds the resident-copy test (the summary's TE share is the map's); with
+    library calls it is not used and the files equal the run without it; an explicit annotation wins over the map; with neither, the test is off.
 U5  default switches: the extra outputs exist (second scan tables) and the summary carries the options and the assembly.
 """
 import hashlib
@@ -115,6 +117,31 @@ def main():
         check("U6 polya-cross without anchored extension refused", False)
     except ValueError:
         check("U6 polya-cross without anchored extension refused", True)
+
+    # U7
+    (t / "map.bed").write_text("chrS\t0\t5000\n")
+    (t / "annot.bed").write_text("chrS\t0\t10000\n")
+    guard = lambda d: json.loads((d / "library_free_summary.json").read_text())["assembly"].get("resident_guard")
+    rep = lambda d: json.loads((d / "library_free_summary.json").read_text()).get("repeat_map")
+    m0, m1, m2, m3 = t / "m_none", t / "m_map", t / "m_annot", t / "m_both"
+    r0 = run(m0, ROOT / "src", base)
+    r1 = run(m1, ROOT / "src", base, ["--repeat-map", str(t / "map.bed")])
+    r2 = run(m2, ROOT / "src", base, ["--annotation", str(t / "annot.bed")])
+    r3 = run(m3, ROOT / "src", base, ["--annotation", str(t / "annot.bed"), "--repeat-map", str(t / "map.bed")])
+    check("U7 runs with an empty library layer finish", all(x.returncode == 0 for x in (r0, r1, r2, r3)), [x.stderr[-300:] for x in (r0, r1, r2, r3)])
+    check("U7 no library call, no annotation, no map: the test is off", isinstance(guard(m0), str) and "off" in guard(m0), guard(m0))
+    check("U7 no library call: the map feeds the test (TE share 5000 / 80000)", isinstance(guard(m1), dict) and guard(m1)["te_share"] == 0.0625
+          and rep(m1) == {"path": str(t / "map.bed"), "used": True, "library_calls": 0}, (guard(m1), rep(m1)))
+    check("U7 an annotation alone gives its own share", isinstance(guard(m2), dict) and guard(m2)["te_share"] == 0.125 and rep(m2) is None, guard(m2))
+    check("U7 an annotation wins over the map", isinstance(guard(m3), dict) and guard(m3)["te_share"] == 0.125 and rep(m3)["used"] is False, (guard(m3), rep(m3)))
+    p0, p1 = t / "p_none", t / "p_map"
+    q0 = run(p0, ROOT / "src", base, ["--native", "px"])
+    q1 = run(p1, ROOT / "src", base, ["--native", "px", "--repeat-map", str(t / "map.bed")])
+    check("U7 runs with library calls finish", q0.returncode == 0 and q1.returncode == 0, (q0.stderr[-300:], q1.stderr[-300:]))
+    names = ["library_free_places.tsv", "library_free_segments.fa", "library_free_family_calls.tsv", "calls.library_free.tsv", "calls.combined.tsv"]
+    same = {n: sha(p0 / n) == sha(p1 / n) for n in names + ["library_free_second_places.tsv"] if (p0 / n).exists()}
+    check("U7 with library calls the map changes nothing", all(same.values()) and len(same) >= 5 and guard(p0) == guard(p1)
+          and rep(p1)["used"] is False and rep(p1)["library_calls"] > 0, (same, rep(p1)))
 
     print("\n%d checks, %d failed" % (NCHK[0], len(FAIL)))
     sys.exit(1 if FAIL else 0)

@@ -7,3 +7,4 @@ PREVIOUS_SRC=$EVITEA_WORK/evitea_previous/src         # src folder of the previo
 SAMPLES=$EVITEA_OUT/samples.tsv                       # tab-separated: name, MSBWT index, library run folder, contigs
 # samples.tsv columns 2 and 3 are relative to EVITEA_WORK, for example:
 #   sampleA<TAB>data/sampleA/msbwt<TAB>runs/sampleA/call_out<TAB>chr2L,chr2R,chr3L,chr3R,chrX
+BLAST_BIN=                                            # folder with BLAST+ makeblastdb and blastn, if they are not in the image (build-repeat-map)
