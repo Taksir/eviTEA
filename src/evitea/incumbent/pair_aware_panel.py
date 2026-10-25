@@ -21,6 +21,7 @@ from ..errors import BackendCompatibilityError
 from .anchor_census import AnchorCatalogue
 from .coverage_panel import (
     READ_WINDOW,
+    RESCUE_PANEL_CAP,
     Group,
     RescuePanel,
     ShortLocus,
@@ -33,7 +34,7 @@ from .sparse_panel import PanelQuery
 
 __all__ = ["FROZEN_RESCUE_CAP", "PairAwareGroup", "PairAwarePanel", "select_pair_aware_panel"]
 
-FROZEN_RESCUE_CAP = 1024
+FROZEN_RESCUE_CAP = RESCUE_PANEL_CAP
 TARGET_RETAIN_FRACTION = 0.995
 
 

@@ -44,6 +44,7 @@ __all__ = [
     "short_exact_census",
     "hard_gap_h1_loci",
     "optimize_rescue_panel",
+    "RESCUE_PANEL_CAP",
     "coverage_interval",
     "merge_intervals",
     "terminal_flags",
@@ -60,6 +61,10 @@ H1_INTERNAL_LOCUS_STRIDE = 50
 H1_GAP_CAP = 1024
 H1_MAX_DISTINCT_VARIANTS = 1_500_000
 PANEL_CAPS = (256, 512, 1024)
+# The rescue panel the pair-aware reselection is built for (the widest cap).  It is always the one kept: the narrower caps can
+# only tie with it (when every TE word is rare) or lose, and a tie used to keep the 256-row panel, which the reselection
+# refuses.
+RESCUE_PANEL_CAP = PANEL_CAPS[-1]
 TARGET_ABSOLUTE_COVERAGE = 0.99
 RETAIN_ATTAINABLE_FRACTION = 0.99
 MATERIALIZE_ROW_HARD_CAP = 5_000_000
@@ -493,12 +498,14 @@ def optimize_rescue_panel(
             family_by_group[(te_id, orientation)] = family_by_te.get(te_id, te_id)
     short_actions = _short_actions(short, lengths, family_by_group, read_window)
     h1_actions = _h1_actions(h1, lengths, family_by_group, index, read_window)
-    results = {
-        cap: _optimize_panel(cap, lengths, baseline, baseline_widths, short_actions, h1_actions[cap], read_window)
-        for cap in PANEL_CAPS
-    }
-    safe = [cap for cap in PANEL_CAPS if -results[cap][1][3] <= MATERIALIZE_ROW_HARD_CAP]
-    if not safe:
-        raise BackendCompatibilityError("no rescue panel fits the frozen 5,000,000-row materialization cap")
-    chosen = max(safe, key=lambda cap: results[cap][1])
-    return results[chosen][0]
+    rescue, summary = _optimize_panel(
+        RESCUE_PANEL_CAP, lengths, baseline, baseline_widths, short_actions, h1_actions[RESCUE_PANEL_CAP], read_window
+    )
+    rows = -summary[3]
+    if rows > MATERIALIZE_ROW_HARD_CAP:
+        raise BackendCompatibilityError(
+            f"the {RESCUE_PANEL_CAP}-row rescue panel needs {rows:,} msBWT interval rows, more than the "
+            f"{MATERIALIZE_ROW_HARD_CAP:,}-row materialization limit; this TE library has too many frequent words for the "
+            "library layer"
+        )
+    return rescue
