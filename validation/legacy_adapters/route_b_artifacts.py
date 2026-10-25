@@ -1,7 +1,7 @@
-"""Validation-only readers for historical Route-B stage artifacts.
+"""Validation-only readers for the recorded stage tables (TSV, NPY and zip files).
 
-These adapters let each clean incumbent stage be differentially tested against
-the frozen historical outputs.  Production code never imports this module.
+They let each stage of the library layer be compared with its recorded outputs.
+Production code never imports this module.
 """
 
 from __future__ import annotations
@@ -58,7 +58,10 @@ def _evidence(rows: list[dict[str, str]]) -> dict[int, PairPanelEvidence]:
 
 
 def load_candidate_universe_inputs(v1_reports: Path) -> dict[str, object]:
-    """Load the frozen G1B/G1F/G1G/G1H-R candidate inputs from a report root."""
+    """Load the recorded candidate inputs from a report root.
+
+    They are the panel routing, host-mate mapping, resident-copy families and wide-anchor repair tables.
+    """
 
     g1b = v1_reports / "G1B_sparse_panel_routing" / "TE_LOCATOR_ROUTE_B_G1B_RESULTS_FOR_CHATGPT.zip"
     g1f = v1_reports / "G1F_host_mate_locus_gate" / "TE_LOCATOR_ROUTE_B_G1F_RESULTS_FOR_CHATGPT.zip"

@@ -1,9 +1,8 @@
-"""Validation-only: the ported v3 language builders against the frozen tables.
+"""Validation-only: check the codebook builders against the recorded tables.
 
-Every stage is run in isolation on the frozen research inputs of that stage
-and compared byte for byte with the frozen research outputs; then the whole
-chain is run from the regenerated G1A catalogue and its two codebooks are
-compared with the frozen languages:
+Each stage runs in isolation on its recorded inputs and is compared byte for
+byte with its recorded outputs. Then the whole chain runs from the regenerated
+anchor catalogue, and its two codebooks are compared with the recorded ones:
 
     final safe terminal codebook   685 rows     d631f16a...3e00
     internal-only safe codebook    12,268 rows  44b98960...62f7

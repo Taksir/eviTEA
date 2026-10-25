@@ -1,8 +1,8 @@
 """Validation-only random access to SRA-style FASTQ records by ordinal.
 
-Requires headers of the form ``@<run>.<n> ...`` with ``n = ordinal + 1`` (as in
-the AKA017 SRA FASTQs).  Used only to fetch small read subsets for stage-level
-differential tests without streaming a 12-GB file.
+Requires headers of the form ``@<run>.<n> ...`` with ``n = ordinal + 1``, as in
+SRA FASTQ files.  Fetches small read subsets for stage-level differential tests
+without streaming a 12-GB file.
 """
 
 from __future__ import annotations

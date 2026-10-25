@@ -1,22 +1,24 @@
-"""Validation-only: the public ``evitea call`` pipeline end to end, per sample.
+"""Validation-only: run the public ``evitea call`` pipeline end to end, per sample.
 
-Prepares (once, hash-verified) the reference and TE assets exactly as a user
-would -- ``prepare-reference`` adopting the frozen dm6 Bowtie2 index,
-``prepare-te --build-languages`` building both v3 languages with the EviTEA
-language stages (or ``--languages supplied``: binding the frozen files) and
-checking them against the frozen languages -- then runs
+Prepares the reference and TE assets once, with hash checks, as a user would.
+``prepare-reference`` adopts the existing dm6 Bowtie2 index. ``prepare-te``
+either builds both codebooks (``--build-languages``) or binds the recorded
+codebook files (``--languages supplied``). The script checks the codebooks
+against their recorded SHA-256 values. Then it runs
 
     python -m evitea call --msbwt-index <sample msBWT> --sample-id S --profile S ...
 
-and compares the run's per-layer SHA-256 (recorded in ``run_summary.json``)
-and ``calls.native.tsv`` with the frozen Route-B v3 callsets:
+and compares the SHA-256 of each layer (recorded in ``run_summary.json``) and of
+``calls.native.tsv`` with the recorded callsets. The call counts per layer, from
+the library layer to the internal 21-mer layer, and the final SHA-256 are:
 
-    AKA017  R9E 792 -> 801 -> 820 -> 835 -> 838  (6432c8e1...f701)
-    ISO1    R9E 192 -> 192 -> 193 -> 194 -> 194  (9e538d74...92b0)
+    AKA017  792, 801, 820, 835, 838  (6432c8e1...f701)
+    ISO1    192, 192, 193, 194, 194  (9e538d74...92b0)
 
-The ISO1 R9E layer is the clean incumbent's ISO1 callset (frozen b3e48681...).
-Resumable: an existing work directory is resumed with ``--resume``.  No truth,
-comparator or GIM-024 file is read.  Production code never imports this module.
+The first ISO1 layer has the recorded SHA-256 b3e48681...
+Resumable: an existing work directory is resumed with ``--resume``.  No truth
+file, comparator file or file of any other sample is read.  Production code
+never imports this module.
 """
 
 from __future__ import annotations
@@ -106,7 +108,7 @@ def prepare_assets(args, python: str) -> tuple[Path, Path]:
             for key, (relative, expected) in FROZEN_LANGUAGES.items():
                 path = args.route_b_v3 / relative
                 if sha256(path) != expected:
-                    raise SystemExit(f"frozen {key} codebook hash mismatch: {path}")
+                    raise SystemExit(f"{key} codebook hash does not match the recorded hash: {path}")
                 languages[key] = path
             evitea(python, *common, "--terminal-codebook", str(languages["terminal"]),
                    "--internal-codebook", str(languages["internal"]))
@@ -116,7 +118,7 @@ def prepare_assets(args, python: str) -> tuple[Path, Path]:
     bound = {key: entry["sha256"] for key, entry in manifest["languages"].items()}
     expected = {"terminal_final": FROZEN_LANGUAGES["terminal"][1], "internal_only": FROZEN_LANGUAGES["internal"][1]}
     if bound != expected:
-        raise SystemExit(f"prepared languages differ from the frozen languages: {bound}")
+        raise SystemExit(f"prepared codebooks do not match the recorded hashes: {bound}")
     print("languages:", {k: v["source"] for k, v in manifest["languages"].items()}, "= frozen hashes", flush=True)
     return reference, te
 
@@ -133,7 +135,7 @@ def main(argv=None) -> int:
     ap.add_argument("--workers", type=int, default=0)
     ap.add_argument("--samples", nargs="+", default=["ISO1", "AKA017"], choices=sorted(EXPECTED))
     ap.add_argument("--languages", choices=("built", "supplied"), default="built",
-                    help="build the v3 languages with EviTEA (default) or bind the frozen files")
+                    help="build both codebooks with EviTEA (default) or bind the recorded files")
     args = ap.parse_args(argv)
     args.work.mkdir(parents=True, exist_ok=True)
     bowtie2 = args.bowtie2 or args.data / "TEMP2_ISO1" / "tools" / "bowtie2" / "bowtie2.bat"

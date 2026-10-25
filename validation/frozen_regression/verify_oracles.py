@@ -1,4 +1,4 @@
-"""Verify the ordered Phase 9 frozen-call oracle files."""
+"""Check the recorded callset files, in order, against their expected row counts and SHA-256 hashes."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def _load_oracles() -> list[dict[str, Any]]:
 
 
 def _relative_oracle_path(value: str) -> Path:
-    """Reject absolute paths and traversal so checks stay within a supplied root."""
+    """Reject absolute paths and ``..`` so checks stay within the given root."""
     path = Path(value)
     windows_path = PureWindowsPath(value)
     if (
@@ -35,12 +35,12 @@ def _relative_oracle_path(value: str) -> Path:
         or any(part == ".." for part in path.parts)
         or any(part == ".." for part in windows_path.parts)
     ):
-        raise ValueError("oracle file path must be relative to its route root")
+        raise ValueError("recorded file path must be relative to its route root")
     return path
 
 
 def _inspect_file(path: Path) -> tuple[int | None, str | None, str | None]:
-    """Return data-row count and digest, or evidence for a file access failure."""
+    """Return the data-row count and SHA-256 digest, or the reason the file could not be read."""
     try:
         metadata = path.lstat()
     except FileNotFoundError:
@@ -63,8 +63,8 @@ def _inspect_file(path: Path) -> tuple[int | None, str | None, str | None]:
     except OSError:
         return None, None, "file_read_error"
 
-    # The first physical line is the header. An empty file therefore has zero
-    # data rows and will fail the configured cardinality check.
+    # The first line is the header, so an empty file has zero data rows and
+    # fails the row-count check.
     return max(line_count - 1, 0), digest.hexdigest(), None
 
 
@@ -74,7 +74,7 @@ def verify_oracles(
     *,
     checks: Sequence[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Check each frozen file in manifest order and stop at its first mismatch."""
+    """Check each recorded file in manifest order and stop at the first mismatch."""
     roots = {
         "route_b_v2": Path(route_b_v2),
         "route_b_v3": Path(route_b_v3),
@@ -146,7 +146,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         report = verify_oracles(args.route_b_v2, args.route_b_v3)
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
-        parser.error(f"could not load oracle manifest: {exc}")
+        parser.error(f"could not load the manifest of recorded files: {exc}")
     rendered = _render_report(report)
 
     if args.output is not None:
