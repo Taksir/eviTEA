@@ -1,50 +1,50 @@
-"""P4 library-free detector, stages S1-S7 (p4_library_free/P4_DESIGN_MEMO.md section 4). Step 2b-i.
+"""P4 library-free detector, stages S1-S7 (p4_library_free/P4_DESIGN_MEMO.md section 4).
 No TE library, Dfam sequence, long-read insert, truth or hostile coordinate is read anywhere in this file.
 
-Counter interface (as g4b oracle_r2_walk.Counter): C.cnt(w) = occurrences of w + occurrences of rc(w) in the reads,
+Counter interface (as the Counter of the research walk module): C.cnt(w) = occurrences of w + occurrences of rc(w) in the reads,
 0 when w contains a letter other than A/C/G/T.
 
 Coordinates: 0-based, half-open. A sample allele ref[:bL] + INSERT + ref[bR:] has left break bL (first reference letter the
 left walk cannot follow) and right break bR (first reference letter the sample shares again, seen from the right).
-delta = bL - bR; a target-site duplication of t letters gives delta = t (TSD = ref[bR:bL]).
+delta = bL - bR. A target-site duplication of t letters gives delta = t (TSD = ref[bR:bL]).
 """
 import warnings
 import numpy as np
 
 from .. import depth_window as _dw
 
-# ---- parameters (memo section 4; "fixed" unless marked synthetic) ----
+# ---- parameters (design memo section 4; "fixed" unless marked synthetic) ----
 K = 31                  # word length (S1, walk)
 STRIDE = 10             # S1 sampling stride (fixed; stride <= 15 hits a homozygous insertion >= 2 times)
-LOWF = 0.65             # S1 drop threshold, x local depth (fixed; oracle LOW constant)
+LOWF = 0.65             # S1 drop threshold, x local depth (fixed; the LOW constant of the research code)
 DFLANK = 2000           # S1 local depth = median of sampled counts within +-2 kb (fixed)
 NFRAC = 0.20            # S1 skip windows with > 20% non-ACGT words (fixed)
 MIN_LOW = 1             # S1 a candidate needs >= 1 low sampled word: an insertion with a t-letter TSD removes only 30 - t
-                        # reference words, so stride 10 sees >= 1 of them for t <= 20 and >= 2 only for t <= 10 (F-031)
-RUN_GAP = 2 * STRIDE    # S1 low words <= 20 bp apart join one run (added 2b-i, see prereg section 3)
-REF_OK = 0.15           # walk branch support, x D (oracle_r2_walk)
+                        # reference words, so stride 10 sees >= 1 of them for t <= 20 and >= 2 only for t <= 10
+RUN_GAP = 2 * STRIDE    # S1 low words <= 20 bp apart join one run (see prereg section 3)
+REF_OK = 0.15           # walk branch support, x D (research walk module)
 D_MIN = _dw.D_MIN        # no place below this depth (fixed)
 D_MAX = _dw.upper_bound()  # no place above this depth: none unless --depth-cap / EVITEA_DEPTH_CAP sets one
 INDEL_MAX = 50          # S2 small indel limit (fixed)
 EXT_MAX = 600           # S3 extension length per side (fixed)
-STOP_FRAC, STOP_MIN = 0.10, 3   # S3 extension stops when best letter < max(3, 0.10 x support at break) (G4c rule)
+STOP_FRAC, STOP_MIN = 0.10, 3   # S3 extension stops when best letter < max(3, 0.10 x support at break) (rule of the research extension)
 FORK = 0.60             # S3 extension stops when the top letter carries < 60% of the support (synthetic: 0.5-0.8)
 PAIR_LO, PAIR_HI = -20, 50      # S3 two breaks pair when delta in [-20, +50] (fixed)
-HOM_MAX, HET_MAX = 0.15, 0.85   # S3 genotype from the reference-path fraction at the break (G4b)
+HOM_MAX, HET_MAX = 0.15, 0.85   # S3 genotype from the reference-path fraction at the break (rule of the research walk)
 SEG_MIN = 60            # S4 minimum segment length (fixed)
 ANCHOR_RC = 2.0         # S4 abstain if an anchor's read count > 2 x D (fixed)
 REP_K, REP_FLANK, REP_MAX = 21, 500, 0.50   # S4 REP definition (class_strata cs_lib.rep_fracs)
 LOCAL_FLANK, LOCAL_ID, LOCAL_COV = 2000, 0.90, 0.80   # S4 locally explained (fixed)
 NUMT_ID, NUMT_COV = 0.80, 0.80                        # S4 NUMT (fixed)
 SD_ID, SD_COV = 0.95, 0.80                            # S4 segmental duplication, 1 or 2 loci (fixed)
-SAT_PMAX, SAT_COPIES, SAT_COV, SAT_WIN_ID = 50, 3, 0.80, 0.85   # S4 satellite (fixed; window identity added 2b-i)
-LC_PMAX, LC_RUN = 3, 10  # S5 low-complexity mask: runs with s[i]==s[i+p], p <= 3, length >= 10 (added 2b-i)
+SAT_PMAX, SAT_COPIES, SAT_COV, SAT_WIN_ID = 50, 3, 0.80, 0.85   # S4 satellite (fixed)
+LC_PMAX, LC_RUN = 3, 10  # S5 low-complexity mask: runs with s[i]==s[i+p], p <= 3, length >= 10
 GK = 15                 # S5 canonical word length (synthetic)
 G_SHARE = 0.20          # S5 shared words / smaller word set (synthetic)
 G_ALN, G_ID = 50, 0.80  # S5 alignment confirmation: >= 50 columns at >= 80% identity (synthetic)
-BAND = 16               # S5 banded alignment half-width around a shared-word diagonal (added 2b-i)
-SW_MATCH, SW_MISM, SW_GAP = 2, -3, -5   # S5 local alignment scores (added 2b-i)
-TSD_LO, TSD_HI = 2, 20  # S6 V-TSD exact TSD length (fixed)
+BAND = 16               # S5 banded alignment half-width around a shared-word diagonal
+SW_MATCH, SW_MISM, SW_GAP = 2, -3, -5   # S5 local alignment scores
+TSD_LO, TSD_HI = 2, 20  # S6 valid TSD: exact TSD length from 2 to 20 (fixed)
 MERGE_D = 500           # S7 one call per place; family calls added where EviTEA has no call within 500 bp (fixed)
 
 _C = str.maketrans("ACGT", "TGCA")
@@ -61,7 +61,7 @@ def is_acgt(w):
 
 # ---------------------------------------------------------------- counters
 class Counter:
-    """msBWT counter, both strands; cache may be cleared between places to bound memory."""
+    """msBWT counter, both strands. The cache may be cleared between places to bound memory."""
     def __init__(self, bwt, cache=True):
         self.b, self.cache, self.n, self.use = bwt, {}, 0, cache
 
@@ -105,7 +105,7 @@ class HashCounter:
 
 # ---------------------------------------------------------------- S1 scan
 def scan_counts(C, ref, k=K, stride=STRIDE):
-    """Counts of the reference word starting every `stride` bases; -1 for words with a non-ACGT letter."""
+    """Return the counts of the reference word starting every `stride` bases; -1 for words with a non-ACGT letter."""
     n = max(0, (len(ref) - k) // stride + 1)
     pos = np.arange(n, dtype=np.int64) * stride
     c = np.full(n, -1, dtype=np.int64)
@@ -118,8 +118,8 @@ def scan_counts(C, ref, k=K, stride=STRIDE):
 
 
 def local_depth(c, flank=DFLANK, stride=STRIDE, chunk=20000):
-    """D[j] = median of valid counts among samples j-h..j+h (h = flank // stride, clipped to the arm);
-    nfrac[j] = invalid samples / in-range samples in that window. D is NaN where no sample is valid."""
+    """Return (D, nfrac). D[j] is the median of valid counts among samples j-h..j+h (h = flank // stride, clipped to the arm).
+    nfrac[j] is the invalid samples / in-range samples in that window. D is NaN where no sample is valid."""
     h = flank // stride
     n = len(c)
     x = c.astype(float)
@@ -142,8 +142,9 @@ def local_depth(c, flank=DFLANK, stride=STRIDE, chunk=20000):
 
 
 def candidates(pos, c, D, nf):
-    """Runs of low sampled words: c < LOWF*D, valid word, window N fraction <= NFRAC. Low words <= RUN_GAP apart join one run;
-    a run needs >= MIN_LOW low words. Returns dicts with first/last low word start, n_low and D (median of D over the run)."""
+    """Return the runs of low sampled words: c < LOWF*D, valid word, window N fraction <= NFRAC. Low words <= RUN_GAP apart join
+    one run, and a run needs >= MIN_LOW low words. Each run is a dict with first/last low word start, n_low and D (median of D
+    over the run)."""
     with np.errstate(invalid="ignore"):
         low = (c >= 0) & (nf <= NFRAC) & ~np.isnan(D) & (c < LOWF * D)
     idx = np.flatnonzero(low)
@@ -163,8 +164,8 @@ def candidates(pos, c, D, nf):
 
 # ---------------------------------------------------------------- S2/S3 walk
 def _occ(s, w, lo, hi):
-    """Start positions j of w in s with lo <= j <= hi. The search is bounded at hi + len(w): an unbounded str.find scanned the
-    rest of a 28-Mb arm whenever w was absent from the window (F-035; same result, ~100x slower)."""
+    """Return the start positions j of w in s with lo <= j <= hi. The search is bounded at hi + len(w), because an unbounded
+    str.find scans the rest of a 28-Mb arm whenever w is absent from the window (same result, ~100x slower)."""
     out, lo = [], max(0, lo)
     if hi < lo:
         return out
@@ -177,7 +178,7 @@ def _occ(s, w, lo, hi):
 
 
 def _occ_unbounded(s, w, lo, hi):
-    """The first version of _occ (reference for the equivalence test only)."""
+    """Unbounded version of _occ (reference for the equivalence test only)."""
     out, j = [], s.find(w, max(0, lo))
     while j != -1 and j <= hi:
         out.append(j)
@@ -186,9 +187,9 @@ def _occ_unbounded(s, w, lo, hi):
 
 
 def indel_rejoin(C, s, i, ctx, alt, D):
-    """Greedy most-supported extension from ctx+alt, up to INDEL_MAX+K letters; after each letter test whether the last K letters of
-    the sample path occur in s at j (i-INDEL_MAX-K <= j <= i+INDEL_MAX+m) with |indel| = |m - (j+K-i)| <= INDEL_MAX.
-    Returns (new_ctx, resume_index, indel) or None. Ties: smallest |indel|, then smallest j."""
+    """Extend greedily by the most-supported letter from ctx+alt, up to INDEL_MAX+K letters. After each letter, test whether the
+    last K letters of the sample path occur in s at j (i-INDEL_MAX-K <= j <= i+INDEL_MAX+m) with |indel| = |m - (j+K-i)| <= INDEL_MAX.
+    Return (new_ctx, resume_index, indel) or None. Ties: smallest |indel|, then smallest j."""
     thr = REF_OK * D
     path, m = ctx + alt, 1
     while True:
@@ -216,8 +217,8 @@ def indel_rejoin(C, s, i, ctx, alt, D):
 
 def walk(C, s, i, ctx, end, D, shortcut=True):
     """Reference-guided walk on strand string s from index i, ctx = the 30 sample letters before i, until index end.
-    Rules as g4b oracle_r2_walk.classify (branch support REF_OK*D; a supported alternative that rejoins the reference within 3
-    letters is a substitution) plus small-indel rejoin (indel_rejoin). Exact shortcut: when cnt(ctx) - cnt(ctx+ref) < REF_OK*D no
+    Rules as the classify function of the research walk module (branch support REF_OK*D; a supported alternative that rejoins the
+    reference within 3 letters is a substitution) plus small-indel rejoin (indel_rejoin). Exact shortcut: when cnt(ctx) - cnt(ctx+ref) < REF_OK*D no
     alternative branch can reach REF_OK*D (sum_b cnt(ctx+b) <= cnt(ctx)), so the alternatives are not queried.
     status: through (reached end) | break (unexplained divergence; i = break index) | dead (no supported branch) | refN."""
     thr = REF_OK * D
@@ -264,7 +265,7 @@ def walk(C, s, i, ctx, end, D, shortcut=True):
 
 
 def extend(C, ctx, alt, n_alt, maxlen=EXT_MAX, fork=FORK):
-    """Most-supported extension from ctx+alt (G4c junction.extend) with the fork rule. Returns (segment, stop reason)."""
+    """Return (segment, stop reason): the most-supported extension from ctx+alt with the fork rule (as the research junction.extend)."""
     seq, cur = alt, (ctx + alt)[-(K - 1):]
     stop = max(STOP_MIN, STOP_FRAC * n_alt)
     while len(seq) < maxlen:
@@ -291,7 +292,7 @@ def left_walk(C, ref, cand):
 
 def right_walk(C, ref, cand):
     """S3: mirror walk on the reverse strand from the first sampled word after the run to first - INDEL_MAX - 1.
-    Returns (walk dict with forward break bR when status == break, b, window lo, window hi)."""
+    Return (walk dict with forward break bR when status == break, b, window lo, window hi)."""
     b = cand["last"] + STRIDE
     if b + K > len(ref) or not is_acgt(ref[b:b + K]):
         return dict(status="edge"), b, 0, 0
@@ -312,9 +313,9 @@ def genotype(frac):
 
 # ---------------------------------------------------------------- S4 helpers
 def satellite(seg):
-    """Tandem-periodic: for some period p <= SAT_PMAX, windows of length max(2p, 20) whose positions match at lag p in
+    """Return True for a tandem-periodic segment: for some period p <= SAT_PMAX, windows of length max(2p, 20) whose positions match at lag p in
     >= SAT_WIN_ID of cases, each extended by p, cover >= SAT_COV of the segment, and the periodic stretch spans >= SAT_COPIES copies.
-    Also low complexity: the most common letter covers >= 80% of the segment."""
+    Also return True for low complexity: the most common letter covers >= 80% of the segment."""
     L = len(seg)
     if L == 0:
         return False
@@ -346,7 +347,7 @@ def satellite(seg):
 
 
 def union_cov(intervals, L):
-    """Fraction of [0, L) covered by the union of [a, b) intervals."""
+    """Return the fraction of [0, L) covered by the union of [a, b) intervals."""
     if L <= 0:
         return 0.0
     iv = sorted(t for t in ((max(0, a), min(L, b)) for a, b in intervals) if t[1] > t[0])
@@ -374,8 +375,8 @@ def numt_rule(hits, L):
 
 
 def sd_rule(hits, L):
-    """hits: (q_st, q_en, mlen, blen, ctg, r_st) against the genome without the mitochondrial contig. SD if 1 or 2 distinct loci align at >= 95% identity
-    over >= 80% of the segment."""
+    """hits: (q_st, q_en, mlen, blen, ctg, r_st) against the genome without the mitochondrial contig. The segment is a segmental
+    duplication (SD) if 1 or 2 distinct loci align at >= 95% identity over >= 80% of the segment."""
     loci = {(h[4], h[5] // 1000) for h in hits if h[3] and h[2] / h[3] >= SD_ID and (h[1] - h[0]) >= SD_COV * L}
     return 1 <= len(loci) <= 2
 
@@ -419,7 +420,7 @@ for _i, _b in enumerate(b"ACGT"):
 
 
 def kmer_codes(seq, k):
-    """(canonical codes uint64, valid mask) for every k-word start of seq (upper case); k <= 32."""
+    """Return (canonical codes uint64, valid mask) for every k-word start of seq (upper case); k <= 32."""
     a = _ENC[np.frombuffer(seq.encode(), dtype=np.uint8)]
     n = len(a) - k + 1
     if n <= 0:
@@ -436,7 +437,7 @@ def kmer_codes(seq, k):
 
 
 def multi_codes(genome, k):
-    """Sorted unique canonical codes of k-words that occur >= 2 times in the genome counting both strands."""
+    """Return the sorted unique canonical codes of k-words that occur >= 2 times in the genome counting both strands."""
     parts = []
     for s in genome.values():
         c, v = kmer_codes(s.upper(), k)
@@ -476,7 +477,7 @@ class RefMulti:
 
 # ---------------------------------------------------------------- per-place pipeline (S2-S4)
 def process(C, ref, cand, rm, fw, chrom="", fork=FORK):
-    """S2-S4 for one candidate. Returns a place dict with 'stage' = where it stopped:
+    """Run S2-S4 for one candidate. Return a place dict with 'stage' = where it stopped:
     S2_through | S2_dead | S2_refN | S2_edge | S4_abstain | S4_reject | S4_pass."""
     D = cand["D"]
     pl = dict(chrom=chrom, first=cand["first"], last=cand["last"], n_low=cand["n_low"], D=round(D, 2))
@@ -544,13 +545,13 @@ def process(C, ref, cand, rm, fw, chrom="", fork=FORK):
 
 
 def target_candidate(pos, D, half=50):
-    """Targeted mode: a pseudo-run centred on pos (used for hostile sites off the arm and for synthetic checks)."""
+    """Return a pseudo-run centered on pos, for targeted mode (used for hostile sites off the arm and for synthetic checks)."""
     f = (pos - half) // STRIDE * STRIDE
     return dict(first=f, last=f + 2 * half // STRIDE * STRIDE, n_low=0, D=D)
 
 
 def local_D(C, ref, pos, flank=DFLANK, stride=STRIDE):
-    """Median of valid sampled-word counts within +-flank of pos (targeted mode)."""
+    """Return the median of valid sampled-word counts within +-flank of pos (targeted mode)."""
     v = []
     for p in range((max(0, pos - flank) // stride) * stride, min(len(ref) - K, pos + flank) + 1, stride):
         w = ref[p:p + K]
@@ -586,9 +587,9 @@ def kset(s, k=GK):
 
 
 def _sw(a, b, band=None, diag=0):
-    """Local alignment, linear gap (SW_MATCH, SW_MISM, SW_GAP). Each cell carries (score, matches, columns) of its best path;
-    ties prefer diagonal, then up, then left. band: only cells with |(j - i) - diag| <= band. Returns best (score, matches, cols);
-    ties: first cell in row-major order. N never matches."""
+    """Align locally with a linear gap (SW_MATCH, SW_MISM, SW_GAP). Each cell holds (score, matches, columns) of its best path.
+    Ties prefer diagonal, then up, then left. band: only cells with |(j - i) - diag| <= band. Return the best (score, matches,
+    cols); ties go to the first cell in row-major order. N never matches."""
     n, m = len(a), len(b)
     best = (0, 0, 0)
     prev = [(0, 0, 0)] * (m + 1)
@@ -628,8 +629,8 @@ def aln_ok(res):
 
 
 def confirm(a, b, k=GK, top=2):
-    """Banded alignment around the top shared-word diagonals, both strands. True if the best alignment on some tried diagonal has
-    >= G_ALN columns at >= G_ID identity."""
+    """Align in a band around the top shared-word diagonals, on both strands. Return True if the best alignment on some tried
+    diagonal has >= G_ALN columns at >= G_ID identity."""
     for bb in (b, rc(b)):
         pos_a = {}
         for i in range(len(a) - k + 1):
@@ -670,9 +671,10 @@ class UF:
 
 
 def group(places, confirm_fn=confirm):
-    """S5. places: list of dicts with 'segs' (list of kept segments). Returns (cluster id per place, number of alignments run).
-    Join two places if some pair of their segments shares >= G_SHARE x the smaller canonical-word set and confirm_fn agrees.
-    Pairs are tried in order of decreasing share (ties: place indices); pairs already connected are skipped (single linkage)."""
+    """Group places (S5). places: list of dicts with 'segs' (list of kept segments). Return (cluster id per place, number of
+    alignments run). Two places join if some pair of their segments shares >= G_SHARE x the smaller canonical-word set and
+    confirm_fn agrees. Pairs are tried in order of decreasing share (ties: place indices), and pairs already connected are
+    skipped (single linkage)."""
     segs = []
     for pi, p in enumerate(places):
         for s in p["segs"]:
@@ -706,10 +708,10 @@ def group(places, confirm_fn=confirm):
 
 
 def dedupe(places):
-    """One place per insertion (S7 'one call per place'): places with a left break (stage S4_*) on one chromosome whose breaks
+    """Keep one place per insertion (S7 'one call per place'): places with a left break (stage S4_*) on one chromosome whose breaks
     chain within MERGE_D are one place. Representative: S4_pass two-sided > S4_pass > S4_reject > S4_abstain; ties: leftmost
     break, then input order. The others get dup = 1 and are left out of grouping. Two candidates of one insertion often break at
-    the same letter (seen in SYN-FAM); without this they could form a two-place 'family' from one insertion."""
+    the same letter. Without this, they could form a two-place 'family' from one insertion."""
     rank = {"S4_pass": 1, "S4_reject": 2, "S4_abstain": 3}
     idx = [i for i, p in enumerate(places) if p.get("stage") in rank and p.get("bL") is not None]
     idx.sort(key=lambda i: (places[i]["chrom"], places[i]["bL"], i))
@@ -731,8 +733,9 @@ def dedupe(places):
 
 # ---------------------------------------------------------------- S6 family rule, S7 output
 def families(places, cl):
-    """S6. Returns {cluster: {'n': places, 'two': two-sided places, 'tsd': places with TSD in [TSD_LO, TSD_HI],
-    'pair': V-pair family, 'vtsd': V-TSD family}}."""
+    """Return the S6 family rule as {cluster: {'n': places, 'two': two-sided places, 'tsd': places with TSD in [TSD_LO, TSD_HI],
+    'pair': 1 for a family of at least 2 places with at least 2 two-sided, 'vtsd': 1 for a pair family with at least 2 places
+    that have such a TSD}}."""
     out = {}
     for p, c in zip(places, cl):
         f = out.setdefault(c, dict(n=0, two=0, tsd=0))
@@ -747,8 +750,8 @@ def families(places, cl):
 
 
 def classify_place(p, fam):
-    """S7 track of one grouped place: family | orphan (two-sided, alone) | singleton (one-sided, alone) | member (cluster that is not
-    a family)."""
+    """Return the S7 track of one grouped place: family | orphan (two-sided, alone) | singleton (one-sided, alone) | member (cluster
+    that is not a family)."""
     if fam["pair"]:
         return "family"
     if fam["n"] == 1:
