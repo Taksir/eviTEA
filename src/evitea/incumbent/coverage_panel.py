@@ -1,19 +1,21 @@
-"""Coverage-rescue census and optimized rescue panel (lineage stages G1C/G1D).
+"""Coverage panel: exact short anchors, Hamming-1 loci and the optimized panel.
 
-A TE record orientation is a *group*; a 125 bp TE-only read window is covered
-when it wholly contains an admitted exact anchor, and a terminal side is
-covered when a 35 bp terminal segment contains one.
+A TE record orientation is a *group*. A 125 bp TE-only read window is covered
+when it wholly contains an admitted exact anchor. A terminal side is covered
+when a 35 bp terminal segment contains one.
 
-G1C adds a targeted exact census of 19/17/15-mers (terminal starts at stride 1,
-interior at stride 10) and, where the sparse panel plus exact short anchors
-with width <= 1024 still leave a terminal side or read windows uncovered,
-21-mer Hamming-1 (H1) loci.  G1D turns these into actions (one per distinct
-exact string per group; one per H1 locus whose source and one-substitution
-variants all occur with width <= B) and, for B in 256/512/1024, greedily
-selects actions per group (hardest groups first): terminal sides first, then
-lazy weighted maximum coverage up to min(0.99, 0.99 * attainable).  The panel
-with the best (p10, mean, terminal fraction, -rows) among those under the
-5,000,000-row materialization cap is chosen.
+The census adds a targeted exact census of 19/17/15-mers (terminal starts at
+stride 1, interior at stride 10). Where the sparse panel plus exact short
+anchors with width <= 1024 leave a terminal side or read windows
+uncovered, it also adds 21-mer Hamming-1 (H1) loci.
+
+The optimization turns these into actions: one per distinct exact string per
+group, and one per H1 locus whose source and one-substitution variants all
+occur with width <= B. For B in 256/512/1024 it greedily selects actions per
+group (hardest groups first): terminal sides first, then lazy weighted maximum
+coverage up to min(0.99, 0.99 * attainable). Among the panels under the
+5,000,000-row materialization cap, it chooses the one with the best
+(p10, mean, terminal fraction, -rows).
 """
 
 from __future__ import annotations
@@ -61,9 +63,8 @@ H1_INTERNAL_LOCUS_STRIDE = 50
 H1_GAP_CAP = 1024
 H1_MAX_DISTINCT_VARIANTS = 1_500_000
 PANEL_CAPS = (256, 512, 1024)
-# The rescue panel the pair-aware reselection is built for (the widest cap).  It is always the one kept: the narrower caps can
-# only tie with it (when every TE word is rare) or lose, and a tie used to keep the 256-row panel, which the reselection
-# refuses.
+# The coverage panel that the pair-aware reselection is built for (the widest cap). Only this cap is built: the narrower caps
+# can only tie with it (when every TE word is rare) or lose, and the reselection refuses the 256-row panel.
 RESCUE_PANEL_CAP = PANEL_CAPS[-1]
 TARGET_ABSOLUTE_COVERAGE = 0.99
 RETAIN_ATTAINABLE_FRACTION = 0.99
@@ -126,7 +127,7 @@ class RescuePanel:
 
 # -- geometry ------------------------------------------------------------
 def coverage_interval(length: int, start: int, k: int, read_window: int = READ_WINDOW) -> tuple[int, int] | None:
-    """Read windows (start offsets of a read of ``read_window`` bp) that contain the k-mer at ``start``."""
+    """Return the read windows (start offsets of a read of ``read_window`` bp) that contain the k-mer at ``start``."""
 
     n = max(0, length - read_window + 1)
     if n <= 0:
@@ -181,9 +182,9 @@ def _window_mask(length: int, loci, read_window: int = READ_WINDOW) -> np.ndarra
     return mask
 
 
-# -- G1C -----------------------------------------------------------------
+# -- exact short anchors and Hamming-1 loci ------------------------------
 def baseline_anchor_loci(catalogue: AnchorCatalogue, panel: Sequence[PanelQuery]):
-    """Every queryable anchor locus whose query is in the sparse panel, by group."""
+    """Return every queryable anchor locus whose query is in the sparse panel, by group."""
 
     widths = {entry.query_id: entry.width for entry in panel}
     loci: dict[Group, list[tuple[int, int, str, int]]] = defaultdict(list)
@@ -283,7 +284,7 @@ def hard_gap_h1_loci(
             variants.update(_h1_family(query)[1:])
         out.append(H1Locus(te_id, family, orientation, start, query if len(source) == H1_K and set(source) <= _DNA else source))
     if len(variants) > H1_MAX_DISTINCT_VARIANTS:
-        raise BackendCompatibilityError("H1 variant budget exceeds the frozen 1,500,000-query cap")
+        raise BackendCompatibilityError("the number of Hamming-1 variants exceeds the 1,500,000-query cap")
     return out
 
 
@@ -298,7 +299,7 @@ def _h1_family(source: str) -> list[str]:
     return out
 
 
-# -- G1D -----------------------------------------------------------------
+# -- action selection ----------------------------------------------------
 def _short_actions(
     short: Sequence[ShortLocus], lengths, family_by_group, read_window: int = READ_WINDOW
 ) -> dict[Group, list[PanelAction]]:
@@ -504,7 +505,7 @@ def optimize_rescue_panel(
     rows = -summary[3]
     if rows > MATERIALIZE_ROW_HARD_CAP:
         raise BackendCompatibilityError(
-            f"the {RESCUE_PANEL_CAP}-row rescue panel needs {rows:,} msBWT interval rows, more than the "
+            f"the {RESCUE_PANEL_CAP}-row coverage panel needs {rows:,} msBWT interval rows, more than the "
             f"{MATERIALIZE_ROW_HARD_CAP:,}-row materialization limit; this TE library has too many frequent words for the "
             "library layer"
         )

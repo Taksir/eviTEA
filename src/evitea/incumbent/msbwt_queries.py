@@ -1,11 +1,11 @@
-"""Bounded exact msBWT queries with physical-pair provenance (incumbent path).
+"""Bounded exact msBWT queries with physical-pair provenance.
 
 The sample index is the multi-string BWT built from the synchronized mate
 FASTQs: ``about[dollar_id] = (file_id, record_ordinal)`` with file 0 = mate 1
 and file 1 = mate 2, so ``record_ordinal`` is the physical ``pair_id``.  Every
-quantity the incumbent derives from the index (interval widths, the set of
-reads and pairs carrying a query, recovered read sequences) is invariant to the
-index construction order, so any msBWT over the same reads reproduces it.
+quantity the library layer derives from the index (interval widths, the set of
+reads and pairs carrying a query, recovered read sequences) does not depend on
+the index construction order, so any msBWT over the same reads gives it.
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ class MsbwtSample(SeedPairLocator):
         return hi - lo
 
     def dollar_ids(self, pattern: str, *, cache: bool = True) -> np.ndarray:
-        """Dollar IDs of every interval row of ``pattern`` (row order)."""
+        """Return the dollar IDs of every interval row of ``pattern`` (row order)."""
 
         cached = self._dollars.get(pattern)
         if cached is not None:
@@ -101,7 +101,7 @@ class MsbwtSample(SeedPairLocator):
         return files, pairs
 
     def verify_paired_layout(self) -> None:
-        """Fail closed unless files 0/1 each index record ordinals ``0..pairs-1``."""
+        """Raise unless files 0 and 1 each index record ordinals ``0..pairs-1``."""
 
         counts = np.zeros(2, dtype=np.int64)
         lo = [None, None]
@@ -125,7 +125,7 @@ class MsbwtSample(SeedPairLocator):
             raise AssetCompatibilityError("msBWT about.npy record ordinals are not 0..pairs-1")
 
     def mate_dollars(self, wanted: dict[int, int]) -> dict[int, int]:
-        """Map ``pair_id -> file_id`` requests to the dollar ID of that mate."""
+        """Map ``{pair_id: file_id}`` requests to the dollar ID of that mate."""
 
         if not wanted:
             return {}
@@ -162,7 +162,7 @@ class MsbwtSample(SeedPairLocator):
         return text
 
     def pair_reads(self, pair_ids: Iterable[int]) -> dict[int, tuple[str, str]]:
-        """``{pair_id: (mate1, mate2)}`` recovered from the index."""
+        """Return ``{pair_id: (mate1, mate2)}``, recovered from the index."""
 
         pairs = sorted({int(x) for x in pair_ids})
         if not pairs:
@@ -171,9 +171,9 @@ class MsbwtSample(SeedPairLocator):
         mate2 = self.mate_dollars({pid: 1 for pid in pairs})
         return {pid: (self.recover(mate1[pid]), self.recover(mate2[pid])) for pid in pairs}
 
-    # -- bounded seed location (R6 routing) ------------------------------
+    # -- bounded seed location (host-seed routing) -----------------------
     def seed_pairs(self, seed: str, row_cap: int) -> tuple[int, bool, set[int]]:
-        """Rows over seed+RC, whether located, and physical pair IDs if located."""
+        """Return the row count over the seed and its reverse complement, whether it was located, and the physical pair IDs if located."""
 
         patterns = [seed.upper()]
         reverse = revcomp(seed.upper())
@@ -188,5 +188,5 @@ class MsbwtSample(SeedPairLocator):
         return total, True, {int(x) for x in pairs[files <= 1].tolist()}
 
 
-# Backwards-compatible name used by the R6 routing tests.
+# Alias used by the host-seed routing tests.
 MsbwtPairLocator = MsbwtSample

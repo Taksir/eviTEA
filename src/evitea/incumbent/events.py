@@ -1,4 +1,4 @@
-"""Typed incumbent calls and their frozen legacy row serialization."""
+"""Typed calls of the library layer and their rows in the combined call table."""
 
 from __future__ import annotations
 
@@ -28,11 +28,11 @@ class IncumbentCallClass(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class IncumbentCall:
-    """One incumbent call.
+    """One call of the library layer.
 
-    ``start``/``end`` are the frozen interbase envelope.  Split-junction calls
-    carry exact side coordinates (``-1`` = side absent); range classes carry
-    none.  ``family`` is the frozen emitted label (raw, not alias-normalized).
+    ``start``/``end`` are the interbase envelope. Split-junction calls carry
+    exact side coordinates (``-1`` = side absent); range classes carry none.
+    ``family`` is the emitted label (raw, not alias-normalized).
     """
 
     sample_id: str
@@ -53,9 +53,9 @@ class IncumbentCall:
 
     def __post_init__(self) -> None:
         if tuple(sorted(set(self.fragment_pair_ids))) != self.fragment_pair_ids:
-            raise ArchitectureInvariantError("incumbent fragment pair IDs must be sorted and unique")
+            raise ArchitectureInvariantError("fragment pair IDs must be sorted and unique")
         if self.end < self.start:
-            raise ArchitectureInvariantError("incumbent envelope end precedes start")
+            raise ArchitectureInvariantError("envelope end precedes start")
         exact = self.call_class is IncumbentCallClass.SPLIT_JUNCTION
         if exact != (self.left_coord is not None and self.right_coord is not None and self.delta is not None):
             raise ArchitectureInvariantError("only split-junction calls carry exact side coordinates")
@@ -92,7 +92,7 @@ def legacy_rows(calls: Iterable[IncumbentCall]) -> list[dict[str, str]]:
 
 
 def legacy_tsv_bytes(calls: Iterable[IncumbentCall]) -> bytes:
-    """Byte-exact frozen ``*_COMBINED_CALLS.tsv`` serialization (LF endings)."""
+    """Return the ``*_COMBINED_CALLS.tsv`` content as bytes (LF line endings)."""
 
     handle = io.StringIO()
     writer = csv.DictWriter(handle, fieldnames=list(LEGACY_EVENT_FIELDS), delimiter="\t", lineterminator="\n")

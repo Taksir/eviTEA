@@ -59,5 +59,5 @@ def test_rare_words_keep_the_1024_row_panel(monkeypatch: pytest.MonkeyPatch) -> 
 def test_a_1024_row_panel_over_the_row_limit_stops_with_a_clear_error(monkeypatch: pytest.MonkeyPatch) -> None:
     catalogue, panel, short, h1, index = _rare_word_inputs()
     monkeypatch.setattr(coverage_panel, "MATERIALIZE_ROW_HARD_CAP", 0)
-    with pytest.raises(BackendCompatibilityError, match="1024-row rescue panel needs .* materialization limit"):
+    with pytest.raises(BackendCompatibilityError, match="1024-row coverage panel needs .* materialization limit"):
         coverage_panel.optimize_rescue_panel(catalogue, panel, short, h1, index)

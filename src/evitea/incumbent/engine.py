@@ -1,21 +1,23 @@
-"""End-to-end incumbent (repeat-aware R9E) caller over prepared inputs.
+"""Library layer caller, run end to end over prepared inputs.
 
-Stage order (frozen lineage):
+Steps, in order:
 
-1. candidate acquisition (anchor census .. recall repair) -> candidate loci;
-2. split-junction reference competition -> score >= 4 split-junction calls;
-3. orientation-corrected two-sided mate rescue -> mate-rescue calls and the
-   locus ledger;
-4. one-sided targets -> exact host-seed routing -> reference-discriminative
-   strict pair certification;
+1. candidate acquisition (anchor census to the wide-anchor step), giving the
+   candidate loci;
+2. split-junction reference competition, giving split-junction calls with
+   score >= 4;
+3. orientation-corrected two-sided mate-anchored search, giving
+   mate-anchored calls and the locus record;
+4. one-sided targets, exact host-seed routing and reference-discriminative
+   strict pair confirmation;
 5. insertion-specific junction discovery, exact-group location, group
    competition and locus linking;
-6. full TE-segment family certification of linked groups;
-7. repeat-aware leave-one-group-out divergence rescue and 2-LEFT + 2-RIGHT
-   reaggregation.
+6. full TE-segment family confirmation of the linked groups;
+7. the repeat-aware divergence step, which retains a group whose edits recur
+   in other groups (leave-one-group-out), and 2-LEFT + 2-RIGHT reaggregation.
 
-The emitted callset is split-junction calls, then mate-rescue calls, then
-repeat-aware rescue calls, exactly as frozen.
+The call set lists the split-junction calls, then the mate-anchored calls,
+then the repeat-aware calls.
 """
 
 from __future__ import annotations
@@ -79,14 +81,14 @@ class IncumbentInputs:
     te_index_prefix: Path | None = None
     threads: int = 1
     workers: int = 1
-    # Query names of the candidate-recall-repair host mapping (see
-    # ``recall_repair.RESCUE_READ_NAME_PROFILES``): ``pair`` in production.
+    # Query names of the wide-anchor host mapping (see
+    # ``recall_repair.RESCUE_READ_NAME_PROFILES``); the default is ``pair``.
     rescue_read_names: str = "pair"
-    # Optional complete routing with a partner-read gate (off = the frozen v1 first stage).
+    # Optional complete routing with a partner-read filter (off = the default panel only).
     complete_routing: bool = False
-    # Recall-repair resource limit (``recall_repair.MAX_RESCUE_INTERVAL_MASS`` by default).
+    # Work limit of the wide-anchor step (default ``recall_repair.MAX_RESCUE_INTERVAL_MASS``).
     max_rescue_interval_mass: int = 1_500_000
-    # Read length of the sample (bp): the window of the coverage panels and of recall repair.
+    # Read length of the sample (bp): the window of the coverage panels and of the wide-anchor step.
     read_length: int = 125
     # 95th and 99th percentiles of the sample's fragment size (bp); see ``sample_geometry``.
     fragment_q95: float = FRAGMENT_Q95
@@ -119,7 +121,7 @@ class IncumbentResult:
 
 
 def _fingerprint(inputs: IncumbentInputs) -> dict[str, object]:
-    """Identity of the scientific inputs a checkpoint was computed from."""
+    """Return the identity of the inputs a checkpoint was computed from."""
 
     def stat(path: Path | None) -> object:
         if path is None:
@@ -135,8 +137,8 @@ def _fingerprint(inputs: IncumbentInputs) -> dict[str, object]:
         "reference_fasta": stat(inputs.reference_fasta),
         "host_index_prefix": str(inputs.host_index_prefix),
     }
-    # Recorded only when not the default, so work directories created before
-    # the profile existed (all ``pair``) stay resumable.
+    # Recorded only when not the default, so the fingerprint of a default run
+    # has no extra key and its work directory stays resumable.
     if inputs.rescue_read_names != "pair":
         identity["rescue_read_names"] = inputs.rescue_read_names
     if inputs.complete_routing:
@@ -153,10 +155,10 @@ def _fingerprint(inputs: IncumbentInputs) -> dict[str, object]:
 
 
 class StageStore:
-    """Marker-last pickle checkpoints of completed incumbent stages.
+    """Pickle checkpoints of completed steps, with the completion marker written last.
 
     A checkpoint is reused only when its recorded input fingerprint equals the
-    current one; the files live inside the run's private work directory.
+    current one. The files live inside the run's private work directory.
     """
 
     def __init__(self, root: Path, fingerprint: dict[str, object]):
@@ -170,9 +172,9 @@ class StageStore:
         if data.is_file() and marker.is_file():
             recorded = json.loads(marker.read_text(encoding="utf-8"))
             if recorded.get("fingerprint") != self.fingerprint:
-                raise ResumeStateError(f"incumbent checkpoint {stage} was computed from different inputs")
+                raise ResumeStateError(f"checkpoint {stage} was computed from different inputs")
             if hashlib.sha256(data.read_bytes()).hexdigest() != recorded.get("sha256"):
-                raise ResumeStateError(f"incumbent checkpoint {stage} is corrupt")
+                raise ResumeStateError(f"checkpoint {stage} is corrupt")
             with data.open("rb") as handle:
                 return pickle.load(handle)
         value = compute()

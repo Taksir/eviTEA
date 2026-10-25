@@ -1,4 +1,4 @@
-"""Host-mate localization gate and resident pair families (stages G1F/G1G).
+"""Host-mate localization and resident pair families.
 
 Pairs with exactly one TE-positive mate send the *other* mate to Bowtie2
 (``-k 2 --very-sensitive``, query ``p{pair}|h{mate}``).  A mate is
@@ -57,7 +57,7 @@ class HostMapping:
 
 
 def one_mate_host_requests(panel: PairAwarePanel, index) -> dict[int, int]:
-    """``pair_id -> host file id`` for routed pairs with one TE-positive mate."""
+    """Return a ``pair_id`` to host file id map for routed pairs with one TE-positive mate."""
 
     files, pairs = index.file_and_pair(panel.read_ids)
     one = set(panel.pair_ids[panel.pair_read_counts == 1].tolist())

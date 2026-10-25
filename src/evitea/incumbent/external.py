@@ -1,8 +1,8 @@
-"""Frozen external-aligner invocations and SAM readers for the incumbent path.
+"""Bowtie2 invocations and SAM readers for the library layer.
 
 Bowtie2 seeds its per-read pseudo-random generator from the read name,
-sequence and qualities, so query names and option lists are part of the
-frozen semantics and are fixed here.
+sequence and qualities. Query names and option lists therefore change the
+output, and they are fixed here.
 """
 
 from __future__ import annotations
@@ -71,7 +71,7 @@ def cigar_ref_span(cigar: str, fallback: int) -> int:
 
 
 def parse_sam_records(path: Path) -> dict[str, list[dict[str, object]]]:
-    """Mapped SAM rows by query name (unmapped rows skipped)."""
+    """Return the mapped SAM rows by query name, skipping unmapped rows."""
 
     out: dict[str, list[dict[str, object]]] = defaultdict(list)
     with Path(path).open("r", encoding="utf-8", errors="strict") as handle:
