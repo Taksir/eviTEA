@@ -1,6 +1,6 @@
 """One candidate run -> one place (walk and decision), for the first pass and the haplotype scan.
 
-``process_place`` is ``_p4_lib.process`` (previous version) with these optional parts, each off by default:
+``process_place`` is ``_p4_lib.process`` with these optional parts, each off by default:
 
 * the walk start of the left walk ``left_strides`` words before the run, and the right anchor after the left break
   (``right_after_bL``, ``safe_right``): the haplotype scan (``scan.py``);
@@ -51,7 +51,7 @@ class PlaceContext:
 
 
 def _anchor_ok(pc, p, D):
-    """The plain walk-start test of ``_p4_lib.process`` (True = the start word may seed a walk)."""
+    """Return the plain walk-start test of ``_p4_lib.process`` (True = the start word may seed a walk)."""
     if p < 0:
         return False
     w = pc.ref[p:p + P.K]
@@ -89,7 +89,7 @@ def _firewall(pc, sides, bL):
 
 
 def _record(pl, lw, rw, rseg):
-    """The one-site check's inputs at each side that exists."""
+    """Record the one-site check's inputs at each side that exists."""
     if pl.get("lseg"):
         pl["chkL_T"] = lw["T"]
         pl["chkL_junction"] = lw["ctx"] + pl["lseg"][:INS_USE]
@@ -100,7 +100,7 @@ def _record(pl, lw, rw, rseg):
 
 def process_place(pc, cand, *, left_strides=1, right_after_bL=False, safe_right=False, walk_fn=P.walk, walkout=False,
                   fork=P.FORK):
-    """Walk and decision for one candidate. Returns (place, left walk dict, right walk dict or None); the walk dicts are for the caller
+    """Walk and decide one candidate. Return (place, left walk dict, right walk dict or None); the walk dicts are for the caller
     only. ``stage`` is where the place stopped: S2_through | S2_dead | S2_refN | S2_edge | S4_abstain | S4_reject | S4_pass."""
     C, ref, rm = pc.C, pc.ref, pc.rm
     if walkout and pc._paralog is None:
@@ -182,7 +182,7 @@ def process_place(pc, cand, *, left_strides=1, right_after_bL=False, safe_right=
 
 
 def _walk_out(pc, cand, D, a, b, why, lw):
-    """(left walk, right strides moved, repeat fraction, record) after moving the failing walk starts, or None."""
+    """Return (left walk, right strides moved, repeat fraction, record) after moving the failing walk starts, or None."""
     st = pc.stats
     st["walkout_tried"] += 1
     jl = _first_start(pc, D, a, -1) if "anchorL" in why else 0
@@ -207,9 +207,9 @@ def _walk_out(pc, cand, D, a, b, why, lw):
 
 
 def right_only_place(pc, cand, walk_fn_plain, walk_fn_follow, fork=P.FORK):
-    """Fallback R of the haplotype scan: the right walk alone from the plain anchor ``b = last + STRIDE`` (the plain walk; rerun
-    with the alternative-following walk if it ends through or dead after counting n_both >= 1). A right break forms a
-    one-sided place with bL = bR = the break. Returns (place or None, row or None, ran)."""
+    """Run the right-only fallback of the haplotype scan: the right walk alone from the plain anchor ``b = last + STRIDE``. The
+    plain walk is rerun with the alternative-following walk if it ends through or dead after counting n_both >= 1. A right break
+    forms a one-sided place with bL = bR = the break. Return (place or None, row or None, ran)."""
     C, ref, rm = pc.C, pc.ref, pc.rm
     b = cand["last"] + P.STRIDE
     rw, _, _, _ = right_walk_at(C, ref, cand, b, walk_fn_plain)

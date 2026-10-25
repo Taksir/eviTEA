@@ -1,13 +1,14 @@
 """The resident-copy test.
 
-New insertions land inside old TE copies at about the genome's TE share; differences between old copies of a family look like
-junctions in short reads. A library-free call inside an annotated reference TE copy is therefore not reported when its family's
-places lie inside such copies more than twice as often as the genome's TE share (``family``). The family condition switches the
-rule off where TEs cover most of the genome (a per-call rule alone would drop many real insertions there). ``per-call`` drops
-every call inside a copy. The test needs the reference's TE annotation; without one it is off.
+Non-reference TE insertions land inside old TE copies at about the genome's TE fraction. Differences between old copies of a
+family look like junctions in short reads. A library-free call inside an annotated reference TE copy is therefore not reported
+when its family's places lie inside such copies more than twice as often as the genome's TE fraction (``family``). The family
+condition switches the rule off where TEs cover most of the genome, because a per-call rule alone would drop many real
+insertions there. ``per-call`` drops every call inside a copy. The test requires the reference's TE annotation. Without one it
+is off.
 
 The annotation is read as a RepeatMasker ``.out`` table (lines of >= 15 fields whose first field is a number) or as a BED file
-(contig, 0-based start, end, ...). Copies are merged per contig; a position is inside a copy when begin <= position <= end.
+(contig, 0-based start, end, ...). Copies are merged per contig. A position is inside a copy when begin <= position <= end.
 """
 
 from __future__ import annotations
@@ -74,12 +75,12 @@ class CopyIndex:
         return j >= 0 and self.ends[chrom][j] >= x
 
     def share(self, total_bp: int) -> float:
-        """Annotated bases (merged) over ``total_bp`` bases of the reference."""
+        """Return the annotated bases (merged) over ``total_bp`` bases of the reference."""
         return self.bp / total_bp if total_bp else 0.0
 
 
 def family_inside(rows, copies: CopyIndex) -> dict[str, float]:
-    """cluster -> share of the family's family-call rows (any status) whose break lies inside an annotated copy."""
+    """Return cluster -> fraction of the family's family-call rows (any status) whose break lies inside an annotated copy."""
     n: dict[str, int] = defaultdict(int)
     k: dict[str, int] = defaultdict(int)
     for r in rows:
@@ -89,7 +90,7 @@ def family_inside(rows, copies: CopyIndex) -> dict[str, float]:
 
 
 def resident_flags(rows, copies: CopyIndex, share: float, mode: str):
-    """For each family-call row (text fields): (inside, family inside share, dropped)."""
+    """Return, for each family-call row (text fields), (inside, family inside fraction, dropped)."""
     fam = family_inside(rows, copies)
     out = []
     for r in rows:

@@ -2,9 +2,9 @@
 
 Detection runs one contig at a time (resumable: each contig's places are kept
 in the work directory with the identity they were computed from), then one
-grouping over all scanned contigs in the given order.  The family-call layer
+grouping over all scanned contigs in the given order. The family-call layer
 reads the written places and segments tables, so a detection can be reused
-with ``--detection-dir``.  The source run directory is only read.
+with ``--detection-dir``. The source run directory is only read.
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ def _sha256(path: Path) -> str:
 
 
 def _depth_cap_report():
-    """The absolute upper bound of the local-depth window (None = no upper bound)."""
+    """Return the absolute upper bound of the local-depth window (None = no upper bound)."""
 
     from .. import depth_window
 
@@ -69,7 +69,7 @@ def _peak_rss_gb() -> float | None:
 
 
 def combined_calls_tsv_bytes(native: bytes, added: bytes) -> bytes:
-    """EviTEA's native calls, then the added library-free calls: event_id, chr, start, end, family, source."""
+    """Return EviTEA's native calls, then the added library-free calls, with the columns event_id, chr, start, end, family, source."""
 
     lines = ["event_id\tchr\tstart\tend\tfamily\tsource"]
     for row in ShadowCallset.from_bytes(native).rows:
@@ -84,7 +84,7 @@ def combined_calls_tsv_bytes(native: bytes, added: bytes) -> bytes:
 
 
 def combined_calls_vcf_bytes(native: bytes, added: bytes, reference, sample_id: str) -> bytes:
-    """``calls.combined.vcf``: the library calls (as in ``calls.tsv``) and the added library-free calls, as VCF records."""
+    """Return ``calls.combined.vcf``: the library calls (as in ``calls.tsv``) and the added library-free calls, as VCF records."""
 
     calls = [*V.native_row_vcf_calls(ShadowCallset.from_bytes(native).rows), *V.library_free_vcf_calls(added)]
     fasta = Path(reference.reference_fasta_path)
@@ -94,7 +94,7 @@ def combined_calls_vcf_bytes(native: bytes, added: bytes, reference, sample_id: 
 
 
 def _code_sha256() -> str:
-    """One hash over the detection code: it is part of the identity of a saved scan piece."""
+    """Return one hash over the detection code. It is part of the identity of a saved scan piece."""
 
     here = Path(__file__).parent
     digest = hashlib.sha256()
@@ -105,7 +105,7 @@ def _code_sha256() -> str:
 
 def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: Sequence[str] | None, work: Path,
             progress: Callable[[str], None], opts: Options, mito_contig: str | None = None):
-    """Scan the contigs (resumable), then group each pass over all scanned contigs. Returns the tables of the first pass
+    """Scan the contigs (resumable), then group each pass over all scanned contigs. Return the tables of the first pass
     (places bytes, segments bytes), of the second scan (or None) and an info dict."""
 
     from ..backends.msbwt import load_msbwt
@@ -212,8 +212,8 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
 
 
 def _load_copies(opts: Options, reference, repeat_annotation, genome, progress, repeat_map=None, library_calls=None):
-    """(CopyIndex or None, bases of the reference) for the resident-copy test.  The repeat map stands in for the annotation of a run
-    in which the library layer made no call (``library_calls`` == 0), unless ``repeat_annotation`` is given."""
+    """Return (CopyIndex or None, bases of the reference) for the resident-copy test. The repeat map stands in for the annotation of a
+    run in which the library layer made no call (``library_calls`` == 0), unless ``repeat_annotation`` is given."""
 
     if opts.resident_guard == "off":
         return None, 0

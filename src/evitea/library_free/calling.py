@@ -1,7 +1,7 @@
-"""Family calls of the library-free detector: the v2 filter, rule c and the merge with EviTEA's calls.
+"""Family calls of the library-free detector: the reference-path filter, the family-identity filter and the merge with EviTEA's calls.
 
-Everything here reads the places table as text fields, exactly as the frozen
-research scorers read ``P4_PLACES.tsv`` (``p4_library_free/v2/code/v2_lib.py``,
+Everything here reads the places table as text fields, exactly as the research
+scorers read ``P4_PLACES.tsv`` (``p4_library_free/v2/code/v2_lib.py``,
 ``precision_diag/code/precb_run.py`` with ``v2_diag/code/v2diag_lib.py``).
 """
 
@@ -38,14 +38,14 @@ __all__ = [
     "v2_dropped",
 ]
 
-# rule c alignment (v2diag_lib): Smith-Waterman, match +2, mismatch -3, linear gap 5; N never matches
+# family-identity filter alignment (v2diag_lib): Smith-Waterman, match +2, mismatch -3, linear gap 5; N never matches
 MATCH, MISM, GAP = 2, -3, 5
 SEG_MIN = 60
 C_MINCOLS, C_MAXPAIRS, C_SEED = 50, 3000, 20261003
 _RC = str.maketrans("ACGTN", "TGCAN")
 
 
-# ------------------------------------------------------------------ detector v2 filter (v2_lib)
+# ------------------------------------------------------------------ reference-path filter (v2_lib)
 def _num(value) -> float | None:
     if value is None:
         return None
@@ -72,7 +72,7 @@ def e_value(fracL, fracR, rstat) -> float:
 
 
 def v2_dropped(e, t: float = T_E) -> bool:
-    """The v2 filter removes a call with e >= T_E; a value that is not a number is never removed."""
+    """Return True when the reference-path filter drops a call (e >= T_E). A value that is not a number is never dropped."""
 
     if e is None or (isinstance(e, float) and math.isnan(e)):
         return False
@@ -80,18 +80,18 @@ def v2_dropped(e, t: float = T_E) -> bool:
 
 
 def is_family_call(p: Mapping[str, str]) -> bool:
-    """V-TSD family call: S4_pass, not a duplicate, in a cluster, fam_vtsd 1."""
+    """Return True for a family call of a valid-TSD family: stage S4_pass, not a duplicate, in a cluster, fam_vtsd 1."""
 
     return p["stage"] == "S4_pass" and p["dup"] != "1" and p["cluster"] != "" and p["fam_vtsd"] == "1"
 
 
 def rule_c_dropped(c: float) -> bool:
-    """Rule c removes a call whose family similarity c <= RULE_C_MAX; NaN is never removed."""
+    """Return True when the family-identity filter drops a call whose family similarity c <= RULE_C_MAX. NaN is never dropped."""
 
     return not math.isnan(c) and c <= RULE_C_MAX
 
 
-# ------------------------------------------------------------------ rule c: within-family similarity (v2diag_lib)
+# ------------------------------------------------------------------ family-identity filter: within-family similarity (v2diag_lib)
 def rc(seq: str) -> str:
     return seq.translate(_RC)[::-1]
 
@@ -125,7 +125,7 @@ def _parasail():
 
 
 def sw(q: str, t: str) -> dict:
-    """parasail local alignment (striped, 16-bit), summarised as in the frozen research code."""
+    """Return a parasail local alignment (striped, 16-bit), summarized as in the research code."""
 
     if not q or not t:
         return dict(_NULL)
@@ -156,7 +156,7 @@ def sw(q: str, t: str) -> dict:
 
 
 def pair_identity(segs_a, segs_b, aligner: Callable | None = None):
-    """Identity of the best-scoring local alignment over all segment pairs and both strands; None below 50 columns."""
+    """Return the identity of the best-scoring local alignment over all segment pairs and both strands; None below 50 columns."""
 
     aligner = aligner or sw
     best = None
@@ -172,7 +172,7 @@ def pair_identity(segs_a, segs_b, aligner: Callable | None = None):
 
 
 def feat_c(member_segs, aligner: Callable | None = None, rng_seed: int = C_SEED):
-    """Median pair identity over a family's members (a seeded sample of 3,000 pairs above that); (c, pairs, used)."""
+    """Return (c, pairs, used): the median pair identity over a family's members (a seeded sample of 3,000 pairs above that)."""
 
     n = len(member_segs)
     pairs = [(i, j) for i in range(n) for j in range(i + 1, n)]
@@ -190,7 +190,7 @@ def feat_c(member_segs, aligner: Callable | None = None, rng_seed: int = C_SEED)
 
 
 def cluster_members(places: Sequence[Mapping[str, str]], segments: Mapping) -> dict[str, list[list[str]]]:
-    """cluster -> member segment lists (segments of >= 60 letters), members in table order (grouped places only)."""
+    """Return cluster -> member segment lists (segments of >= 60 letters), members in table order (grouped places only)."""
 
     out: dict[str, list[list[str]]] = defaultdict(list)
     for p in places:
@@ -204,7 +204,7 @@ def cluster_members(places: Sequence[Mapping[str, str]], segments: Mapping) -> d
 
 
 def family_similarity(places, segments, clusters: Iterable[str] | None = None, aligner: Callable | None = None):
-    """cluster -> (c, pairs, used) for the given clusters (default: clusters holding a V-TSD family call)."""
+    """Return cluster -> (c, pairs, used) for the given clusters (default: clusters holding a valid-TSD family call)."""
 
     members = cluster_members(places, segments)
     wanted = sorted({p["cluster"] for p in places if is_family_call(p)} if clusters is None else set(clusters), key=int)
@@ -213,7 +213,7 @@ def family_similarity(places, segments, clusters: Iterable[str] | None = None, a
 
 # ------------------------------------------------------------------ merge with EviTEA's calls
 class CallIndex:
-    """EviTEA calls per contig; ``near`` = some call [start, end] within ``tol`` bases of x (0 inside)."""
+    """EviTEA calls per contig. ``near`` is true when some call [start, end] lies within ``tol`` bases of x (0 inside)."""
 
     def __init__(self, calls: Mapping[str, Iterable[tuple[int, int]]], tol: int = NEAR_EVITEA_BP):
         self.tol = tol
@@ -268,8 +268,8 @@ ADDED_CALL_COLUMNS = ("event_id", "chr", "start", "end", "family", "cluster", "b
 
 def family_calls(places: Sequence[Mapping[str, str]], evitea: CallIndex, c_by_cluster: Mapping[str, tuple],
                  *, rule_c: bool) -> tuple[FamilyCall, ...]:
-    """One row per V-TSD family call, table order. Status: DROPPED_V2, then DROPPED_RULE_C (rule c on), then
-    NEAR_EVITEA (an EviTEA call within 500 bp of bL), else ADDED."""
+    """Return one row per valid-TSD family call, in table order. The status is DROPPED_V2 (reference-path filter), then
+    DROPPED_RULE_C (family-identity filter, when on), then NEAR_EVITEA (an EviTEA call within 500 bp of bL), else ADDED."""
 
     out = []
     for i, p in enumerate(places):
@@ -314,7 +314,7 @@ def family_calls_tsv_bytes(rows: Iterable[FamilyCall]) -> bytes:
 
 
 def added_calls_tsv_bytes(rows: Iterable[FamilyCall], *, sample_id: str = "") -> bytes:
-    """The added calls; the call interval is [bL, bL + 1), as in the frozen scored union."""
+    """Return the added calls. The call interval is [bL, bL + 1), as in the scored union of the research code."""
 
     del sample_id  # reserved: ids are made unique per contig and position
     seen: dict[str, int] = defaultdict(int)

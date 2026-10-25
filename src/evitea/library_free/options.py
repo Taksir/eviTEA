@@ -1,5 +1,5 @@
-"""Switches of the library-free layer.  Every new rule is a switch; ``Options.previous()`` has them all off, and with them all off
-the layer with ``--depth-cap 100`` (the previous version's window) gives the previous version's files byte for byte.  Names say what each part does.
+"""Switches of the library-free layer. Every rule is a switch. ``Options.previous()`` has them all off. With them all off and
+``--depth-cap 100``, the layer gives the files of the layer without these rules, byte for byte. Names say what each part does.
 
 Rules (see LIBRARY_FREE_OPTIONS.md):
   anchored extension   build the inserted DNA from reads of one site only, where the plain extension stops short
@@ -8,7 +8,7 @@ Rules (see LIBRARY_FREE_OPTIONS.md):
   het scan             a second scan that follows both letters at a het SNP (modes safe-start, second-walk, full)
   identity evidence    the family-identity filter judges a family only on enough member comparisons
   relative depth floor the lower bound of the local-depth window is the smaller of 10 reads and half the contig's median local depth
-  one-site check       a library-free call is kept only if its junction is new sequence at single-copy depth
+  one-site check       a library-free call is kept only if its junction is absent from the reference and read at single-copy depth
   resident-copy test   a library-free call inside an annotated reference TE copy is dropped when its family sits mostly in such copies
 """
 
@@ -59,7 +59,7 @@ class Options:
 
     @classmethod
     def previous(cls) -> "Options":
-        """Every new rule off: the previous version's behaviour."""
+        """Return the options with every rule switch off."""
         return cls(anchored_extension=False, walk_out=False, first_pass_priority=False, polya_cross=False, polya_tsd=False,
                    het_scan="off", early_start=False, right_fallback=False, second_scan_anchored=False, second_chance=False,
                    het_yield=False,
@@ -72,12 +72,12 @@ class Options:
 
     @property
     def first_pass_changed(self) -> bool:
-        """Does the first-pass detection differ from the previous version (needs the extra place columns)?"""
+        """Return whether the first-pass detection differs from the one with every switch off (which needs the extra place columns)."""
         return self.anchored_extension or self.walk_out or self.polya_cross
 
     @property
     def detection_identity(self) -> dict:
-        """The switches that change what a detection writes (part of the identity of a saved scan piece)."""
+        """Return the switches that change what a detection writes (part of the identity of a saved scan piece)."""
         keys = ("anchored_extension", "walk_out", "polya_cross", "het_scan", "second_chance", "early_start", "right_fallback",
                 "second_scan_anchored", "relative_depth_floor")
         return {**{k: getattr(self, k) for k in keys}, "record_check": self.check_scope != "none"}
@@ -114,8 +114,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     for flag, dest, default, text in SWITCHES:
         g.add_argument(flag, dest=dest, choices=("on", "off"), default=None, help=f"{text} (default {default})")
     g.add_argument("--identity-min-comparisons", type=int, default=None, metavar="N",
-                   help="the family-identity filter judges a family only on at least N member comparisons (the frozen-extension members when they give N, "
-                        "otherwise all members); a family with fewer is not judged and the one-site check and the resident-copy test decide. "
+                   help="the family-identity filter judges a family only on at least N member comparisons (the members with plain-extension segments when they give N, "
+                        "otherwise all members); a family with fewer is not judged, and the one-site check and the resident-copy test decide. "
                         "0 judges on whatever comparisons exist (default 3)")
     g.add_argument("--het-scan", choices=HET_MODES, default=None,
                    help="second scan that follows both letters at a het SNP: off | safe-start (safe left start) | second-walk (+ second-chance walk) | "
@@ -134,7 +134,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                    help="repeat map of the reference (evitea build-repeat-map) for the resident-copy test of a run without a library: used when "
                         "the library layer made no call and no --repeat-annotation is given; ignored when it made calls")
     g.add_argument("--previous-behaviour", action="store_true",
-                   help="every new rule off (the previous version's behaviour); other switches given on the command line still apply")
+                   help="every rule switch off; other switches given on the command line still apply")
 
 
 def from_args(args: argparse.Namespace) -> Options:
