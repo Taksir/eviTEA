@@ -1,7 +1,7 @@
-# Run the clean v3 extension engine (AnchorPE -> full memory -> INTERNAL21) on
+# Run the extension layers (paired-end anchor support, full memory, internal 21-mer) on
 # AKA017 and ISO1 from the prepared msBWTs; compare every stage and the
-# bilateral / asymmetric / full-memory / INTERNAL21 layers with the frozen
-# Route-B v3 results.  Resumable (reuses finished stages in -Work).
+# bilateral / asymmetric / full-memory / internal 21-mer layers with the fixed
+# reference results (-RouteBV2, -RouteBV3).  Resumable (reuses finished stages in -Work).
 #
 #   powershell -ExecutionPolicy Bypass -File .\tools\windows\VALIDATE_V3_EXTENSION.ps1
 [CmdletBinding(PositionalBinding = $false)]

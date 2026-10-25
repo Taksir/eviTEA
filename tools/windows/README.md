@@ -22,8 +22,8 @@ does not alter package or scientific configuration; it exists because the
 managed development environment may deny Python build hooks access to their
 private temporary directories.
 
-Run the clean incumbent (R9E) engine end to end on one development sample and
-compare every stage with the frozen Route-B artifacts (resumable; needs the author's private development
+Run the library layer (repeat-aware calls) end to end on one development sample and
+compare every stage with the fixed reference artifacts (resumable; requires the author's private development
 datasets, see `validation/README.md`):
 
 ```powershell
@@ -32,32 +32,32 @@ powershell -ExecutionPolicy Bypass -File .\tools\windows\VALIDATE_INCUMBENT.ps1 
 ```
 
 `-Sample ISO1` (default) compares with `TE_locator_route_b_v2\reports` and the
-frozen ISO1 R9E (192 rows, `b3e48681…`) and uses the ISO1 recall-repair query
+fixed ISO1 library-layer result (192 rows, `b3e48681...`) and uses the ISO1 wide-anchor query
 names `{pid}`; work directory `<work-dir>`.
 Pass `-Workers N` and any `run_incumbent_validation.py` option after the named
-parameters.  Verdict: `INCUMBENT_EQUIVALENCE_PASS` in
+parameters.  Expected result: `INCUMBENT_EQUIVALENCE_PASS` in
 `<Work>\INCUMBENT_VALIDATION_REPORT.json`.  If native Windows Bowtie2 rejects
-the all-numeric ISO1 recall-repair names, pass `--bowtie2 <WSL/Linux bowtie2 wrapper>`.
+the all-numeric ISO1 wide-anchor names, pass `--bowtie2 <WSL/Linux bowtie2 wrapper>`.
 
-Check the v3 language builders (codebooks) against the frozen tables (~10 min,
+Check the language builders (codebooks) against the fixed tables (~10 min,
 no sample data):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\tools\windows\VALIDATE_LANGUAGES.ps1 -Cache <cache-dir> -RouteBV3 <route-b-v3-dir>
 ```
 
-Verdict: `LANGUAGE_BUILDER_EQUIVALENCE_PASS` in
+Expected result: `LANGUAGE_BUILDER_EQUIVALENCE_PASS` in
 `<cache-dir>\LANGUAGE_EQUIVALENCE.json`.
 
 ## End-to-end `evitea call` validation (both samples)
 
 Runs the public pipeline exactly as a user would: `prepare-reference`
-(adopting the frozen dm6 Bowtie2 index), `prepare-te --build-languages`
-(building both v3 codebooks with EviTEA and checking them against the frozen
-codebooks; `-Languages supplied` binds the frozen files instead), then `evitea call --msbwt-index <msBWT> --profile <sample>` on
-ISO1 and AKA017, and checks the SHA-256 after every layer (R9E incumbent,
-bilateral, asymmetric, full memory, INTERNAL21) plus `calls.native.tsv`
-against the frozen callsets (AKA017 838 `6432c8e1…`, ISO1 194 `9e538d74…`).
+(adopting the fixed dm6 Bowtie2 index), `prepare-te --build-languages`
+(building both codebooks with EviTEA and checking them against the fixed
+codebooks; `-Languages supplied` binds the fixed files instead), then `evitea call --msbwt-index <msBWT> --profile <sample>` on
+ISO1 and AKA017, and checks the SHA-256 after every layer (library layer,
+bilateral, asymmetric, full memory, internal 21-mer) plus `calls.native.tsv`
+against the fixed call sets (AKA017 838 `6432c8e1...`, ISO1 194 `9e538d74...`).
 Resumable; rerun the same command after an interruption.
 
 ```powershell
@@ -65,7 +65,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\windows\VALIDATE_EVITEA_CALL.ps
 ```
 
 Options: `-Samples ISO1` (one sample), `-Work <work-dir>`,
-`-Threads 8`, `-Workers N`, `-EdlibPython <python with edlib>`.  Verdict file:
+`-Threads 8`, `-Workers N`, `-EdlibPython <python with edlib>`.  Result file:
 `<Work>\EVITEA_CALL_END_TO_END_EQUIVALENCE.json`
 (`EVITEA_CALL_END_TO_END_EQUIVALENCE_PASS`).
 

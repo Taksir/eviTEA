@@ -25,5 +25,5 @@ if [ -n "${DS:-}" ]; then
   IDX=$EVITEA_WORK/$IDX; RUN=$EVITEA_WORK/$RUN
 fi
 CONTIGS=${CONTIGS:-${CT:-}}
-# the option that drops families of old, diverged copies (family-identity filter); its present name
+# the option that drops families of old, diverged copies (the family-identity filter)
 FAMILY_IDENTITY_FILTER=--rule-c

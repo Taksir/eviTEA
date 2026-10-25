@@ -1,8 +1,8 @@
 #!/bin/bash
-# `evitea run` against the separate commands on the synthetic data set, with a library (and library-free) and without one
-# (against tools/no_library.sh), the latter once with the curated annotation and once without any (the repeat map stands
-# in). The outputs must be identical.
-#   bash tools/synthetic/compare_run.sh [WORK]          (PYTHON=python3; Bowtie2, BLAST+, mappy and parasail needed)
+# Compares `evitea run` with the equivalent separate commands on the synthetic data set. The comparison covers a run with a
+# library (and library-free) and a run without one (against tools/no_library.sh). The run without a library is done once with
+# the curated annotation and once with none, where the repeat map stands in. The outputs must be identical.
+#   bash tools/synthetic/compare_run.sh [WORK]          (PYTHON=python3; requires Bowtie2, BLAST+, mappy and parasail)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 HERE=$PWD

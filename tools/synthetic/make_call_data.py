@@ -1,5 +1,5 @@
 """Small synthetic data set for `evitea call`: a reference, a TE library with its family map and reference copies,
-and paired reads of a sample that carries new TE insertions.
+and paired reads of a sample that carries non-reference TE insertions.
 
     python tools/synthetic/make_call_data.py OUTPUT_DIR [--read-length 125] [--fragment-mean 350] [--fragment-sd 40]
                                                         [--depth 30] [--seed 11] [--naming flybase|plain]
@@ -81,7 +81,7 @@ def main() -> None:
         if f == 0:
             first_base = base
         elif f >= 50:
-            # the last ten families share 120 bp ends with the first, so their own end words are not family-specific
+            # the last ten families share 120 bp ends with the first, so their own end k-mers are not family-specific
             base = first_base[:120] + base[120:-120] + first_base[-120:]
         variant = "".join(rng.choice(BASES) if rng.random() < 0.03 else b for b in base)
         for name, seq in ((records[2 * f], base), (records[2 * f + 1], variant)):
@@ -101,7 +101,7 @@ def main() -> None:
             at = (slot + 1) * args.contig_length // 5
             seq = seq[:at] + copy + seq[at + len(copy):]
             annotation.append((contig, at, at + len(copy), name, strand))
-        # 14 near-identical copies of one record per contig: a high-copy family, as real genomes have (its words then
+        # 14 near-identical copies of one record per contig: a high-copy family, as real genomes have (its k-mers then
         # occur more than 512 times in the reads, which the library layer's widest panel is meant for)
         slots = [start for where, start, _, _, _ in annotation if where == contig]
         spots = [at for at in range(2_000, args.contig_length - 3_000, 5_000) if all(abs(at - s) > 6_000 for s in slots)]
@@ -116,7 +116,7 @@ def main() -> None:
     if args.mito:
         reference[args.mito] = rnd(rng, 16_000)
 
-    # Sample: new insertions (5 bp TSD) on the nuclear contigs, away from the resident copies.
+    # Sample: non-reference insertions (5 bp TSD) on the nuclear contigs, away from the resident copies.
     sample = dict(reference)
     truth: list[tuple[str, int, str, str, str]] = []
     per_contig: dict[str, list[int]] = {c: [] for c in contigs}

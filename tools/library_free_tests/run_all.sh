@@ -1,7 +1,6 @@
 #!/bin/bash
-# All public tests. Needs a python with mappy, parasail and numpy as $PYTHON.
+# All public tests. Requires a python with mappy, parasail and numpy as $PYTHON.
 # PREVIOUS_SRC (the src folder of the previous version) enables the byte-for-byte comparisons; they are skipped without it.
-# The development comparisons with reference implementations (place, het scan, priority, check) are not part of this repository.
 cd "$(dirname "$0")/../.." || exit 1
 PYTHON=${PYTHON:-python3}
 export PYTHONPATH=src

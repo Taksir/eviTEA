@@ -16,7 +16,7 @@ Jobs refuse to run on a login node.
 
 | Script | What it does |
 |---|---|
-| `tests.sbatch` | the public tests of `tools/library_free_tests`, in the container (2 CPUs, 8 GB, 2 h); the repeat-map build checks need BLAST+ (`BLAST_BIN` in `site.sh`) and are skipped without it |
+| `tests.sbatch` | the public tests of `tools/library_free_tests`, in the container (2 CPUs, 8 GB, 2 h); the repeat-map build checks require BLAST+ (`BLAST_BIN` in `site.sh`) and are skipped without it |
 | `detect.sbatch` | one `evitea library-free` run (2 CPUs, 16 GB, up to 12 h); variables are listed at the top of the script |
 | `records.sbatch` | `build-family-records` then `prepare-te` for one sample (8 CPUs, 96 GB, 3 h) |
 | `repeat_map.sbatch` | `build-repeat-map`: the repeat map of the reference for runs without a library (8 CPUs, 8 GB, 3 h) |
@@ -39,14 +39,14 @@ Jobs refuse to run on a login node.
 4. **Depth window.** Run a sample with `DEPTHCAP=100` and without, and list the places whose outcome changes with `tools/depth_cap_changes.py --old A/library_free_places.tsv --new B/library_free_places.tsv`.
 5. **Single switches.** Each run with one switch off shows what that part contributes. `OPTS` examples: `--het-scan off`; `--anchored-extension off --walk-out off`; `--walk-out off`; `--check-scope none --resident-guard off`.
 6. **Regrouping from saved pieces.** To change only grouping or assembly switches, reuse the scan pieces of a finished run: `WORK=$EVITEA_OUT/work/<DS>_default REGROUP=1 TAG=<label> OPTS="..." DS=<sample> sbatch $S/detect.sbatch`. With `REGROUP=1` the job stops instead of scanning again if the switches, the code or the inputs differ from the saved pieces. Switches to vary this way: `--check-scope path-dropped`, `--tol p95`, `--tol-source own-calls`, `--resident-guard per-call`, `--resident-guard off`, `--first-pass-priority off`, `--het-yield off`, `--polya-tsd on`. `RUNDIR` points a regrouped run at another library run.
-7. **Family records.** `DS=<sample> SRC=$EVITEA_OUT/runs/<run folder> sbatch $S/records.sbatch`, with `RM=<RepeatMasker table>` for the record guard. Then run the library layer once more on the new assets (`evitea call` with the sample's own command line, changing only `--te-assets`, `--output` and `--work-dir`) and add its calls with `python3 -m evitea add-record-calls --calls <run>/calls.native.tsv --base-calls <run folder>/library_free/calls.combined.tsv --records <records folder>/lib --output <out>`.
+7. **Family records.** `DS=<sample> SRC=$EVITEA_OUT/runs/<run folder> sbatch $S/records.sbatch`, with `RM=<RepeatMasker table>` for the record guard. Then run the library layer once more on the record assets (`evitea call` with the sample's own command line, changing only `--te-assets`, `--output` and `--work-dir`) and add its calls with `python3 -m evitea add-record-calls --calls <run>/calls.native.tsv --base-calls <run folder>/library_free/calls.combined.tsv --records <records folder>/lib --output <out>`.
    **Reproduction of the record builder.** Run it on the saved first-pass tables of a sample (`SRC=<saved run> FLAG=both FC="<the three saved family-call tables>" SEGFILE=<the saved segments file>`, no `RM`): `te_library.fa` and `family_map.tsv` must have the checksums of the earlier build. Then run it once more with `RM=<RepeatMasker table>`: `records_summary.json` lists `skipped_guard` (families that get no record) with `te_share` and `threshold`.
 
 ## Runs without a library
 
-`DS=<sample> bash $EVITEA_CODE/tools/slurm/no_library.sh`, run from `$EVITEA_OUT` on a login node (it only submits). It needs BLAST+ in the image or `BLAST_BIN` in `site.sh`. Jobs:
+`DS=<sample> bash $EVITEA_CODE/tools/slurm/no_library.sh`, run from `$EVITEA_OUT` on a login node (it only submits). It requires BLAST+ in the image or `BLAST_BIN` in `site.sh`. Jobs:
 
-1. `repeat_map.sbatch`, only if `$MAPDIR/repeat_map.bed` (default `$EVITEA_OUT/repeat_map`) does not exist. The map is per reference; it aligns the sample's default contigs (`CONTIGS` overrides; without a sample, the contigs of 1 Mb or more).
+1. `repeat_map.sbatch`, only if `$MAPDIR/repeat_map.bed` (default `$EVITEA_OUT/repeat_map`) does not exist. The map is per reference. It aligns the sample's default contigs (`CONTIGS` overrides; without a sample, the contigs of 1 Mb or more).
 2. `detect.sbatch` with `NOLIB=1 REPEAT_MAP=<bed>`: the library layer's calls are an empty table (a stub of the sample's library run under `$EVITEA_OUT/nolib/<DS>_stub`: the header line of `calls.native.tsv` and the sample id), the family-identity filter is on, all other switches at their defaults (99th-percentile tolerance from the layer's own two-sided calls, one-site check, resident-copy test with the map).
 3. `records.sbatch` with `FLAG=kept REPEAT_MAP=<bed>` on that run (consensus records of the surviving families; record guard with the map), then `prepare-te`.
 4. `record_pass.sbatch`: `evitea call` with the command line recorded in the sample's library run (`run_manifest.json`; only `--te-assets`, `--output` and `--work-dir` change), then `add-record-calls` against the detection's `library_free/calls.combined.tsv`. The result is `record_pass/<DS>_<job>/added/calls.combined.tsv`.

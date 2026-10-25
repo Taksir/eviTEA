@@ -1,15 +1,15 @@
-# Run the clean incumbent (R9E) engine end to end on one development sample and
-# compare every stage with the frozen Route-B artifacts. Resumable: rerun the
+# Run the library layer (repeat-aware calls) end to end on one development sample and
+# compare every stage with the fixed reference artifacts. Resumable: rerun the
 # same command after an interruption and completed stages are reused from the
 # work directory.
 #
-#   ISO1   (frozen R9E 192 rows, b3e48681...; stage oracles TE_locator_route_b_v2\reports)
-#   AKA017 (frozen R9E 792 rows, 1d1110f9...; stage oracles AKA017\route_b_r9e_validation_full55x)
+#   ISO1   (fixed library-layer result 192 rows, b3e48681...; expected stage outputs in TE_locator_route_b_v2\reports)
+#   AKA017 (fixed library-layer result 792 rows, 1d1110f9...; expected stage outputs in AKA017\route_b_r9e_validation_full55x)
 #
 #   powershell -ExecutionPolicy Bypass -File .\tools\windows\VALIDATE_INCUMBENT.ps1 -Sample ISO1
 #   powershell -ExecutionPolicy Bypass -File "...\VALIDATE_INCUMBENT.ps1" -Sample AKA017 -Workers 6
 #
-# Expected verdict: INCUMBENT_EQUIVALENCE_PASS in <Work>\INCUMBENT_VALIDATION_REPORT.json
+# Expected result: INCUMBENT_EQUIVALENCE_PASS in <Work>\INCUMBENT_VALIDATION_REPORT.json
 [CmdletBinding(PositionalBinding = $false)]
 param(
     [string]$Python = "python",

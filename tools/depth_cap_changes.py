@@ -1,9 +1,9 @@
-"""List every place whose outcome differs between two library-free detections of the same sample (for example the same
-reads run with --depth-cap 100 and with no cap), and every place whose local depth D is above a bound.
+"""List every place whose outcome differs between two library-free detections of the same sample, and every place whose local
+depth D is above a bound. An example is the same reads run with --depth-cap 100 and with no cap.
 
 usage: depth_cap_changes.py --old PLACES_OLD.tsv --new PLACES_NEW.tsv [--above 100] [--out changes.tsv]
-Both files are library_free_places.tsv.  Places are matched on (chrom, first, last).  Output columns: chrom, first, last, D, then
-the old and the new stage, why and bL, and the kind of change (new_only, old_only, stage, why, bL).  Standard library only.
+Both files are library_free_places.tsv. Places are matched on (chrom, first, last). Output columns: chrom, first, last, D, then
+the old and the new stage, why and bL, and the type of change (new_only, old_only, stage, why, bL). Uses the standard library only.
 """
 import argparse
 import csv

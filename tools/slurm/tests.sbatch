@@ -1,5 +1,5 @@
 #!/bin/bash
-# The public tests, in the container. Needs EVITEA_WORK (and EVITEA_OUT, EVITEA_CODE if not at their defaults) exported.
+# The public tests, in the container. Requires EVITEA_WORK (and EVITEA_OUT, EVITEA_CODE if not at their defaults) exported.
 # Submit from $EVITEA_OUT (mkdir -p logs first):  sbatch tools/slurm/tests.sbatch
 #SBATCH --job-name=evitea_tests
 #SBATCH --partition=small

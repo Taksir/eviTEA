@@ -1,5 +1,5 @@
-# Validation-only probe: run the frozen ISO-1 AnchorPE transfer procedure
-# unchanged on AKA-017 and compare with AKA-017's frozen AnchorPE candidates.
+# Validation-only probe: run the ISO-1 paired-end anchor support transfer procedure
+# unchanged on AKA-017 and compare with the fixed paired-end anchor support candidates of AKA-017.
 # Resumable: rerun the same command after an interruption.
 #
 #   powershell -ExecutionPolicy Bypass -File .\tools\windows\PROBE_ISO_PROCEDURE_AKA017.ps1

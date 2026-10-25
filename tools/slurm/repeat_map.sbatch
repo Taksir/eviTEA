@@ -1,6 +1,6 @@
 #!/bin/bash
 # The repeat map of the reference (evitea build-repeat-map): BLAST+ alignment of 500 bp windows of the chosen contigs to the whole
-# reference. One map per reference; every run without a library reads it. Needs BLAST+ in the image or BLAST_BIN in site.sh.
+# reference. One map per reference; every run without a library reads it. Requires BLAST+ in the image or BLAST_BIN in site.sh.
 # Writes $MAPDIR/repeat_map.bed (default MAPDIR=$EVITEA_OUT/repeat_map) and refuses to replace one.
 # Set before sbatch:
 #   CONTIGS  comma-separated contigs to align (default: the contigs of 1 Mb or more, those library-free scans by default)

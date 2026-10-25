@@ -1,6 +1,6 @@
 #!/bin/bash
 # The library layer once more on the family records (evitea call with the sample's own command line, only --te-assets, --output
-# and --work-dir changed), then add-record-calls: the record calls that are new join the existing call set.
+# and --work-dir changed), then add-record-calls, which adds the record calls not yet in the existing call set.
 # Set before sbatch:
 #   DS    sample name (its library run's run_manifest.json gives the command line)
 #   REC   the records.sbatch output folder (records/<DS>_<job>)

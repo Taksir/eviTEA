@@ -1,15 +1,15 @@
 #!/bin/bash
-# The run without a library, as one plain shell chain (no Slurm): repeat map (once per reference), detection with an empty
-# library call set, family records with the same map, and the record pass. The same steps as tools/slurm/no_library.sh and as
-# `evitea run --no-library`, in the same order and with the same arguments.
+# Runs EviTEA without a library as one plain shell chain (no Slurm). The steps are: repeat map (once per reference), detection
+# with an empty library call set, family records with the same map, and the record pass. The steps, order and arguments match
+# tools/slurm/no_library.sh and `evitea run --no-library`.
 #
 #   ASSETS=<prepared reference assets> SAMPLE=<prepared sample assets> DS=<sample id> OUT=<new folder> \
 #     [CONTIGS=chr1,chr2] [MAPDIR=<repeat map folder>] [CALL_OPTS="--threads 8"] [PYTHON=python3] bash tools/no_library.sh
-# or, with no repeat annotation at all, REFERENCE=<reference FASTA> instead of ASSETS: the repeat map is built from the FASTA
-# first and its BED6 copy (repeat_map_bed6.bed) is the annotation of the reference prepared in $OUT/reference (as
-# `evitea run --no-library` does without --repeat-annotation).
+# or, with no repeat annotation at all, REFERENCE=<reference FASTA> instead of ASSETS. The script builds the repeat map from the
+# FASTA first. Its BED6 copy (repeat_map_bed6.bed) becomes the annotation of the reference prepared in $OUT/reference, as in
+# `evitea run --no-library` without --repeat-annotation.
 #
-# The map is built only when $MAPDIR/repeat_map.bed (default $OUT/repeat_map) does not exist yet; it needs BLAST+ on PATH.
+# The map is built only when $MAPDIR/repeat_map.bed (default $OUT/repeat_map) does not exist. Building it requires BLAST+ on PATH.
 # The result is $OUT/record_pass/added/calls.combined.tsv.
 set -euo pipefail
 : "${SAMPLE:?set SAMPLE}" "${DS:?set DS}" "${OUT:?set OUT}"

@@ -1,6 +1,6 @@
-# Ported v3 language builders (probe sets / codebooks) against the frozen
-# Route-B v3 tables: every stage in isolation, then the whole chain from the
-# regenerated G1A catalogue.  Expected verdict LANGUAGE_BUILDER_EQUIVALENCE_PASS
+# Language builders (probe sets / codebooks) against the fixed reference
+# tables (-RouteBV3): every stage in isolation, then the whole chain from the
+# regenerated G1A catalogue.  Expected result LANGUAGE_BUILDER_EQUIVALENCE_PASS
 # in <Cache>\LANGUAGE_EQUIVALENCE.json (final terminal d631f16a..., internal-only
 # 44b98960...).  About 10 minutes; no sample data are read.
 #

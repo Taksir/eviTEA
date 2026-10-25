@@ -1,11 +1,11 @@
-"""Compare two tab-separated tables (or two FASTA files) and say whether they are the same.
+"""Compare two tab-separated tables (or two FASTA files) and report whether they are the same.
 
 usage: python table_diff.py A B [--ignore col,col,...] [--key col,col]
 
-Columns named by --ignore are left out of the comparison (columns that exist in one table only, such as the recorded
-one-site-check inputs, are left out by name). Without --key the rows are compared in file order; with --key they are matched by
-the key columns first. Prints: equal rows, differing rows, rows only in A, rows only in B, and the first differences.
-Exit status 0 when the two are the same, 1 otherwise.
+Columns named by --ignore are left out of the comparison. Use it for columns that exist in one table only, such as the recorded
+one-site-check inputs. Without --key the rows are compared in file order. With --key they are matched by the key columns first.
+Prints the number of equal rows, differing rows, rows only in A and rows only in B, then the first differences.
+Exit status is 0 when the two are the same, 1 otherwise.
 """
 import argparse
 import csv

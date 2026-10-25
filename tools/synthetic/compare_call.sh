@@ -1,12 +1,12 @@
 #!/bin/bash
-# The library layer (evitea call) of this version and of a previous one on the same synthetic sample, compared byte for byte.
+# Compares the library layer (evitea call) of this version and of a previous one on the same synthetic sample, byte for byte.
 #   PREVIOUS_SRC=<src folder of the previous version> bash tools/synthetic/compare_call.sh [WORK]
-# Needs Bowtie2 on PATH and a python ($PYTHON, default python3) with pymsbwt and numpy. Takes about 10 minutes on 4 CPUs.
+# Requires Bowtie2 on PATH and a python ($PYTHON, default python3) with pymsbwt and numpy. Takes about 10 minutes on 4 CPUs.
 # Both versions get the same prepared sample (built by this version: every msBWT package builds the same index) and run
-# prepare-reference, prepare-te --build-languages and call. This version is given the development values
-# (--read-length 125 --fragment-q95 494 --fragment-q99 805 --primary-contigs chr2L,chr2R,chr3L,chr3R,chrX); the TE
-# languages, their audit tables, calls.native.tsv, calls.tsv, calls.bed, unresolved.tsv, run_summary.json and run.log must
-# then be identical. run_manifest.json is not compared (it records times, paths and the values used).
+# prepare-reference, prepare-te --build-languages and call. This version is given the values
+# --read-length 125 --fragment-q95 494 --fragment-q99 805 --primary-contigs chr2L,chr2R,chr3L,chr3R,chrX.
+# Then the TE languages, their audit tables, calls.native.tsv, calls.tsv, calls.bed, unresolved.tsv, run_summary.json and
+# run.log must be identical. run_manifest.json is not compared: it records times, paths and the values used.
 set -euo pipefail
 : "${PREVIOUS_SRC:?set PREVIOUS_SRC to the src folder of the previous version}"
 cd "$(dirname "$0")/../.."

@@ -1,5 +1,5 @@
-"""The arguments of the `evitea call` command recorded in a run's run_manifest.json, with --te-assets, --output and --work-dir replaced,
-as NUL-separated words (for `mapfile -d ''`).   usage: call_args.py <run_manifest.json> <te-assets> <output> <work-dir>"""
+"""Print the arguments of the `evitea call` command recorded in a run's run_manifest.json, with --te-assets, --output and --work-dir
+replaced, as NUL-separated words (for `mapfile -d ''`).   usage: call_args.py <run_manifest.json> <te-assets> <output> <work-dir>"""
 import json
 import sys
 
@@ -7,7 +7,7 @@ SET = ("--te-assets", "--output", "--work-dir")
 
 
 def recorded_command_line(document):
-    """The command line of a run_manifest.json: under "values" in a real manifest (architecture_id, schema_version, values)."""
+    """Return the command line of a run_manifest.json, found under "values" in a full manifest (architecture_id, schema_version, values)."""
     for holder in (document.get("values"), document):
         if isinstance(holder, dict) and isinstance(holder.get("command_line"), list):
             return holder["command_line"]
