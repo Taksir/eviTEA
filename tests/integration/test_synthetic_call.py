@@ -57,13 +57,13 @@ def test_synthetic_insertions_are_called_with_their_families(tmp_path: Path, cas
     truth = _rows(run / "data" / "truth_insertions.tsv")
     calls = _rows(run / "call" / "calls.tsv")
     found = {
-        (t["contig"], t["family"])
+        (t["contig"], int(t["position0"]))
         for t in truth
         for c in calls
         if c["chrom"] == t["contig"] and c["family"] == t["family"]
         and int(c["start"]) - 20 <= int(t["position0"]) <= int(c["end"]) + 20
     }
-    assert len(found) == len(truth), sorted({(t["contig"], t["family"]) for t in truth} - found)
+    assert len(found) == len(truth), sorted({(t["contig"], int(t["position0"])) for t in truth} - found)
     assert len(calls) == len(truth)
     values = json.loads((run / "call" / "run_manifest.json").read_text(encoding="utf-8"))["values"]
     parameters = values["run_parameters"]
