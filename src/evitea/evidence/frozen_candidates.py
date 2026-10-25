@@ -1,4 +1,4 @@
-"""Build truth-blind safe 21-mer languages from the frozen G1A universe."""
+"""Build truth-blind safe 21-mer codebooks from the hash-checked anchor catalogue archive."""
 
 from __future__ import annotations
 
@@ -61,40 +61,40 @@ def sha256_file(path: str | Path) -> str:
             for block in iter(lambda: handle.read(1024 * 1024), b""):
                 digest.update(block)
     except OSError as exc:
-        raise InputContractError(f"cannot read frozen resource {path}: {exc}") from exc
+        raise InputContractError(f"cannot read file {path}: {exc}") from exc
     return digest.hexdigest()
 
 
 def _canonical(sequence: str) -> str:
     normalized = sequence.upper()
     if len(normalized) != PROBE_LENGTH or any(base not in "ACGT" for base in normalized):
-        raise AssetCompatibilityError("G1A candidate is not an exact A/C/G/T 21-mer")
+        raise AssetCompatibilityError("anchor candidate is not a 21-mer of A/C/G/T bases only")
     reverse = normalized.translate(str.maketrans("ACGT", "TGCA"))[::-1]
     return min(normalized, reverse)
 
 
 def _archive_rows(path: Path) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     if sha256_file(path) != G1A_ARCHIVE_SHA256:
-        raise AssetCompatibilityError("frozen G1A archive SHA-256 mismatch")
+        raise AssetCompatibilityError("anchor archive SHA-256 does not match the expected value")
     try:
         with zipfile.ZipFile(path) as archive:
             names = archive.namelist()
             if len(names) != len(set(names)):
-                raise AssetCompatibilityError("frozen G1A archive has duplicate members")
+                raise AssetCompatibilityError("anchor archive has duplicate members")
             if _RUN_MANIFEST not in names:
-                raise AssetCompatibilityError("frozen G1A archive is missing its run manifest")
+                raise AssetCompatibilityError("anchor archive is missing its run manifest")
             manifest = json.loads(archive.read(_RUN_MANIFEST).decode("utf-8-sig"))
             if not isinstance(manifest, dict) or set(manifest) != {
                 "data_root", "files", "generated_at", "project_root", "python"
             }:
-                raise AssetCompatibilityError("frozen G1A run-manifest schema mismatch")
+                raise AssetCompatibilityError("anchor archive run-manifest schema mismatch")
             entries = manifest["files"]
             if not isinstance(entries, list):
-                raise AssetCompatibilityError("frozen G1A member manifest is malformed")
+                raise AssetCompatibilityError("anchor archive member manifest is malformed")
             expected: dict[str, tuple[int, str]] = {}
             for entry in entries:
                 if not isinstance(entry, dict) or set(entry) != {"bytes", "file", "sha256"}:
-                    raise AssetCompatibilityError("frozen G1A member entry schema mismatch")
+                    raise AssetCompatibilityError("anchor archive member entry schema mismatch")
                 name = entry["file"]
                 size = entry["bytes"]
                 digest = entry["sha256"]
@@ -108,16 +108,16 @@ def _archive_rows(path: Path) -> tuple[list[dict[str, str]], list[dict[str, str]
                     or not re.fullmatch(r"[0-9a-f]{64}", digest)
                     or name in expected
                 ):
-                    raise AssetCompatibilityError("frozen G1A member manifest has invalid values")
+                    raise AssetCompatibilityError("anchor archive member manifest has invalid values")
                 expected[name] = (size, digest)
             if not {_CATALOGUE, _PROVENANCE} <= set(expected):
-                raise AssetCompatibilityError("frozen G1A archive lacks catalogue/provenance")
+                raise AssetCompatibilityError("anchor archive lacks catalogue/provenance")
             if set(names) != set(expected) | {_RUN_MANIFEST}:
-                raise AssetCompatibilityError("frozen G1A archive member set drift")
+                raise AssetCompatibilityError("anchor archive members do not match its manifest")
             for name, (size, digest) in expected.items():
                 content = archive.read(name)
                 if len(content) != size or hashlib.sha256(content).hexdigest() != digest:
-                    raise AssetCompatibilityError(f"frozen G1A member hash mismatch: {name}")
+                    raise AssetCompatibilityError(f"anchor archive member hash mismatch: {name}")
 
             def read_tsv(name: str, required: set[str]) -> list[dict[str, str]]:
                 with archive.open(name, "r") as raw:
@@ -130,10 +130,10 @@ def _archive_rows(path: Path) -> tuple[list[dict[str, str]], list[dict[str, str]
                         or len(reader.fieldnames) != len(set(reader.fieldnames))
                         or not required <= set(reader.fieldnames)
                     ):
-                        raise AssetCompatibilityError(f"frozen G1A schema mismatch: {name}")
+                        raise AssetCompatibilityError(f"anchor archive schema mismatch: {name}")
                     rows = list(reader)
                 if not rows:
-                    raise AssetCompatibilityError(f"frozen G1A table is empty: {name}")
+                    raise AssetCompatibilityError(f"anchor archive table is empty: {name}")
                 return rows
 
             return (
@@ -143,12 +143,12 @@ def _archive_rows(path: Path) -> tuple[list[dict[str, str]], list[dict[str, str]
     except AssetCompatibilityError:
         raise
     except (OSError, UnicodeError, json.JSONDecodeError, zipfile.BadZipFile, KeyError) as exc:
-        raise AssetCompatibilityError(f"cannot validate frozen G1A archive: {exc}") from exc
+        raise AssetCompatibilityError(f"cannot validate anchor archive: {exc}") from exc
 
 
 def _crosswalk(path: Path) -> dict[str, str]:
     if sha256_file(path) != FAMILY_CROSSWALK_SHA256:
-        raise AssetCompatibilityError("frozen FBte family crosswalk SHA-256 mismatch")
+        raise AssetCompatibilityError("FBte family crosswalk SHA-256 does not match the expected value")
     try:
         with path.open("r", encoding="utf-8-sig", newline="") as handle:
             reader = csv.DictReader(handle, delimiter="\t")
@@ -157,22 +157,22 @@ def _crosswalk(path: Path) -> dict[str, str]:
                 or len(reader.fieldnames) != len(set(reader.fieldnames))
                 or not _CROSSWALK_FIELDS <= set(reader.fieldnames)
             ):
-                raise AssetCompatibilityError("frozen FBte family crosswalk schema mismatch")
+                raise AssetCompatibilityError("FBte family crosswalk schema mismatch")
             rows = list(reader)
     except AssetCompatibilityError:
         raise
     except (OSError, UnicodeError, csv.Error) as exc:
-        raise AssetCompatibilityError(f"cannot read frozen FBte family crosswalk: {exc}") from exc
+        raise AssetCompatibilityError(f"cannot read FBte family crosswalk: {exc}") from exc
     if not rows:
-        raise AssetCompatibilityError("frozen FBte family crosswalk is empty")
+        raise AssetCompatibilityError("FBte family crosswalk is empty")
     mapping: dict[str, str] = {}
     for row in rows:
         te_id = row.get("FBte_ID", "").strip()
         family = row.get("FlyBase_Family", "").strip()
         if not te_id or not family:
-            raise AssetCompatibilityError("frozen FBte family crosswalk has an empty key/value")
+            raise AssetCompatibilityError("FBte family crosswalk has an empty key/value")
         if te_id in mapping and mapping[te_id] != family:
-            raise AssetCompatibilityError(f"conflicting frozen crosswalk family for {te_id}")
+            raise AssetCompatibilityError(f"conflicting crosswalk family for {te_id}")
         mapping[te_id] = family
     return mapping
 
@@ -180,7 +180,7 @@ def _crosswalk(path: Path) -> dict[str, str]:
 def _parse_flag(row: Mapping[str, str], field: str) -> int:
     value = row.get(field, "")
     if value not in {"0", "1"}:
-        raise AssetCompatibilityError(f"frozen G1A field {field} is not a binary flag")
+        raise AssetCompatibilityError(f"anchor archive field {field} is not a binary flag")
     return int(value)
 
 
@@ -192,7 +192,7 @@ def _parse_g1a_candidates(
     for row in catalogue:
         query_id = row.get("query_id", "")
         if not query_id or query_id in by_query:
-            raise AssetCompatibilityError("frozen G1A catalogue has an empty/duplicate query_id")
+            raise AssetCompatibilityError("anchor catalogue has an empty/duplicate query_id")
         by_query[query_id] = dict(row)
 
     family_by_te: dict[str, str] = {}
@@ -200,12 +200,12 @@ def _parse_g1a_candidates(
         te_id = row.get("te_id", "").strip()
         family = row.get("family", "").strip()
         if not te_id or not family:
-            raise AssetCompatibilityError("frozen G1A provenance has an empty TE/family label")
+            raise AssetCompatibilityError("anchor provenance has an empty TE/family label")
         previous = family_by_te.setdefault(te_id, family)
         if previous != family:
-            raise AssetCompatibilityError(f"inconsistent frozen G1A family for {te_id}")
+            raise AssetCompatibilityError(f"inconsistent anchor provenance family for {te_id}")
     if not family_by_te:
-        raise AssetCompatibilityError("frozen G1A provenance contains no TE records")
+        raise AssetCompatibilityError("anchor provenance contains no TE records")
 
     candidate_sequences: dict[str, dict[str, str]] = {"terminal": {}, "internal": {}}
     for query_id, row in by_query.items():
@@ -215,7 +215,7 @@ def _parse_g1a_candidates(
             terminal_flag = _parse_flag(row, "has_terminal_provenance")
             internal_flag = _parse_flag(row, "has_internal_provenance")
         except (KeyError, ValueError) as exc:
-            raise AssetCompatibilityError("malformed frozen G1A catalogue row") from exc
+            raise AssetCompatibilityError("malformed anchor catalogue row") from exc
         if k != PROBE_LENGTH or low_complexity != 0:
             continue
         try:
@@ -223,9 +223,9 @@ def _parse_g1a_candidates(
             declared_text = row["canonical_strand_key"].upper()
             declared = _canonical(declared_text)
         except KeyError as exc:
-            raise AssetCompatibilityError("frozen G1A catalogue candidate is incomplete") from exc
+            raise AssetCompatibilityError("anchor catalogue candidate is incomplete") from exc
         if canonical != declared or declared_text != declared:
-            raise AssetCompatibilityError("frozen G1A canonical key disagrees with query sequence")
+            raise AssetCompatibilityError("anchor catalogue strand-canonical key disagrees with query sequence")
         if terminal_flag:
             candidate_sequences["terminal"][query_id] = canonical
         if internal_flag:
@@ -242,7 +242,7 @@ def _parse_g1a_candidates(
             k = int(row["k"])
             start = int(row["start"])
         except (KeyError, ValueError) as exc:
-            raise AssetCompatibilityError("malformed frozen G1A provenance coordinates") from exc
+            raise AssetCompatibilityError("malformed anchor provenance coordinates") from exc
         if k != PROBE_LENGTH or start < 0:
             continue
         for kind in ("terminal", "internal"):
@@ -252,7 +252,7 @@ def _parse_g1a_candidates(
             source_seq = row.get("source_seq", "").upper()
             query_seq = row.get("query_seq", "").upper()
             if _canonical(source_seq) != canonical or _canonical(query_seq) != canonical:
-                raise AssetCompatibilityError("G1A provenance sequence disagrees with candidate key")
+                raise AssetCompatibilityError("anchor provenance sequence disagrees with candidate key")
             source_rows[kind].append(
                 {
                     "canonical": canonical,
@@ -267,10 +267,10 @@ def _parse_g1a_candidates(
             )
     for kind in ("terminal", "internal"):
         if candidate_sequences[kind] and not source_rows[kind]:
-            raise AssetCompatibilityError(f"frozen G1A {kind} candidates lack matching provenance")
+            raise AssetCompatibilityError(f"anchor archive {kind} candidates lack matching provenance")
         qids_with_sources = {row["query_id"] for row in source_rows[kind]}
         if set(candidate_sequences[kind]) - qids_with_sources:
-            raise AssetCompatibilityError(f"frozen G1A {kind} catalogue/provenance mismatch")
+            raise AssetCompatibilityError(f"anchor archive {kind} catalogue/provenance mismatch")
         unique: dict[tuple[Any, ...], dict[str, Any]] = {}
         for row in source_rows[kind]:
             key = (
@@ -317,7 +317,7 @@ def _query_map(candidates: Iterable[str]) -> dict[int, str]:
             code = _encode(oriented)
             previous = mapping.setdefault(code, canonical)
             if previous != canonical:
-                raise AssetCompatibilityError("frozen G1A query encoding collision")
+                raise AssetCompatibilityError("anchor query encoding collision")
     return mapping
 
 
@@ -463,7 +463,7 @@ def build_frozen_candidate_codebooks(
     reference: ReferenceInput,
     repeat_context: RepeatContext,
 ) -> FrozenCodebookBuild:
-    """Reassess only frozen G1A candidates against the prepared TE/reference assets."""
+    """Reassess only the anchor archive candidates against the prepared TE/reference assets."""
 
     archive_path = Path(g1a_archive_path)
     crosswalk_path = Path(family_crosswalk_path)
@@ -481,7 +481,7 @@ def build_frozen_candidate_codebooks(
     for record in te_library.records:
         te_id = _extract_te_id(record)
         if te_id in library_by_te:
-            raise AssetCompatibilityError(f"TE library has duplicate frozen record identity: {te_id}")
+            raise AssetCompatibilityError(f"TE library has duplicate record identity: {te_id}")
         family = family_assignments.get(record.record_id, family_assignments.get(te_id))
         if family is None:
             raise AssetCompatibilityError(f"TE library family assignment is missing: {record.record_id}")
@@ -490,14 +490,14 @@ def build_frozen_candidate_codebooks(
 
     missing_g1a = sorted(set(family_by_te) - set(library_by_te))
     if missing_g1a:
-        raise AssetCompatibilityError(f"TE library is missing frozen G1A records: {missing_g1a[:20]}")
+        raise AssetCompatibilityError(f"TE library is missing anchor archive records: {missing_g1a[:20]}")
     for te_id, frozen_family in family_by_te.items():
         source_family = canonical_family(frozen_family)
         if _family_key(library_family[te_id]) != _family_key(source_family):
-            raise AssetCompatibilityError(f"TE-family map disagrees with frozen G1A provenance: {te_id}")
+            raise AssetCompatibilityError(f"TE-family map disagrees with anchor provenance: {te_id}")
         mapped_family = crosswalk.get(te_id)
         if mapped_family is not None and _family_key(mapped_family) != _family_key(source_family):
-            raise AssetCompatibilityError(f"FBte crosswalk disagrees with frozen G1A family: {te_id}")
+            raise AssetCompatibilityError(f"FBte crosswalk disagrees with anchor provenance family: {te_id}")
 
     candidate_sequences = {
         kind: {row["canonical"] for row in source_rows}
@@ -600,7 +600,7 @@ def build_frozen_candidate_codebooks(
             te_id = source["te_id"]
             record = library_by_te.get(te_id)
             if record is None or source["end"] > len(record.sequence):
-                raise AssetCompatibilityError(f"G1A source interval lies outside TE record: {te_id}")
+                raise AssetCompatibilityError(f"anchor source interval lies outside TE record: {te_id}")
             distinct = sorted(positions[source["canonical"]].get(te_id, set()))
             source_match = (source["start"], source["end"]) in distinct
             if not source_match:

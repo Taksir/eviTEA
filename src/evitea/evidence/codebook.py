@@ -18,7 +18,7 @@ PROBE_LENGTH = 21
 
 @dataclass(frozen=True, slots=True)
 class PreparedProbeLanguage:
-    """Unique exact query units plus every frozen source membership."""
+    """Unique exact query units plus every source membership."""
 
     probes: tuple[TEProbe, ...]
     memberships: Mapping[str, tuple[TEProbe, ...]]
@@ -213,7 +213,7 @@ class SafeProbeCandidate:
 
     ``compatible_families`` is the complete family set in which the canonical
     sequence occurs. ``reference_occurrences`` is its exact host-reference
-    count. These observations are prepared without sample truth/comparators.
+    count. Both are prepared without sample truth data.
     """
 
     candidate_id: str
@@ -342,7 +342,7 @@ def build_safe_probes(
 
 
 def validate_probe_independence(probes: Iterable[TEProbe]) -> None:
-    """Fail closed on duplicate sequence, IDs, or overlapping source units."""
+    """Raise on duplicate sequences, duplicate IDs, or overlapping source units."""
 
     rows = tuple(probes)
     probe_ids: set[str] = set()

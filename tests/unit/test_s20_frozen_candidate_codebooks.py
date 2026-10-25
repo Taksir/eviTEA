@@ -220,7 +220,7 @@ def test_frozen_archive_hash_drift_fails_closed(tmp_path, monkeypatch):
     archive, crosswalk, te_library, reference, repeats, *_ = _resource_inputs(tmp_path, monkeypatch)
     archive.write_bytes(archive.read_bytes() + b"drift")
 
-    with pytest.raises(AssetCompatibilityError, match="G1A archive SHA-256 mismatch"):
+    with pytest.raises(AssetCompatibilityError, match="anchor archive SHA-256 does not match"):
         build_frozen_candidate_codebooks(
             archive,
             crosswalk,
@@ -263,7 +263,7 @@ def test_frozen_crosswalk_hash_drift_fails_closed(tmp_path, monkeypatch):
     archive, crosswalk, te_library, reference, repeats, *_ = _resource_inputs(tmp_path, monkeypatch)
     crosswalk.write_text(crosswalk.read_text(encoding="utf-8") + "FBte0000002\tFamilyB\n", encoding="utf-8")
 
-    with pytest.raises(AssetCompatibilityError, match="crosswalk SHA-256 mismatch"):
+    with pytest.raises(AssetCompatibilityError, match="crosswalk SHA-256 does not match"):
         build_frozen_candidate_codebooks(
             archive,
             crosswalk,

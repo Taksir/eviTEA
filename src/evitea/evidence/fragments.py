@@ -26,8 +26,8 @@ def decode_pair_family(
 ) -> TEFamilyEvidence:
     """Collapse observations to one physical-pair state.
 
-    Duplicate occurrence rows are retained upstream but do not create new
-    probe, block, record, family, mate, or pair support here.
+    Duplicate occurrence rows are retained upstream. They add no probe,
+    block, record, family, mate, or pair support here.
     """
 
     if not sample_id:
