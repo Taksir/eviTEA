@@ -439,7 +439,7 @@ class ProposalInterval:
         )
         if len(self.support_pair_ids) < MIN_PAIRS or len(self.support_fold_ids) < MIN_FOLDS:
             raise ArchitectureInvariantError(
-                "proposal lacks the minimum pair/fold support"
+                "proposal lacks minimum pair/fold support"
             )
         if any(fold_id >= N_FOLDS for fold_id in self.support_fold_ids):
             raise ArchitectureInvariantError("proposal fold_id is outside the fold range")
@@ -507,7 +507,7 @@ class ExactJunctionEvent:
         fold_ids = _canonical_int_tuple(self.support_fold_ids, "junction fold_id")
         if len(pair_ids) < MIN_PAIRS or len(fold_ids) < MIN_FOLDS:
             raise ArchitectureInvariantError(
-                "exact junction event lacks the minimum pair/fold support"
+                "exact junction event lacks minimum pair/fold support"
             )
         if fold_ids != tuple(sorted({pair_id % N_FOLDS for pair_id in pair_ids})):
             raise ArchitectureInvariantError(
@@ -606,7 +606,7 @@ class PairedEndAnchorSupport:
         )
         if self.support_state is not expected_state:
             raise ArchitectureInvariantError(
-                "paired-end support state disagrees with the pair/fold thresholds"
+                "paired-end support state disagrees with pair/fold thresholds"
             )
 
 

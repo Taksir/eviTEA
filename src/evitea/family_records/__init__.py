@@ -2,7 +2,7 @@
 
 A library-free family that the library layer does not call (two or more calls away from every library call, more than near
 one) is a family the library lacks. ``build-family-records`` writes one library record per such family (the consensus of its
-member junction segments, oriented and voted), the family map, the reference copies of each record, and the end-word
+member junction segments, oriented and voted), the family map, the reference copies of each record, and the TE-end and TE-interior k-mer
 codebooks, in the files ``prepare-te`` takes. The library layer then runs once more on those assets (``evitea call``).
 ``add-record-calls`` adds its calls where the existing call set has none within 500 bp and drops calls inside a reference copy
 of their own record.

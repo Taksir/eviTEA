@@ -178,7 +178,7 @@ def _add_depth_cap(parser: argparse.ArgumentParser) -> None:
         default="none",
         metavar="N|none",
         help="absolute upper bound of the local-depth window of the breakpoint walk and the library-free layer "
-        "(default none: only the lower bound of 10 reads applies; --depth-cap 100 sets an upper bound of 100)",
+        "(default none: only the lower bound of 10 reads applies; --depth-cap 100 caps it at 100)",
     )
 
 
@@ -272,8 +272,7 @@ def build_parser() -> argparse.ArgumentParser:
     call.add_argument("--exact-query-backend", choices=("msbwt",))
     call.add_argument(
         "--profile",
-        help="profile: 'production' (default), or AKA017 or ISO1 for the read names and event labels of those two "
-        "development samples",
+        help="'production' (default), or AKA017 or ISO1 for the read names and event labels of those samples",
     )
     call.add_argument("--bowtie2", type=Path)
     call.add_argument("--bowtie2-build", type=Path)
@@ -293,8 +292,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--complete-routing",
         action="store_true",
         default=None,
-        help="first stage: route reads through every rare-enough TE word, keeping only extra pairs whose "
-        "partner read is out of place (off by default)",
+        help="first stage: route reads through other TE anchor k-mers (not low-complexity, one family, at most 1024 "
+        "occurrences in the sample); keep an extra pair only when its TE-side read has no alignment within q99 of the "
+        "host-side read (off by default)",
     )
     _add_breakpoint_extras(call)
     _add_depth_cap(call)
@@ -359,11 +359,11 @@ def build_parser() -> argparse.ArgumentParser:
     lf.add_argument("--contigs", help="comma-separated contigs to scan, in this order (default: contigs >= 1 Mb, "
                     "reference order)")
     lf.add_argument("--rule-c", action="store_true",
-                    help="the family-identity filter: also drop family calls whose family members have a median pairwise "
+                    help="the family-identity filter: also drop family calls whose members have a median pairwise "
                     "identity of <= 98.31%%")
     lf.add_argument("--mito-contig",
-                    help="the reference's mitochondrial contig, for the segment firewall (default: the first of chrM, MT, M, "
-                    "chrMT found; with none the mitochondrial test is off)")
+                    help="the reference's mitochondrial contig; the segment filter drops inserted segments that match it (default: "
+                    "first of chrM, MT, M, chrMT found; none: this test is off)")
     lf.add_argument("--detection-dir", type=Path,
                     help="reuse library_free_places.tsv and library_free_segments.fa from an earlier detection")
     _add_depth_cap(lf)
@@ -375,8 +375,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     fr_build = commands.add_parser(
         "build-family-records",
-        help="library records from the library-free families that the library does not have, with their reference copies "
-        "and end-word codebooks (Linux/WSL; requires mappy)",
+        help="library records for library-free families missing from the library, with their reference copies and "
+        "TE-end and TE-interior k-mer codebooks (Linux/WSL; requires mappy)",
     )
     _fr.add_arguments_build(fr_build)
     fr_add = commands.add_parser(

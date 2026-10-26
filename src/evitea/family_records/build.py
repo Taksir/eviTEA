@@ -1,4 +1,4 @@
-"""Record building: consensus of the member segments of a family, reference copies from exact words, end-word codebooks.
+"""Record building: consensus of the member segments of a family, reference copies from exact words, TE-end and TE-interior k-mer codebooks.
 
 Record      the member segments of a family are oriented against a seed (the member with the most letters whose two segments both
             hold at least ORIENT_K letters), piled on the seed per end, and voted per column. Up to SEED_CANDIDATES seeds are
@@ -213,8 +213,8 @@ def count_record_words(records: dict[str, str], reference_fasta) -> dict[str, in
 
 
 def languages(te_fa, fmap, bed, ref):
-    """The end-word codebooks (terminal, internal-only) of the library builder. Its gap fill stops when no record is short of end
-    words, and then the rebuilt words pass through."""
+    """The TE-end k-mer codebook (terminal) and the TE-interior 21-mer codebook (internal-only) of the library builder. Its gap fill
+    stops when no record is short of end k-mers, and then the rebuilt k-mers pass through."""
     from ..languages import internal as I
     from ..languages import terminal as T
     from ..languages.builder import build_languages, g1a_tables

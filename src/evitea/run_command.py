@@ -29,7 +29,7 @@ The remaining steps without a library::
 
     nolib_stub/     an empty library call set (the header of calls.native.tsv and the sample id)
     library_free/   library-free on the stub, family-identity filter on, resident-copy test with the repeat map
-    records/lib/, records/assets_te/   build-family-records (flag rule kept, record guard with the map), prepare-te
+    records/lib/, records/assets_te/   build-family-records (family flag rule 'kept', record guard with the map), prepare-te
     record_pass/call/   call on the record assets       record_pass/added/   add-record-calls
 
 The final calls are ``call/`` (with a library), ``library_free/calls.combined.tsv`` (with ``--library-free``) and
@@ -61,7 +61,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--read1", type=Path, required=True)
     parser.add_argument("--read2", type=Path, required=True)
     parser.add_argument("--sample-id")
-    parser.add_argument("--output", type=Path, required=True, help="run folder (created if absent; a finished step is not run again)")
+    parser.add_argument("--output", type=Path, required=True, help="run folder (created; a finished step is kept)")
     library = parser.add_mutually_exclusive_group(required=True)
     library.add_argument("--te-library", type=Path, help="TE library FASTA (with --family-map)")
     library.add_argument("--no-library", action="store_true",

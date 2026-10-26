@@ -159,7 +159,7 @@ class RefinementConfig:
     """Optional post-call layers; all off by default (off leaves the call outputs unchanged)."""
 
     breakpoints: bool = False
-    # first-stage layer: complete routing, with a filter on the partner read
+    # a read-routing option of the library layer: complete routing, with a filter on the partner read
     complete_routing: bool = False
     # breakpoint-layer extras (require ``breakpoints``): one-sided junction positions for calls left
     # wide, and output-only zygosity / TSD annotations; neither adds, removes or moves a call
