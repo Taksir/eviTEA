@@ -1,4 +1,4 @@
-"""Find split-junction evidence at the candidate loci by competition with the reference.
+"""Find split-junction evidence by reference competition.
 
 For every candidate locus and both mates of every candidate physical pair,
 terminal host|TE and TE|host cuts are nominated from candidate-family 21-mer
@@ -14,7 +14,7 @@ density, then confirmed only if:
 4. the split model has >= 4 fewer edits than a whole-read local reference
    alignment.
 
-One winner per read context (hypotheses with the same family, side and
+One winner per read context (equal family, side and
 breakpoint count once), fragment-level reconciliation of the two mates, side
 clustering of physical-pair support, pairing of opposite sides within 50 bp,
 and the score >= 4 emission rule complete the layer.
@@ -157,7 +157,7 @@ def nominate_read(
     scope: str,
     scope_start: int,
 ) -> list[Nomination]:
-    """Nominate cuts broadly; a nomination is not evidence until confirmed."""
+    """Nominate cuts broadly; not evidence until confirmed."""
 
     if not family_kmers:
         return []
@@ -463,7 +463,7 @@ def split_junction_hypotheses(
     progress: Callable[[int, int], None] | None = None,
     hypothesis_sink: Callable[[Nomination, str, CertifiedJunction | None, dict[str, object]], None] | None = None,
 ) -> tuple[list[CertifiedJunction], dict[str, int]]:
-    """Return the confirmed split-junction hypotheses of ``loci`` in locus order.
+    """Return confirmed split-junction hypotheses of ``loci`` in locus order.
 
     Loci are independent, so contiguous locus batches may be processed
     separately and concatenated in order before :func:`finalize_split_junctions`.

@@ -1,12 +1,12 @@
 """TE-library evidence primitives of the library layer.
 
-These primitives are used by every step of the library layer:
+Every library layer step uses these primitives:
 
 * whole-segment infix alignment of a TE-facing sequence anywhere in each TE
   consensus record, either strand, at most three edits;
 * collapse to the best distance per biological family (raw family-map labels,
   no alias normalization at this level);
-* a unique best family is required; equal-best families give no result;
+* a unique best family is required; equal-best families are rejected;
 * side clustering of qualified breakpoints (single link, radius 8 bp, modal
   coordinate with ties to the larger coordinate).
 
@@ -55,7 +55,7 @@ __all__ = [
 
 
 def normalize_family(label: str) -> str:
-    """Apply only the two built-in family aliases (``rooA`` to ``roo``, ``Rt1a`` to ``Rt1b``)."""
+    """Apply only the two built-in aliases (``rooA`` to ``roo``, ``Rt1a`` to ``Rt1b``)."""
 
     return FROZEN_ALIASES.get(str(label), str(label))
 
@@ -66,7 +66,7 @@ def _read_tsv(path: Path) -> list[dict[str, str]]:
 
 
 def load_record_family_map(path: str | Path) -> dict[str, str]:
-    """Read a map from ``FBte_ID`` to ``FlyBase_Family`` (raw labels) with fallback column names, or a two-column ``record<TAB>family`` table."""
+    """Read ``FBte_ID`` to ``FlyBase_Family`` (raw labels) with column fallbacks, or a two-column ``record<TAB>family`` table."""
 
     if is_two_column_table(path):
         return dict(family_pairs(path))
@@ -83,7 +83,7 @@ def load_record_family_map(path: str | Path) -> dict[str, str]:
 
 
 def load_heuristic_family_map(path: str | Path) -> dict[str, str]:
-    """Read a family map from the first ID-like column and the first ``family`` column, or a two-column ``record<TAB>family`` table."""
+    """Read the family map: first ID-like column and first ``family`` column, or a two-column ``record<TAB>family`` table."""
 
     if is_two_column_table(path):
         return dict(family_pairs(path))
@@ -127,7 +127,7 @@ class TERecord:
 
 
 def load_te_records(path: str | Path, family_map: Mapping[str, str]) -> tuple[TERecord, ...]:
-    """Parse TE consensus records; the record ID is the ``FBte`` ID in the header, else the first header token."""
+    """Parse TE consensus records, keyed by the ``FBte`` ID or first header token."""
 
     records: list[TERecord] = []
     header: str | None = None
@@ -221,7 +221,7 @@ class LocalTEIndex:
 def family_best_classify(
     hits: Iterable[tuple[int, str, str, int, str]],
 ) -> tuple[LocalHit | None, dict[str, object]]:
-    """Return the unique best biological family among TE-record hits (raw labels)."""
+    """Return unique best biological family among TE-record hits (raw labels)."""
 
     rows = list(hits)
     if not rows:
@@ -328,7 +328,7 @@ def load_family_kmer_panels(
     k: int,
     min_entropy: float,
 ) -> tuple[dict[str, set[str]], dict[str, object]]:
-    """Build candidate-family k-mer panels using the record-selection rule in the module docstring."""
+    """Build candidate-family k-mer panels by the module's record-selection rule."""
 
     family_map = load_heuristic_family_map(family_map_path)
     wanted = set(wanted_families)

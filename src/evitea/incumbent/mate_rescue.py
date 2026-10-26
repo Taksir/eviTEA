@@ -18,7 +18,7 @@ Reference-discriminative pair evidence
     Bowtie2, and rejected when an ordinary inward concordant pair within the
     fragment-size 95th percentile (the sample's own; 494 bp by default)
     explains the pair. The remaining pairs are TE-confirmed with
-    strand-symmetric local-reference rejection. Only the retained per-pair
+    strand-symmetric local-reference rejection. Only retained per-pair
     winners are emitted; they feed junction completion as strict side support.
 """
 
@@ -71,7 +71,7 @@ GLOBAL_PLACEMENT_CAP = 20
 
 
 def quantize(value: float) -> float:
-    """Round to one decimal (the locus-record quantization)."""
+    """Round to one decimal."""
 
     return float(f"{value:.1f}")
 
@@ -180,7 +180,7 @@ def _record_conflict(first: TEWindow, second: TEWindow) -> bool:
 def best_te_mate_window(
     read: str, candidate_family: str, family_kmers: set[str], te_index: LocalTEIndex, scope: str
 ) -> tuple[TEWindow | None, str]:
-    """Confirm the TE mate: windows explained by the local reference are rejected."""
+    """Confirm the TE mate (any local-reference explanation rejects it)."""
 
     windows = candidate_te_windows(read, family_kmers)
     if not windows:

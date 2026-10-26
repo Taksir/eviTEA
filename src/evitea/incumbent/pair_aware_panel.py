@@ -1,12 +1,12 @@
-"""Reselect the coverage panel, counting cost as newly routed read pairs.
+"""Reselect the coverage panel by newly routed pairs.
 
-The coverage panel chosen at B = 1024 fixes, per group, a coverage target
-and a terminal target.  Starting from the sparse-panel strings and the Hamming-1
-21-mer strings, groups (hardest first) re-add the panel's exact actions.
+The B = 1024 coverage panel fixes, per group, a coverage and
+terminal target.  Starting from the sparse-panel and Hamming-1 21-mer strings,
+groups (hardest first) re-add its exact actions.
 Strings already paid for elsewhere are free.  Terminal sides are restored
 first.  Then coverage is raised to 99.5% of the panel's coverage by choosing
-the action with the most new windows per *newly routed physical pair*.  The
-routed reads and pairs are the union over the selected strings.
+the action with the most new windows per *newly routed physical pair*.  Routed
+reads and pairs are the union over selected strings.
 """
 
 from __future__ import annotations

@@ -1,11 +1,11 @@
-"""Select the sparse exact-anchor panel and route reads and pairs through it.
+"""Select the sparse exact-anchor panel and route reads and pairs.
 
 For every anchor locus (record, start, region, orientation) the narrowest
 nonempty exact query of width <= 64 is chosen (ties: not low-complexity,
-longer k, query id).  Families observed in the sample but without such a query
+longer k, query id).  Families seen in the sample without such a query
 receive up to four fallback queries of width 65..1024.  Every msBWT row of the
-panel is enumerated.  A read inherits the channel mask (terminal, internal or
-fallback bits) and the families of all panel queries it carries.  A pair
+panel is enumerated.  A read inherits the channel mask and families of
+all panel queries it carries.  A pair
 inherits the union over its mates.
 """
 

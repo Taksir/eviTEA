@@ -1,4 +1,4 @@
-"""Sequence, FASTA and interval helpers for the library layer."""
+"""Sequence, FASTA and interval helpers."""
 
 from __future__ import annotations
 
@@ -27,13 +27,13 @@ __all__ = [
 
 
 def revcomp(sequence: str) -> str:
-    """Return the upper-case reverse complement; ``N`` maps to ``N``."""
+    """Return the upper-case reverse complement; ``N`` stays ``N``."""
 
     return sequence.translate(_COMPLEMENT)[::-1].upper()
 
 
 def shannon_entropy_acgt(sequence: str) -> float:
-    """Return the entropy over A/C/G/T counts only (for filtering k-mer panels)."""
+    """Return entropy over A/C/G/T counts only (k-mer panel filter)."""
 
     if not sequence:
         return 0.0
@@ -50,7 +50,7 @@ def shannon_entropy_acgt(sequence: str) -> float:
 
 
 def shannon_entropy_symbols(sequence: str) -> float:
-    """Return the entropy over all symbols, normalized by sequence length (host seeds)."""
+    """Return entropy over all symbols, normalized by sequence length (host seeds)."""
 
     if not sequence:
         return 0.0
@@ -66,7 +66,7 @@ def shannon_entropy_symbols(sequence: str) -> float:
 def count_occurrences(
     text: str, pattern: str, stop_after: int | None = None
 ) -> tuple[int, int | None]:
-    """Return the overlapping occurrence count (optionally capped) and the first position."""
+    """Return overlapping occurrence count (optionally capped) and first position."""
 
     count = 0
     first: int | None = None
@@ -85,7 +85,7 @@ def count_occurrences(
 
 
 def kmer_hit_prefix(sequence: str, kmers: set[str] | frozenset[str], k: int) -> list[int]:
-    """Return prefix sums of k-mer panel membership over all k-mer start positions."""
+    """Return prefix sums of k-mer panel membership over k-mer start positions."""
 
     n = max(0, len(sequence) - k + 1)
     prefix = [0] * (n + 1)
@@ -95,7 +95,7 @@ def kmer_hit_prefix(sequence: str, kmers: set[str] | frozenset[str], k: int) -> 
 
 
 def interval_hits(prefix: list[int], start: int, end: int, k: int) -> tuple[int, int]:
-    """Return the hits and the total k-mer starts inside ``sequence[start:end]``."""
+    """Return hits and total k-mer starts inside ``sequence[start:end]``."""
 
     if end - start < k:
         return 0, 0
@@ -122,7 +122,7 @@ def fasta_records_full_header(path: str | Path) -> Iterator[tuple[str, str]]:
 
 
 def load_reference_contigs(path: str | Path, wanted: set[str]) -> dict[str, str]:
-    """Load selected contigs, matching the first header token and ignoring a ``chr`` prefix."""
+    """Load selected contigs by first header token, tolerating a ``chr`` prefix."""
 
     out: dict[str, str] = {}
     if not wanted:
@@ -145,7 +145,7 @@ def load_reference_contigs(path: str | Path, wanted: set[str]) -> dict[str, str]
 
 
 def interval_distance_point(x: float, start: float, end: float) -> float:
-    """Return the distance from a point to a closed interval given as ``start <= end``."""
+    """Return distance from a point to a closed interval ``start <= end``."""
 
     if start <= x <= end:
         return 0.0
@@ -153,7 +153,7 @@ def interval_distance_point(x: float, start: float, end: float) -> float:
 
 
 def distance_to_interval(x: float, a: float, b: float) -> float:
-    """Return the distance from a point to the closed interval spanned by ``a`` and ``b``."""
+    """Return distance from a point to the closed interval spanned by ``a`` and ``b``."""
 
     lo, hi = sorted((float(a), float(b)))
     if x < lo:
@@ -164,7 +164,7 @@ def distance_to_interval(x: float, a: float, b: float) -> float:
 
 
 def interval_gap(a_start: float, a_end: float, b_start: float, b_end: float) -> float:
-    """Return the gap between two closed intervals, or zero if they overlap or touch."""
+    """Return gap between closed intervals; zero when they touch or overlap."""
 
     a0, a1 = sorted((float(a_start), float(a_end)))
     b0, b1 = sorted((float(b_start), float(b_end)))

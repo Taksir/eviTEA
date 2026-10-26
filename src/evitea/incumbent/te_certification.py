@@ -1,4 +1,4 @@
-"""Confirm the family of junction groups from their full TE-facing segments.
+"""Confirm junction group families from full TE-facing segments.
 
 Only junction groups linked into a locus aggregation list ("used" groups) are
 confirmed.  For each, the untrimmed TE-facing segment is taken from the

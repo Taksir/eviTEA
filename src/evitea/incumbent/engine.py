@@ -1,23 +1,23 @@
 """Library layer caller, run end to end over prepared inputs.
 
-Steps, in order:
+Steps:
 
-1. candidate acquisition (anchor census to the wide-anchor step), giving the
-   candidate loci;
-2. split-junction reference competition, giving split-junction calls with
+1. candidate acquisition (anchor census to the wide-anchor step) giving
+   loci;
+2. split-junction reference competition, giving calls with
    score >= 4;
 3. orientation-corrected two-sided mate-anchored search, giving
-   mate-anchored calls and the locus record;
+   calls and the locus record;
 4. one-sided targets, exact host-seed routing and reference-discriminative
    strict pair confirmation;
 5. insertion-specific junction discovery, exact-group location, group
    competition and locus linking;
-6. full TE-segment family confirmation of the linked groups;
-7. the repeat-aware divergence step, which retains a group whose edits recur
-   in other groups (leave-one-group-out), and 2-LEFT + 2-RIGHT reaggregation.
+6. full TE-segment family confirmation of linked groups;
+7. repeat-aware divergence step (retains a group whose edits recur in other
+   groups; leave-one-group-out) and 2-LEFT + 2-RIGHT reaggregation.
 
-The call set lists the split-junction calls, then the mate-anchored calls,
-then the repeat-aware calls.
+The call set lists split-junction calls, then mate-anchored calls, then
+repeat-aware calls.
 """
 
 from __future__ import annotations
@@ -84,7 +84,7 @@ class IncumbentInputs:
     # Query names of the wide-anchor host mapping (see
     # ``recall_repair.RESCUE_READ_NAME_PROFILES``); the default is ``pair``.
     rescue_read_names: str = "pair"
-    # Optional complete routing with a partner-read filter (off = the default panel only).
+    # Optional complete routing with a partner-read filter (off = default panel only).
     complete_routing: bool = False
     # Work limit of the wide-anchor step (default ``recall_repair.MAX_RESCUE_INTERVAL_MASS``).
     max_rescue_interval_mass: int = 1_500_000
@@ -121,7 +121,7 @@ class IncumbentResult:
 
 
 def _fingerprint(inputs: IncumbentInputs) -> dict[str, object]:
-    """Return the identity of the inputs a checkpoint was computed from."""
+    """Return the identity of a checkpoint's inputs."""
 
     def stat(path: Path | None) -> object:
         if path is None:
@@ -155,10 +155,10 @@ def _fingerprint(inputs: IncumbentInputs) -> dict[str, object]:
 
 
 class StageStore:
-    """Pickle checkpoints of completed steps; the completion marker is written last.
+    """Pickle checkpoints of completed steps, marker written last.
 
-    A checkpoint is reused only when its recorded input fingerprint equals the
-    current one. The files live inside the run's private work directory.
+    A checkpoint is reused only when its input fingerprint equals the
+    current one. Files live in the run's private work directory.
     """
 
     def __init__(self, root: Path, fingerprint: dict[str, object]):

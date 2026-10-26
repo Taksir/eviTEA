@@ -88,7 +88,7 @@ class AnchorCatalogue:
 
 
 def parse_te_consensus(path: str | Path) -> dict[str, str]:
-    """Read the TE consensus FASTA, keyed by the first token of each header (before ``|``)."""
+    """Read the TE consensus FASTA, keyed by the first header token (before ``|``)."""
 
     records: dict[str, str] = {}
     name: str | None = None
@@ -119,7 +119,7 @@ def parse_te_consensus(path: str | Path) -> dict[str, str]:
 
 
 def load_te_family_map(path: str | Path) -> dict[str, str]:
-    """Read record-to-family labels, without alias normalization, from a FlyBase table (``FBte_ID``, ``FlyBase_Family``)
+    """Read raw labels (no alias normalization) from a FlyBase table (``FBte_ID``, ``FlyBase_Family``)
     or a two-column ``record<TAB>family`` table (``evitea.family_table``)."""
 
     import csv
@@ -243,7 +243,7 @@ def build_anchor_catalogue(records: Mapping[str, str], family_map: Mapping[str, 
 
 
 def census_anchor_intervals(catalogue: AnchorCatalogue, index) -> None:
-    """Set the exact sample msBWT interval on every catalogue query, in place."""
+    """Attach exact sample msBWT intervals to every catalogue query in place."""
 
     for query in sorted(catalogue.queries, key=lambda q: (q.k, q.query_seq)):
         query.interval_lo, query.interval_hi = index.interval(query.query_seq)

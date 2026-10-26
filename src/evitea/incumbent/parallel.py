@@ -1,9 +1,9 @@
-"""Run the per-locus steps of the library layer in deterministic locus batches.
+"""Run per-locus steps in deterministic locus batches.
 
 Split-junction and mate-anchored search evidence is computed independently per
 candidate locus.  Contiguous locus batches are evaluated (optionally in worker
 processes) and their results concatenated in locus order, so the downstream
-competitions see the same order as a sequential run.
+competitions see exactly the sequential input order.
 """
 
 from __future__ import annotations

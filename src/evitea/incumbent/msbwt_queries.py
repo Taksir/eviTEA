@@ -3,9 +3,9 @@
 The sample index is the multi-string BWT built from the synchronized mate
 FASTQs: ``about[dollar_id] = (file_id, record_ordinal)`` with file 0 = mate 1
 and file 1 = mate 2, so ``record_ordinal`` is the physical ``pair_id``.  Every
-quantity the library layer derives from the index (interval widths, the set of
-reads and pairs carrying a query, recovered read sequences) does not depend on
-the index construction order, so any msBWT over the same reads gives it.
+quantity derived from the index (interval widths, the set of reads and pairs
+carrying a query, recovered read sequences) is independent of the index
+construction order, so any msBWT over the same reads gives it.
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ class MsbwtSample(SeedPairLocator):
         return hi - lo
 
     def dollar_ids(self, pattern: str, *, cache: bool = True) -> np.ndarray:
-        """Return the dollar IDs of every interval row of ``pattern`` (row order)."""
+        """Return dollar IDs of every interval row of ``pattern`` (row order)."""
 
         cached = self._dollars.get(pattern)
         if cached is not None:
@@ -101,7 +101,7 @@ class MsbwtSample(SeedPairLocator):
         return files, pairs
 
     def verify_paired_layout(self) -> None:
-        """Raise unless files 0 and 1 each index record ordinals ``0..pairs-1``."""
+        """Raise unless files 0/1 each index record ordinals ``0..pairs-1``."""
 
         counts = np.zeros(2, dtype=np.int64)
         lo = [None, None]
@@ -173,7 +173,7 @@ class MsbwtSample(SeedPairLocator):
 
     # -- bounded seed location (host-seed routing) -----------------------
     def seed_pairs(self, seed: str, row_cap: int) -> tuple[int, bool, set[int]]:
-        """Return the rows over seed and reverse complement, whether located, and the pair IDs if located."""
+        """Return rows over seed and reverse complement, whether located, and pair IDs if located."""
 
         patterns = [seed.upper()]
         reverse = revcomp(seed.upper())

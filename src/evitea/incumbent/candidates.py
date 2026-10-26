@@ -1,16 +1,15 @@
-"""Build the candidate read pairs and loci from panel acquisition.
+"""Build candidate read pairs and loci from panel acquisition.
 
-The candidate set is the working pairs plus the pairs added by the wide-anchor
-step. A pair is localized by its host-mate record: the working-pair record
-when one exists, otherwise the wide-anchor record, using the primary alignment
-of *any* mapped status (unique, multiple or low-confidence). Its family set
-comes from the resident-compatibility pair families, falling back to
-wide-anchor then sparse-panel evidence. A pair with several families joins
-every family bucket. Loci are single-link clusters of float host midpoints per
-``(chrom, family)`` (gap 500 bp, >= 2 distinct pairs).
+The candidate set is the working pairs plus wide-anchor pairs. A pair is
+localized by its host-mate record: the working-pair record if present,
+otherwise the wide-anchor record, using the primary alignment of *any* mapped
+status (unique, multiple or low-confidence). Its family set comes from the
+resident-compatibility pair families, falling back to wide-anchor then
+sparse-panel evidence. A pair with several families joins every family bucket.
+Loci are single-link clusters of float host midpoints per ``(chrom, family)``
+(gap 500 bp, >= 2 distinct pairs).
 
-The ``source`` field is "G1F" for a working pair and "G1HR_RESCUE" for a
-wide-anchor pair.
+The ``source`` field is "G1F" (working) or "G1HR_RESCUE" (wide-anchor).
 """
 
 from __future__ import annotations

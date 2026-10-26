@@ -46,7 +46,7 @@ TE_MATE_OPTIONS = ("-k", "20", "--very-sensitive", "--no-hd")
 
 
 def _member(sorted_ref: np.ndarray, values: np.ndarray) -> np.ndarray:
-    """Return a boolean mask of the ``values`` found in the sorted unique array ``sorted_ref`` (O(len(values) log n))."""
+    """Return boolean membership of ``values`` in the sorted unique array ``sorted_ref`` (O(len(values) log n))."""
 
     if len(sorted_ref) == 0 or len(values) == 0:
         return np.zeros(len(values), dtype=bool)
@@ -56,7 +56,7 @@ def _member(sorted_ref: np.ndarray, values: np.ndarray) -> np.ndarray:
 
 
 def extra_queries(catalogue: AnchorCatalogue, selected: Iterable[str], cap: int = COMPLETE_ROUTING_CAP) -> list[AnchorQuery]:
-    """Return the catalogue queries outside the default panel that complete routing adds, sorted by sequence."""
+    """Return catalogue queries outside the default panel that complete routing adds, sorted by sequence."""
 
     taken = set(selected)
     out = [
@@ -76,11 +76,11 @@ def extra_queries(catalogue: AnchorCatalogue, selected: Iterable[str], cap: int 
 def collect_extra_pairs(
     queries: Sequence[AnchorQuery], frozen_pairs: Iterable[int], index, progress=None
 ) -> tuple[dict[int, int], dict[str, np.ndarray], dict[int, np.ndarray]]:
-    """Return the extra one-mate pairs as ``(te_file, pair_sets, te_dollars)``.
+    """Return ``(te_file, pair_sets, te_dollars)`` for the extra one-mate pairs.
 
-    ``te_file[pair]`` is the file id of the only mate carrying extra words.
-    ``pair_sets[seq]`` holds the extra one-mate pairs carrying ``seq``.
-    ``te_dollars[pair]`` holds the dollar IDs (reads) of that mate that carry
+    ``te_file[pair]``: the file id of the only mate carrying extra words.
+    ``pair_sets[seq]``: the extra one-mate pairs carrying ``seq``.
+    ``te_dollars[pair]``: the dollar IDs (reads) of that mate that carry
     extra words (one read, stored as an array).
     """
 
@@ -139,7 +139,7 @@ def concordant(host_rows: Sequence[tuple[int, str, int]], te_rows: Sequence[tupl
 
 
 def sam_records(sam: Path) -> Iterator[tuple[str, list[tuple[int, str, int]]]]:
-    """Yield ``(qname, rows)`` from a headerless SAM, streaming. Rows of one read are contiguous in Bowtie2 output."""
+    """Yield ``(qname, rows)`` from a headerless SAM. Rows of one read are contiguous in Bowtie2 output."""
 
     current: str | None = None
     rows: list[tuple[int, str, int]] = []
@@ -202,7 +202,7 @@ def augment_panel(
     pair_sets: Mapping[str, np.ndarray],
     te_dollars: Mapping[int, np.ndarray],
 ) -> PairAwarePanel:
-    """Return the default panel plus the kept extra pairs (read count 1). Pairs in the panel are unchanged."""
+    """Return the default panel plus kept extra pairs (count 1); its pairs are unchanged."""
 
     keep = np.asarray(sorted(set(int(x) for x in kept)), dtype=np.uint64)
     if len(keep) == 0:

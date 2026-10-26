@@ -2,8 +2,8 @@
 
 ``run_incumbent_caller`` builds the call set from the prepared sample msBWT,
 the TE consensus library and family map, the host reference and its Bowtie2
-index. The typed repeat-aware core (``run_repeat_aware_incumbent``) can also be
-used directly on observation-level input.
+index. The repeat-aware core (``run_repeat_aware_incumbent``) also accepts
+observation-level input.
 """
 
 from .acquisition import CandidateAcquisition, acquire_candidate_loci

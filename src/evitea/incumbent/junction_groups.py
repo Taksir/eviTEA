@@ -1,6 +1,6 @@
 """Insertion-specific junction groups on one-sided loci.
 
-For every one-sided target locus, reads of the msBWT-routed physical pairs are
+For every one-sided target locus, reads of msBWT-routed physical pairs are
 scanned for contiguous host|TE or TE|host boundaries.  An accepted adjacency
 needs: an exact globally unique host half near the nominated locus on the
 missing genomic side, no contiguous reference explanation of the 40-bp
@@ -11,8 +11,8 @@ or strict winners are excluded, one realization per (locus, side) competes
 globally, and each surviving group adds at most one representative pair to one
 locus side.
 
-The output is the locus aggregation record and the per-group junction source
-needed for full TE-segment confirmation.
+Output: the locus aggregation record and per-group junction source
+for full TE-segment confirmation.
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ class ReadJunction:
 def infer_read_junctions(
     read: str, family_kmers: set[str], scope: str, scope_start: int
 ) -> list[ReadJunction]:
-    """Return the direct boundary candidates in one read (both views), strongest first."""
+    """Return direct boundary candidates in one read (both views), strongest first."""
 
     if not family_kmers:
         return []
@@ -255,10 +255,10 @@ def discover_proposal_block(
     counts: dict[str, int],
     counter_start: int = 0,
 ) -> tuple[list[JunctionProposal], int]:
-    """Run discovery over a contiguous target block and return the next query counter.
+    """Run discovery over a target block; return the next query counter.
 
     Query IDs ``J%08d`` number every local proposal in target order, so a
-    block starting at ``counter_start`` continues the numbering.
+    block starting at ``counter_start`` continues it.
     """
 
     discovery: list[JunctionProposal] = []
@@ -477,7 +477,7 @@ def run_junction_groups(
     work_directory: Path,
     pair_reader,
 ) -> JunctionGroupsResult:
-    """``pair_reader(pair_ids)`` returns ``{pair_id: (mate1, mate2)}`` for exact-hit pairs."""
+    """``pair_reader(pair_ids)`` fetches exact-hit pairs as ``{pair_id: (mate1, mate2)}``."""
 
     counts: dict[str, int] = {}
     target_ids = {target.locus_id for target in targets}

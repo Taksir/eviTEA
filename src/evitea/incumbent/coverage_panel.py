@@ -1,18 +1,17 @@
-"""Coverage panel: exact short anchors, Hamming-1 loci and the optimized panel.
+"""Coverage panel: exact short anchors, Hamming-1 loci, optimized panel.
 
 A TE record orientation is a *group*. A 125 bp TE-only read window is covered
 when it wholly contains an admitted exact anchor. A terminal side is covered
 when a 35 bp terminal segment contains one.
 
-The census adds a targeted exact census of 19/17/15-mers (terminal starts at
-stride 1, interior at stride 10). Where the sparse panel plus exact short
+A targeted exact census covers 19/17/15-mers (terminal starts at stride 1,
+interior at stride 10). Where the sparse panel plus exact short
 anchors with width <= 1024 leave a terminal side or read windows
-uncovered, it also adds 21-mer Hamming-1 (H1) loci.
+uncovered, it adds 21-mer Hamming-1 (H1) loci.
 
-The optimization turns these into actions: one per distinct exact string per
-group, and one per H1 locus whose source and one-substitution variants all
-occur with width <= B. For B in 256/512/1024 it greedily selects actions per
-group (hardest groups first): terminal sides first, then lazy weighted maximum
+Actions are one per distinct exact string per group, and one per H1 locus
+whose source and one-substitution variants all occur with width <= B. For B in
+256/512/1024, actions are selected greedily per group (hardest groups first): terminal sides first, then lazy weighted maximum
 coverage up to min(0.99, 0.99 * attainable). Among the panels under the
 5,000,000-row materialization cap, it chooses the one with the best
 (p10, mean, terminal fraction, -rows).
@@ -127,7 +126,7 @@ class RescuePanel:
 
 # -- geometry ------------------------------------------------------------
 def coverage_interval(length: int, start: int, k: int, read_window: int = READ_WINDOW) -> tuple[int, int] | None:
-    """Return the read windows (start offsets of a read of ``read_window`` bp) that contain the k-mer at ``start``."""
+    """Return read windows (start offsets of a read of ``read_window`` bp) that contain the k-mer at ``start``."""
 
     n = max(0, length - read_window + 1)
     if n <= 0:
@@ -284,7 +283,7 @@ def hard_gap_h1_loci(
             variants.update(_h1_family(query)[1:])
         out.append(H1Locus(te_id, family, orientation, start, query if len(source) == H1_K and set(source) <= _DNA else source))
     if len(variants) > H1_MAX_DISTINCT_VARIANTS:
-        raise BackendCompatibilityError("the number of Hamming-1 variants exceeds the 1,500,000-query cap")
+        raise BackendCompatibilityError("H1 variant count exceeds the 1,500,000-query cap")
     return out
 
 

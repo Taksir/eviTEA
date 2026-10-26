@@ -1,4 +1,4 @@
-"""Credit recurrent edits to retain candidate-family groups, and build repeat-aware events per locus."""
+"""Credit recurrent edits to retain candidate-family groups; build locus events."""
 
 from __future__ import annotations
 

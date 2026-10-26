@@ -28,7 +28,7 @@ class IncumbentCallClass(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class IncumbentCall:
-    """One call of the library layer.
+    """One library layer call.
 
     ``start``/``end`` are the interbase envelope. Split-junction calls carry
     exact side coordinates (``-1`` = side absent); range classes carry none.
@@ -92,7 +92,7 @@ def legacy_rows(calls: Iterable[IncumbentCall]) -> list[dict[str, str]]:
 
 
 def legacy_tsv_bytes(calls: Iterable[IncumbentCall]) -> bytes:
-    """Return the ``*_COMBINED_CALLS.tsv`` content as bytes (LF line endings)."""
+    """Return ``*_COMBINED_CALLS.tsv`` as bytes (LF endings)."""
 
     handle = io.StringIO()
     writer = csv.DictWriter(handle, fieldnames=list(LEGACY_EVENT_FIELDS), delimiter="\t", lineterminator="\n")
