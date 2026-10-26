@@ -322,4 +322,4 @@ I could not see the CI logs of the Windows job in this session. The wording edit
 
 ## 13. Last run of `run_all.sh`
 
-The run on the final tree was still going when this section was committed (test_depth_window, test_depth_tool, test_records and test_assemble had passed; test_runtime, test_repeat_map and test_slurm_tools were pending).
+`bash tools/library_free_tests/run_all.sh` on the final tree (after `3f5f464`, no `PREVIOUS_SRC`): exit 0, the same as the start run. depth_window ALL PASS, depth_tool ALL PASS, records 40 checks 0 failed, assemble 35 of 35, runtime 30 checks 0 failed, repeat_map 15 checks 0 failed, slurm_tools 5 checks 0 failed. pytest on the final tree: 226 passed, 3 skipped. I also ran pytest the way the Windows job installs EviTEA (base install, no Bowtie2, mappy or edlib on the path): 224 passed, 5 skipped, for the start commit and for the final tree alike.
