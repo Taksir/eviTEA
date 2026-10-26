@@ -1,4 +1,4 @@
-"""Exact observed soft-clip anchors ("A") and q99 paired-end geometry support ("B")."""
+"""Exact soft-clip anchors ("A") and q99 paired-end geometry support ("B")."""
 
 from __future__ import annotations
 
@@ -28,8 +28,8 @@ def channel_a(
     chromosome, within ``[start - q99, end + q99]`` (q99: the fragment-size
     99th percentile, 805 bp by default), that overlaps a
     candidate-family safe-probe occurrence by >= 1 query base, witnesses the
-    interbase breakpoint at its clip edge (a leading clip gives RIGHT at record
-    start; a trailing clip gives LEFT at record end).  Anchors need >= 2 pairs
+    interbase breakpoint at its clip edge (leading clip gives RIGHT at record
+    start; trailing clip gives LEFT at record end).  Anchors need >= 2 pairs
     over >= 2 folds.  Per cluster the anchor with most pairs, then folds, then
     lower breakpoint, then LEFT is retained.
     """
@@ -107,7 +107,7 @@ def channel_b_universe(ledger: Mapping[int, dict], host: Mapping[int, dict]) -> 
 def score_candidates(
     anchors: list[dict], b_rows: list[dict], q99: int = Q99
 ) -> tuple[list[dict], tuple[AnchorPECandidate, ...]]:
-    """Directional q99 completion at the breakpoint of each exact anchor (A).
+    """Directional q99 completion at each exact anchor (A).
 
     ``+`` host mate: LEFT side when ``end <= bp <= end + q99``; ``-``: RIGHT
     side when ``start - q99 <= bp <= start`` (q99 805 bp by default).  The

@@ -24,9 +24,9 @@ from .strict_a import a_groups, allowed_pairs, build_b_index, derive_witnesses, 
 
 __all__ = ["FullMemoryResult", "run_full_memory"]
 
-# The finite-state replay names every host query P{pid}, independent of the
+# The finite-state replay names every host query P{pid}, whatever the
 # paired-end anchor host read-name profile.
-# The AKA017 profile therefore maps its host mates a second time.
+# The AKA017 profile therefore maps host mates twice.
 FINITE_STATE_HOST_PROFILE = PRODUCTION_HOST_READ_NAMES
 
 

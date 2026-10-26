@@ -1,11 +1,10 @@
-"""Anchor selection per proposal, then full-data paired-end anchor support.
+"""Anchor selection per proposal, then full-data paired-end anchor support ("B").
 
 For every full-data proposal, one anchor is chosen among the *proposal-only*
-exact-junction events ("A") of the event table that it contains.  The choice
-uses exact junction evidence alone (most pairs, most folds, lower breakpoint,
-LEFT first), so paired-end anchor support ("B") is not consulted.  The chosen
-anchor is then scored against the full-data paired-end anchor universe without
-excluding its own "A" pairs.
+exact-junction events ("A") that it contains.  The choice uses exact
+junction evidence alone (most pairs, most folds, lower breakpoint, LEFT first),
+so "B" is not consulted.  The chosen anchor is then scored against the
+full-data "B" universe without excluding its own "A" pairs.
 """
 
 from __future__ import annotations

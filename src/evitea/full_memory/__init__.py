@@ -1,9 +1,9 @@
-"""Full-memory layer: exact junction evidence inside candidate regions, scored with paired-end anchor support.
+"""Full-memory layer: exact junction evidence inside candidate regions, with paired-end anchor support.
 
 Stages:
 
 * ``finite_state``  finite host (-k 2) and LOCAL paired-reference (-k 20)
-  alternatives with explicit reporting-cap censoring, and the per-pair
+  alternatives with explicit reporting-cap censoring, and per-pair
   accounting;
 * ``proposals``     candidate regions that confirm no event by themselves:
   q99 host-geometry regions from >= 2 pairs over >= 2 folds on the primary

@@ -4,8 +4,8 @@ Population: uncensored ``ELIGIBLE`` + ``REFERENCE_UNEXPLAINED`` +
 ``UNIQUE_HIGH`` pairs with a family, placed by their rank-1 finite host
 alternative.  Each contributes the q99 interval ``[end, end + q99]`` (``+``) or
 ``[max(0, start - q99), start]`` (``-``), not clipped at contig ends.  q99 is
-the fragment-size 99th percentile (805 bp by default).  On the primary contigs
-only (``primary``; the fly arms by default), a sweep retains every elementary
+the fragment-size 99th percentile (805 bp by default).  On primary contigs
+(``primary``; the fly arms by default), a sweep retains every elementary
 segment covered by >= 2 pairs over >= 2 folds.  Adjacent or overlapping
 segments merge into regions.  A rotation's regions come from its three
 discovery folds and are *confirmed* when each held-out fold has >= 1
@@ -41,7 +41,7 @@ def load_proposal_records(accounting: Iterable[Mapping[str, str]],
     for row in accounting:
         pid, fold = as_int(row.get("pair_id")), as_int(row.get("fold"))
         if pid < 0 or fold != pid % N_FOLDS:
-            raise InputContractError(f"invalid pair ID or fold in pair accounting: {pid}")
+            raise InputContractError(f"invalid pair ID or fold: {pid}")
         if (row.get("experiment_state") == "ELIGIBLE" and row.get("reference_state") == "REFERENCE_UNEXPLAINED"
                 and row.get("host_class") == "UNIQUE_HIGH" and not as_bool(row.get("reference_cap_censored"))
                 and not as_bool(row.get("host_cap_censored"))):
@@ -155,7 +155,7 @@ def rotation_proposals(sample: str, records: list[ProposalRecord], primary: Coll
                         hits.append(pid)
                 support[fold] = hits
             confirmed = all(support[f] for f in held)
-            # Held-out fold b pair IDs are listed only when held-out fold a has a hit.
+            # Fold b IDs need a hit in fold a.
             b_ids = support[held[1]] if support[held[0]] else []
             rows.append({
                 "sample": sample, "rotation": label, "candidate_id": f"{sample}_{label}_{j:06d}",

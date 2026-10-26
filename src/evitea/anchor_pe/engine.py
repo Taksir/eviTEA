@@ -1,4 +1,4 @@
-"""Paired-end anchor (``AnchorPE``) candidate engine over a prepared sample."""
+"""Paired-end anchor (``AnchorPE``) candidate engine."""
 
 from __future__ import annotations
 
@@ -207,7 +207,7 @@ def derive_candidates(
     repeatmasker_bed: Path,
     q99: int = Q99,
 ) -> AnchorPEResult:
-    """Clusters, novelty and residency, exact anchors (A), paired-end support (B) and candidates."""
+    """Clusters, novelty and residency, exact anchors (A), paired-end support (B), candidates."""
 
     unique = [{"pair_id": pid, "family": m["family"], **{k: host[pid][k] for k in ("chrom", "start", "end", "strand")},
                "primary": m["primary"], "reference_state": m["reference_state"]}

@@ -122,7 +122,7 @@ def load_safe_codebook(path: str | Path) -> SafeCodebook:
     return SafeCodebook(tuple(units))
 
 
-# pair_id maps to {1: unit ids on mate 1, 2: unit ids on mate 2}
+# pair_id to {1: unit ids on mate 1, 2: unit ids on mate 2}
 PairHits = dict[int, dict[int, set[int]]]
 
 

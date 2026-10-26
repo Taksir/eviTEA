@@ -1,15 +1,15 @@
-"""Global exact junction evidence ("A") and the full-data event table.
+"""Exact junction evidence ("A") and the full-data event table.
 
 Witness: an uncensored ``ELIGIBLE`` + ``REFERENCE_UNEXPLAINED`` pair with a
 finite, uncensored, *not* evidence-complete proper reference alternative whose
 TE-mate CIGAR has a terminal soft clip overlapping an unexplained candidate-
 family query interval (half-open overlap); the clip edge is the exact
-interbase breakpoint (a leading clip gives RIGHT at ``te_start``; a trailing
-clip gives LEFT at ``te_end``).  Exact anchors need >= 2 pairs over >= 2 folds; per
+interbase breakpoint (leading clip: RIGHT at ``te_start``; trailing clip: LEFT at ``te_end``).
+Exact anchors need >= 2 pairs over >= 2 folds; per
 ``(family, chrom, breakpoint)`` one side is kept (most pairs, most folds,
-LEFT first).  A full-data event is an anchor contained in >= 1 full-data
+LEFT first).  A full-data event is an anchor in >= 1 full-data
 proposal; ``proposal_only_A`` marks exact keys absent from the paired-end
-anchor layer's witness set.  The event table's paired-end anchor support state ("B") excludes
+anchor witnesses.  The paired-end anchor ("B") state excludes
 the anchor's own A pairs.
 """
 
@@ -57,13 +57,13 @@ def _intervals(text: str) -> list[tuple[int, int]]:
 
 
 def allowed_pairs(accounting: Iterable[Mapping[str, str]]) -> dict[int, str]:
-    """Map each uncensored ELIGIBLE + REFERENCE_UNEXPLAINED pair to its family."""
+    """Map uncensored ELIGIBLE + REFERENCE_UNEXPLAINED pairs to family."""
 
     allowed: dict[int, str] = {}
     for row in accounting:
         pid = as_int(row.get("pair_id"))
         if pid < 0 or as_int(row.get("fold")) != pid % N_FOLDS:
-            raise InputContractError(f"invalid pair ID or fold in pair accounting: {pid}")
+            raise InputContractError(f"invalid pair ID or fold: {pid}")
         if (row.get("experiment_state") != "ELIGIBLE" or row.get("reference_state") != "REFERENCE_UNEXPLAINED"
                 or as_bool(row.get("reference_cap_censored"))):
             continue
@@ -157,7 +157,7 @@ class BIndex:
 
 
 def build_b_index(b_universe: Iterable[Mapping], q99: int = Q99) -> tuple[BIndex, set[int]]:
-    """Build the index from paired-end anchor support universe rows (host strand geometry); q99 is the fragment-size 99th percentile."""
+    """Build the index from "B" universe rows (host strand geometry); q99: fragment-size 99th percentile."""
 
     index, pids = BIndex(q99), set()
     for r in b_universe:
@@ -191,7 +191,7 @@ def score_b(anchor: Mapping, index: BIndex, folds: set[int] | None, *, exclude_a
 
 
 def historical_keys(witnesses: Iterable[Mapping]) -> set[tuple[str, str, int, str]]:
-    """Exact keys of the paired-end anchor layer's (corrected-cluster) exact-junction witnesses."""
+    """Exact keys of paired-end anchor (corrected-cluster) "A" witnesses."""
 
     return {(normfam(w["family"]), str(w["chrom"]), int(w["breakpoint0"]), str(w["anchor_host_side"]))
             for w in witnesses if int(w["pair_id"]) >= 0 and int(w["breakpoint0"]) >= 0

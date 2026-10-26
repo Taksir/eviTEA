@@ -297,9 +297,8 @@ def decode_fragments_external(
 ) -> list[dict[str, object]]:
     """Run the same decoder under another interpreter that has ``edlib``.
 
-    For an environment whose own interpreter lacks edlib (edlib publishes no
-    CPython 3.14 Windows wheel).  The code and therefore the results are
-    identical.
+    For an environment without edlib (edlib publishes no
+    CPython 3.14 Windows wheel).  The code and results are identical.
     """
 
     work.mkdir(parents=True, exist_ok=True)
