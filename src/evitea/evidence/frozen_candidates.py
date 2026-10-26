@@ -471,10 +471,10 @@ def build_frozen_candidate_codebooks(
     crosswalk = _crosswalk(crosswalk_path)
     _, family_by_te, sources, candidate_counts = _parse_g1a_candidates(catalogue, provenance)
 
-    if reference.semantic_sha256 != repeat_context.reference_semantic_sha256:
-        raise AssetCompatibilityError("RepeatMasker context is bound to another reference")
     if repeat_context is None:
         raise AssetCompatibilityError("prepared reference lacks RepeatMasker context")
+    if reference.semantic_sha256 != repeat_context.reference_semantic_sha256:
+        raise AssetCompatibilityError("RepeatMasker context is bound to another reference")
 
     library_by_te: dict[str, FastaRecord] = {}
     library_family: dict[str, str] = {}
