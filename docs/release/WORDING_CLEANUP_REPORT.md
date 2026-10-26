@@ -221,3 +221,105 @@ Still open for Taksir:
 4. "record guard", "residency test", "Section 128", "relaxed provisional": plain names?
 5. Delete the research file names in `calling.py` and `detector.py`?
 6. The commits are unsigned. GitHub may show them as Unverified.
+
+## 12. Decisions of the final pass
+
+Taksir's decisions were applied in four commits after the report above: `d90fa6f` (CHANGELOG and claims), `122d09b` (progress lines), `3f5f464` ("Help text only"). The `CURRENT_OPTS=""` run against the start commit (25 of 25 identical) was done before these commits.
+
+- **CHANGELOG:** the Unreleased section and the 0.1.0.dev0 entry are one entry that lists what the program does. The version and the date are blank (`[version] ([date])`). The byte-for-byte claim and the counts 838 and 194 are gone from the CHANGELOG and the README. "What is validated" lists only checks a user can run: pytest, the synthetic end-to-end test and `tools/synthetic/compare_call.sh`.
+- **Validation status file:** stays in `validation/` with the answer 12 edits.
+- **Renames:** not in this pass.
+- **Guard per commit:** `d90fa6f` passes (0 failures). `122d09b` has 19 failures, all of the kind "string changed outside a raise, help, print or match position", and no other kind. `3f5f464` has 3 failures: the `help=` keyword added to the two hidden options (a syntax tree change) and the two table strings in `options.py`. The guard was not changed.
+
+### Progress lines changed (commit `122d09b`)
+
+| File | Old | New |
+|---|---|---|
+| `incumbent/acquisition.py` | coverage rescue census | coverage panel census |
+| `incumbent/acquisition.py` | rescue panel optimization | coverage panel selection |
+| `incumbent/acquisition.py` | candidate recall repair | wide-anchor step |
+| `incumbent/engine.py` | two-sided mate rescue | two-sided mate-anchored search |
+| `incumbent/engine.py` | full TE-segment family certification | full TE-segment family confirmation |
+| `incumbent/engine.py` | repeat-aware divergence rescue | repeat-aware step |
+| `engine.py` | incumbent: sample ..., profile ... | library layer: sample ..., profile ... |
+| `engine.py` | incumbent calls: N; v3 extension | library layer calls: N; extension layers |
+| `library_free/runtime.py` | library-free: family calls (v2 filter, rule c) | library-free: family calls (reference-path filter, family-identity filter) |
+| `full_memory/strict_a.py` (error message) | B fold drift | paired-end anchor support row has a fold that does not match its pair ID |
+
+Lines outside the list of answer 7, changed with the plain names of the guide: `anchor_pe/engine.py` ("old primary set" to "primary set"; "AnchorPE counts" to "paired-end anchor counts"), `internal21/acquisition.py` ("INTERNAL21 projection, pairs, counts" to "internal 21-mer projection, pairs, counts"), `languages/builder.py` ("G1A anchor catalogue" to "anchor catalogue"; "internal-21 gate" to "internal 21-mer filter"), `languages/terminal.py` ("terminal k21 candidates" to "terminal 21-mer candidates"). Left as they are: "finite state:" in `full_memory/engine.py` (no plain name known), "mate-rescue" in a batch progress label, and the validation scripts.
+
+Result of the byte-identity run after this commit (`CURRENT_OPTS=""`, start commit as previous): 25 of 25 identical, including `run.log`. Taksir expected 24 of 25 with `run.log` different. These progress lines are not written to `run.log`; they appear only in the console and the `call.log` capture, where the old lines show "incumbent" and the new lines show "library layer". So no output file changed.
+
+### "Help text only" commit (`3f5f464`)
+
+It changes the two `--polya-*` help strings and hides `--g1a-archive` and `--family-crosswalk` with `help=argparse.SUPPRESS`. Nothing else.
+
+```diff
+diff --git a/src/evitea/cli.py b/src/evitea/cli.py
+index deed54e..1e5a81a 100644
+--- a/src/evitea/cli.py
++++ b/src/evitea/cli.py
+@@ -216,8 +216,8 @@ def build_parser() -> argparse.ArgumentParser:
+         help="TE record to family map: a FlyBase table (FBte_ID, FlyBase_Family columns) or two tab-separated "
+         "columns record<TAB>family with any record names (the first word of each TE FASTA header)",
+     )
+-    te.add_argument("--g1a-archive", type=Path)
+-    te.add_argument("--family-crosswalk", type=Path)
++    te.add_argument("--g1a-archive", type=Path, help=argparse.SUPPRESS)
++    te.add_argument("--family-crosswalk", type=Path, help=argparse.SUPPRESS)
+     te.add_argument(
+         "--terminal-codebook",
+         type=Path,
+diff --git a/src/evitea/library_free/options.py b/src/evitea/library_free/options.py
+index 6aadc74..ca2b6d0 100644
+--- a/src/evitea/library_free/options.py
++++ b/src/evitea/library_free/options.py
+@@ -98,8 +98,8 @@ SWITCHES = (
+     ("--anchored-extension", "anchored_extension", "on", "build the inserted DNA from reads of one site only where the plain extension stops short"),
+     ("--walk-out", "walk_out", "on", "move a repeated walk-start word outward to the nearest unique word"),
+     ("--first-pass-priority", "first_pass_priority", "on", "second-chance sources add calls and never change a first-pass duplicate choice, grouping or the family-identity filter"),
+-    ("--polya-cross", "polya_cross", "off", "cross a poly-A run in the extension (set aside; off)"),
+-    ("--polya-tsd", "polya_tsd", "off", "count a poly-A tail like a target-site duplication in the family rule (set aside; off)"),
++    ("--polya-cross", "polya_cross", "off", "cross a poly-A run in the extension (off by default; experimental)"),
++    ("--polya-tsd", "polya_tsd", "off", "count a poly-A tail like a target-site duplication in the family rule (off by default; experimental)"),
+     ("--early-start", "early_start", "on", "het scan (full): walk again from 30 letters further left"),
+     ("--right-fallback", "right_fallback", "on", "het scan (full): walk the right side alone when the left side shows nothing"),
+     ("--second-scan-anchored", "second_scan_anchored", "on", "use the anchored extension in the het scan"),
+```
+
+Help pages before and after (all 16 pages compared). Four options differ, not three: the two hidden options disappear from the usage line and the option list of `prepare-te`, and the two `--polya-*` help lines change in `library-free`. Because argparse appends "(default off)", the new text reads "(off by default; experimental) (default off)".
+
+```diff
+61,62d60
+<                          [--g1a-archive G1A_ARCHIVE]
+<                          [--family-crosswalk FAMILY_CROSSWALK]
+78,79d75
+<   --g1a-archive G1A_ARCHIVE
+<   --family-crosswalk FAMILY_CROSSWALK
+286,287c282,283
+<                         cross a poly-A run in the extension (set aside; off)
+<                         (default off)
+---
+>                         cross a poly-A run in the extension (off by default;
+>                         experimental) (default off)
+289c285,286
+<                         the family rule (set aside; off) (default off)
+---
+>                         the family rule (off by default; experimental)
+>                         (default off)
+```
+
+- pytest after the commit: 226 passed, 3 skipped.
+- `run_all.sh`: see section 13.
+
+### Word counts after the final pass
+
+`stats --against $START`, without this report: comment 3975 (start 4029), docstring 21167 (21257), prose 9684 (9765), string 8269 (8233). The string count is 36 words over the start. Cause: the progress lines were not counted before, because the scanner counts a string only when it has three or more words, and the plain names ("library layer", "internal 21-mer") put them over that line. The new error message for the fold check alone adds 14. Please decide whether to accept this, or to shorten messages elsewhere.
+
+### Windows build
+
+I could not see the CI logs of the Windows job in this session. The wording edits add no non-ASCII characters and change no code except what is listed above. `.github/workflows/tests.yml` has only a comment change. If the job fails, the log line that fails is what I need.
+
+## 13. Last run of `run_all.sh`
+
+The run on the final tree was still going when this section was committed (test_depth_window, test_depth_tool, test_records and test_assemble had passed; test_runtime, test_repeat_map and test_slurm_tools were pending).
