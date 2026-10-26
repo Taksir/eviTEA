@@ -40,8 +40,8 @@ class RefWords:
 
 
 def walk_alt(C, s, i, ctx, end, D, shortcut=True, follow_alt=False):
-    """Walk as ``_p4_lib.walk`` does, and also count ``n_both``: substitutions (3-letter rejoin test passed) with ``nref >= thr``.
-    With ``follow_alt`` the context takes the alternative letter at such a substitution. At a break with ``follow_alt``, ``frac``
+    """``_p4_lib.walk`` that also counts ``n_both`` = substitutions (3-letter rejoin test passed) with ``nref >= thr``. With
+    ``follow_alt`` the context takes the alternative letter at such a substitution. At a break with ``follow_alt``, ``frac``
     and ``T`` are site values over both the walk's context and the reference context (``frac_walk``, ``T_walk`` keep the walk's
     own)."""
     thr = P.REF_OK * D
@@ -107,7 +107,7 @@ def walk_fn_for(follow_alt: bool):
 
 
 def walk_repeat(words: RefWords):
-    """Return the walk for moved starts: ``_p4_lib.walk`` plus the rule above. ``n_par`` counts the branches passed."""
+    """The walk for moved starts: ``_p4_lib.walk`` plus the rule above. ``n_par`` counts the branches passed."""
 
     def walk(C, s, i, ctx, end, D, shortcut=True):
         thr = P.REF_OK * D
@@ -163,7 +163,7 @@ def walk_repeat(words: RefWords):
 
 
 def left_walk_at(C, ref, cand, strides=1, walk_fn=P.walk):
-    """Run ``_p4_lib.left_walk`` with the start ``strides`` words before the run (1 = plain)."""
+    """``_p4_lib.left_walk`` with the start ``strides`` words before the run (1 = plain)."""
     a = cand["first"] - strides * P.STRIDE
     if a < 0 or not P.is_acgt(ref[a:a + P.K]):
         return dict(status="edge", i=a), a
@@ -172,7 +172,7 @@ def left_walk_at(C, ref, cand, strides=1, walk_fn=P.walk):
 
 
 def right_walk_at(C, ref, cand, b=None, walk_fn=P.walk):
-    """Run ``_p4_lib.right_walk`` with the anchor word start ``b`` given (default: the plain ``last + STRIDE``)."""
+    """``_p4_lib.right_walk`` with the anchor word start ``b`` given (default: the plain ``last + STRIDE``)."""
     if b is None:
         b = cand["last"] + P.STRIDE
     if b + P.K > len(ref) or not P.is_acgt(ref[b:b + P.K]):

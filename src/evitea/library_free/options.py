@@ -1,5 +1,5 @@
-"""Switches of the library-free layer. Every rule is a switch. ``Options.previous()`` has them all off. With them all off and
-``--depth-cap 100``, the layer gives the files of the layer without these rules, byte for byte. Names say what each part does.
+"""Switches of the library-free layer. Every rule is a switch; ``Options.previous()`` has them all off, and with them all off and
+``--depth-cap 100`` the layer writes the base detector's files byte for byte.
 
 Rules (see LIBRARY_FREE_OPTIONS.md):
   anchored extension   build the inserted DNA from reads of one site only, where the plain extension stops short
@@ -72,12 +72,12 @@ class Options:
 
     @property
     def first_pass_changed(self) -> bool:
-        """Return whether the first-pass detection differs from the one with every switch off (which needs the extra place columns)."""
+        """Does the first-pass detection differ from the base detector (needs the extra place columns)?"""
         return self.anchored_extension or self.walk_out or self.polya_cross
 
     @property
     def detection_identity(self) -> dict:
-        """Return the switches that change what a detection writes (part of the identity of a saved scan piece)."""
+        """The switches that change what a detection writes (part of the identity of a saved scan piece)."""
         keys = ("anchored_extension", "walk_out", "polya_cross", "het_scan", "second_chance", "early_start", "right_fallback",
                 "second_scan_anchored", "relative_depth_floor")
         return {**{k: getattr(self, k) for k in keys}, "record_check": self.check_scope != "none"}

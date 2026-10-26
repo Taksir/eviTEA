@@ -100,7 +100,7 @@ def segments_fa_bytes(grouped: Sequence[dict]) -> bytes:
 
 
 def parse_places(data: bytes) -> list[dict[str, str]]:
-    """Return the rows of a places table as text fields (as the research scorers read them)."""
+    """Rows of a places table as text fields (the research scorers' reading)."""
 
     lines = data.decode("utf-8-sig").splitlines()
     if not lines:

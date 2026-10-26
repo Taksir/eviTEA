@@ -9,18 +9,17 @@ check scope   none           a call with reference-path fraction e >= T_E is dro
               path-dropped   a call that the reference-path filter drops (T_E <= e <= REFERENCE_PATH_CEILING) is kept when it passes the one-site check (``check.py``).
               unconfirmed    every library-free call the library layer does not make (no EviTEA call within 500 bp) must pass the
                              one-site check, and e <= REFERENCE_PATH_CEILING. e stays in the output as the allele-share column.
-Calls are judged in this order. DROPPED_V2 is the reference-path filter (e above REFERENCE_PATH_CEILING, or e >= T_E with scope none).
-DROPPED_RULE_C is the family-identity filter. The other statuses follow: NEAR_EVITEA, DROPPED_CHECK, DROPPED_RESIDENT_COPY, ADDED.
+Calls are judged in this order: DROPPED_V2 (reference-path filter: e above REFERENCE_PATH_CEILING, or e >= T_E with scope none),
+DROPPED_RULE_C (family-identity filter), NEAR_EVITEA, DROPPED_CHECK, DROPPED_RESIDENT_COPY, ADDED.
 
-Haplotype scan. Its family calls are judged on their own grouping. A call joins the first pass only where the first pass has no family
-call (of any status) within 500 bp (MERGE_D). It must also show reads of both alleles (T_E <= e <= REFERENCE_PATH_CEILING) and pass the
+Haplotype scan. Its family calls are judged on their own grouping. They join the first pass only where the first pass has no family call
+(of any status) within 500 bp (MERGE_D), and only if they show reads of both alleles (T_E <= e <= REFERENCE_PATH_CEILING) and pass the
 one-site check.
-The family-identity filter for these calls is decided on trusted members. These are the places of calls that lie within 500 bp of a
-first-pass family call, or that pass the check with T_E <= e <= REFERENCE_PATH_CEILING. They are grouped again among themselves, and
-the family rule and the family-identity filter are applied to those clusters. A call that the family-identity filter dropped in its
-own grouping is kept when this second decision keeps it. A call gets the first status that applies, in this order: NOT_HET (no
-allele-share evidence: left to the first pass), DROPPED_V2, NEAR_FIRST_PASS, DROPPED_CHECK, DROPPED_RULE_C, NEAR_EVITEA,
-DROPPED_RESIDENT_COPY, ADDED.
+The family-identity filter for them is decided on trusted members: the places of calls that lie within 500 bp of a first-pass family
+call or that pass the check with T_E <= e <= REFERENCE_PATH_CEILING. These places are grouped again among themselves. The family rule
+and the family-identity filter are applied to those clusters. A call that the family-identity filter dropped in its own grouping is
+kept when this second decision keeps it. Status of such a call: NOT_HET (no allele-share evidence: left to the first pass),
+DROPPED_V2, NEAR_FIRST_PASS, DROPPED_CHECK, DROPPED_RULE_C, NEAR_EVITEA, DROPPED_RESIDENT_COPY, ADDED.
 """
 
 from __future__ import annotations
@@ -94,9 +93,9 @@ def _fnum(v):
 
 
 def _judged(used, all_members, minimum, aligner):
-    """Return (c, pairs, usable pairs) of a family from at least ``minimum`` usable member comparisons. Use the members ``used`` (the
-    plain-extension members when the first-pass priority picked them) when they give that many, otherwise all members. With fewer,
-    the family is not judged (c = NaN, which the family-identity filter never drops). ``minimum`` 0 is the plain measure on ``used``."""
+    """(c, pairs, usable pairs) of a family from at least ``minimum`` usable member comparisons: the members ``used`` (the plain-extension
+    members when the first-pass priority picked them) when they give that many, otherwise all members; with fewer the family is not judged
+    (c = NaN, which the family-identity filter never drops). ``minimum`` 0 is the plain measure on ``used``."""
     r = CL.feat_c(used, aligner)
     if minimum == 0 or r[2] >= minimum:
         return r
@@ -150,7 +149,7 @@ def _tolerance(first: _Pass, opts: Options, identity_filter: bool):
 
 
 def _measure(passes, ref_index, wanted, tol, opts):
-    """Measure the novelty of the wanted (pass, place index) calls and set ``check`` on each pass."""
+    """Novelty for the wanted (pass, place index) calls; sets ``check`` on each pass."""
     junctions = {}
     for pa, idxs in wanted:
         for i in idxs:
@@ -200,8 +199,7 @@ def _first_status(pa, i, opts, identity_filter, scope):
 
 
 def _trusted_identity_filter(second: _Pass, trusted: list[int], priority: bool, polya_tsd: bool, aligner, minimum=0):
-    """Group the trusted places among themselves. Return, per place index, (cluster2, family vtsd2, c2 tuple, dropped2), where
-    dropped2 is the decision of the family-identity filter."""
+    """Group the trusted places among themselves; (cluster2, family vtsd2, c2 tuple, dropped2 = family-identity filter) per place index."""
     G, back = [], []
     for i in trusted:
         p = second.places[i]
@@ -241,9 +239,9 @@ def _trusted_identity_filter(second: _Pass, trusted: list[int], priority: bool, 
 
 def assemble(first, second, index: CL.CallIndex, opts: Options, *, identity_filter: bool, reference=None, copies=None, genome_bp: int = 0,
              aligner: Callable | None = None):
-    """Return (rows, summary). ``first`` and ``second`` are (places rows, segments dict) of each pass (``second`` is None without a
-    haplotype scan). ``reference`` is a dict contig -> sequence (required for the check). ``copies`` is a ``resident.CopyIndex``
-    (None means no resident-copy test). ``genome_bp`` is the number of bases of the reference (the denominator of the TE fraction)."""
+    """(rows, summary). ``first`` / ``second`` = (places rows, segments dict) of each pass (``second`` None without a haplotype
+    scan); ``reference`` = dict contig -> sequence (needed for the check); ``copies`` = ``resident.CopyIndex`` (None: no
+    resident-copy test); ``genome_bp`` = bases of the reference (the TE share's denominator)."""
     scope = opts.check_scope
     if second is not None and scope == "none":
         raise InputContractError("the haplotype scan joins calls through the one-site check; use --check-scope path-dropped or "
@@ -350,8 +348,7 @@ def family_calls_tsv_bytes(rows, *, extended: bool) -> bytes:
 
 
 def added_calls_tsv_bytes(rows, *, second_prefix: str = "h") -> bytes:
-    """Return the added calls of both passes. The call interval is [bL, bL + 1), as in the scored union of the research code.
-    Second-scan families are named ``LF_cluster_h<N>``."""
+    """The added calls of both passes; the call interval is [bL, bL + 1), as in the research scored union. Second-scan families are named ``LF_cluster_h<N>``."""
     seen: dict[str, int] = defaultdict(int)
     body = []
     for r in rows:

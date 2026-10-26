@@ -36,7 +36,7 @@ def _bonus(stage, p):
 
 
 def stage_without_anchored(p):
-    """Return S4_pass only if a kept side has a plain-extension segment. A pass that rests on anchored sides only is S4_reject."""
+    """S4_pass only if a kept side has a plain-extension segment; a pass that rests on anchored sides only is S4_reject."""
     if p.get("stage") != "S4_pass":
         return p.get("stage")
     stop = {"L": p.get("lstop"), "R": p.get("rstop")}
@@ -56,7 +56,7 @@ def revert_walk_out(places):
 
 
 def dedupe(places, *, priority: bool, yield_order: bool = False):
-    """Keep one place per insertion. Set ``dup`` (0/1) and ``_rep`` on every place with a left break."""
+    """One place per insertion; sets ``dup`` (0/1) and ``_rep`` on every place with a left break."""
     chain = (lambda p: p["bL0"] if p.get("walked") else p["bL"]) if priority else (lambda p: p["bL"])
     idx = [i for i, p in enumerate(places) if p.get("stage") in RANK and p.get("bL") is not None]
     idx.sort(key=lambda i: (places[i]["chrom"], chain(places[i]), i))
@@ -87,8 +87,8 @@ def dedupe(places, *, priority: bool, yield_order: bool = False):
 
 
 def group(places, *, priority: bool, confirm_fn=P.confirm):
-    """Group by single linkage. With ``priority``, a pair holding a walked-out place may not join two clusters that both hold a
-    place that is not walked out. Without any walked-out place it is ``_p4_lib.group``."""
+    """Single linkage; with ``priority`` a pair holding a walked-out place may not join two clusters that both hold a place that
+    is not walked out. Without any walked-out place it is ``_p4_lib.group``."""
     if not (priority and any(p.get("walked") for p in places)):
         return P.group(places, confirm_fn)
     segs = []
@@ -130,8 +130,8 @@ def group(places, *, priority: bool, confirm_fn=P.confirm):
 
 
 def tail_mark(p):
-    """Return True for a poly-A tail at a junction: a run of LC_RUN T in the first K letters of the left segment, or of LC_RUN A in
-    the last K letters of the right segment (segments are in forward orientation, and the right one ends at the junction)."""
+    """A poly-A tail at a junction: a run of LC_RUN T in the first K letters of the left segment, or of LC_RUN A in the last K
+    letters of the right segment (segments are in forward orientation; the right one ends at the junction)."""
     return ("T" * P.LC_RUN) in (p.get("lseg") or "")[:P.K] or ("A" * P.LC_RUN) in (p.get("rseg") or "")[-P.K:]
 
 
@@ -171,8 +171,8 @@ def group_and_call(places, opts):
 
 
 def cluster_members(places, segments, *, priority: bool):
-    """Return cluster -> member segment lists (segments of >= 60 letters) of the grouped places, in table order. With ``priority``,
-    a cluster with at least two members holding a plain-extension segment keeps only those, and a walked-out place gives none.
+    """cluster -> member segment lists (segments of >= 60 letters) of the grouped places, in table order. With ``priority`` a
+    cluster with at least two members holding a plain-extension segment keeps only those, and a walked-out place gives none.
     ``places`` are rows of text fields."""
     allm = defaultdict(list)
     fv = defaultdict(list)

@@ -40,7 +40,7 @@ CACHE_MAX = 2_000_000
 
 
 def candidates_from_low(pos, low, dep):
-    """Return runs of flagged words <= RUN_GAP apart, as ``_p4_lib.candidates`` does after its mask. Keys: first, last, n_low, D, j0, j1."""
+    """``_p4_lib.candidates`` after its mask: runs of flagged words <= RUN_GAP apart; keys first, last, n_low, D, j0, j1."""
     idx = np.flatnonzero(low)
     out = []
     if len(idx) == 0:
@@ -57,7 +57,7 @@ def candidates_from_low(pos, low, dep):
 
 
 def low_masks(c, nf, dep, x):
-    """Return the masks of flagged words from c (31-mer counts, -1 invalid), nf (N fraction), dep (local depth) and x (41-mer counts at the same starts, -1 invalid)."""
+    """c: 31-mer counts (-1 invalid), nf: N fraction, dep: local depth, x: 41-mer counts at the same starts (-1 invalid)."""
     with np.errstate(invalid="ignore"):
         ok = (c >= 0) & (nf <= P.NFRAC) & ~np.isnan(dep)
         old = ok & (c < P.LOWF * dep)
@@ -71,7 +71,7 @@ def low_masks(c, nf, dep, x):
 
 
 def count_x(C, ref, pos):
-    """Return x, where x[j] is the count of the 41-mer at pos[j], or -1 if it does not fit or has a non-ACGT letter."""
+    """x[j] = count of the 41-mer at pos[j], -1 if it does not fit or has a non-ACGT letter."""
     x = np.full(len(pos), -1, dtype=np.int64)
     for j in range(len(pos)):
         p = int(pos[j])
@@ -83,7 +83,7 @@ def count_x(C, ref, pos):
 
 
 def pick_strides(j0, pos, ok, low):
-    """Return the furthest safe left start (4, 3 or 2 strides before the run), else the plain 1."""
+    """Furthest safe left start, 4, 3 or 2 strides before the run, else the plain 1."""
     for s in (4, 3, 2):
         if j0 - s < 0:
             continue
@@ -94,8 +94,8 @@ def pick_strides(j0, pos, ok, low):
 
 
 def depth_floor(depth, opts: Options):
-    """Return the lower bound of the local-depth window of a contig: None (the fixed ``_p4_lib.D_MIN``) or, with the relative floor,
-    the smaller of ``D_MIN`` and half the median local depth of the contig's valid words."""
+    """Lower bound of the local-depth window of a contig: None (the fixed ``_p4_lib.D_MIN``) or, with the relative floor, the smaller of
+    ``D_MIN`` and half the median local depth of the contig's valid words."""
     if not opts.relative_depth_floor:
         return None
     valid = depth[~np.isnan(depth)]
@@ -167,7 +167,7 @@ def _het_pass(counter, ref, chrom, rm, fw, opts: Options, cands, pos, m, info, r
 
 
 def scan_contig_passes(counter, sequence, chrom, rm, firewall, opts: Options, words=None):
-    """Return (first-pass places, haplotype-scan places or None, info) of one contig. The 31-mer counts are read once; the
+    """(first-pass places, haplotype-scan places or None, info) of one contig. The 31-mer counts are read once; the
     haplotype scan reads the 41-mer counts besides. ``counter`` is a ``_p4_lib.Counter`` built with ``cache=False`` whose cache
     is switched on after the run detection, as in ``detector.scan_contig``."""
     ref = sequence.upper()

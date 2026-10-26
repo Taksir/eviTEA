@@ -17,7 +17,7 @@ cross      (requires anchored) When the extension would stop and its segment end
            the summed counts, the segment takes the run at its most common length and that letter, then continues under the
            plain stop and fork rules. Stop reasons of such segments start with ``a_x_``.
 
-All constants come from ``_p4_lib``. With both off, the extender is ``_p4_lib.extend``.
+Constants come from ``_p4_lib``. With both off the extender is ``_p4_lib.extend``.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ def _tail_run(s):
 
 
 def _cross(C, host, s, stop, fork):
-    """Return (extended segment or None, record, state) for the letter after the trailing run, counted over every run length."""
+    """(extended segment or None, record, state) for the letter after the trailing run, counted over every run length."""
     R, n = _tail_run(s)
     pre = s[:len(s) - n]
     sums = {x: 0 for x in "ACGT" if x != R}

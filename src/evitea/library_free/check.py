@@ -1,12 +1,12 @@
 """The one-site check of a library-free call.
 
-A real insertion junction is sequence absent from the reference, read at single-copy depth, whatever the zygosity. A library-free
-call has no second line of evidence (no library, no read pair), so each junction side it rests on is measured:
+A real insertion junction is new sequence read at single-copy depth, whatever the zygosity. A library-free call has no second
+line of evidence (no library, no read pair), so each junction side it rests on is measured:
 
   depth    T / D <= tolerance. T = the reads that continue the walk's context at the break (the sum of the four letter counts after
            the 30-letter context; the site total when the walk follows the other letter), D = the place's local depth. A junction
            between two reference copies, or inside a collapsed repeat, has many times single-copy depth.
-  novelty  the junction (30 host letters + the first 30 inserted letters) must be absent from the reference: at most 10 of its
+  novelty  the junction (30 host letters + the first 30 inserted letters) must be new to the reference: at most 10 of its
            31-letter windows (offsets 0..20, both strands) occur in the reference, and the junction (up to 60 letters) has no
            ungapped alignment at >= 95% identity to the reference on either strand. A difference between old copies of a
            repeat reads like a junction in short reads but its words are in the reference.
@@ -60,7 +60,7 @@ def to_arr(s):
 
 
 def kmer_codes(b, k):
-    """Return the 2-bit codes of every k-mer of the uint8 array b (A0 C1 G2 T3, other 255) as (codes uint64, ok bool)."""
+    """2-bit codes of every k-mer of the uint8 array b (A0 C1 G2 T3, other 255): (codes uint64, ok bool)."""
     n = len(b) - k + 1
     if n <= 0:
         return np.zeros(0, np.uint64), np.zeros(0, bool)
@@ -88,7 +88,7 @@ class RefIndex:
         self.arr = {name: to_arr(s.upper()) for name, s in genome.items()}
 
     def present_codes(self, codes, k=K):
-        """Return the subset of ``codes`` (ints) that occur as k-mers in the reference forward strand."""
+        """Subset of ``codes`` (ints) that occur as k-mers in the reference forward strand."""
         q = np.unique(np.array(sorted(set(codes)), dtype=np.uint64))
         found = set()
         for b in self.arr.values():
@@ -154,7 +154,7 @@ def junction_windows(junction):
 
 
 def novelty(junctions, ref: RefIndex):
-    """Return id -> dict(n_win, n_win_in_ref, b2_novel, aligned_mm) for ``junctions`` (id -> junction string)."""
+    """junctions: id -> junction string. id -> dict(n_win, n_win_in_ref, b2_novel, aligned_mm)."""
     allcodes, wins = set(), {}
     for jid, jn in junctions.items():
         ws = [w for w in junction_windows(jn) if acgt(w)]
@@ -183,7 +183,7 @@ class SideInput:
 
 
 def side_inputs(row) -> list[SideInput]:
-    """Return the sides the detection recorded for a place row (text fields); empty when it recorded none."""
+    """The sides the detection recorded for a place row (text fields); empty when it recorded none."""
     out = []
     try:
         D = float(row["D"])
@@ -203,7 +203,7 @@ def side_pass(side: SideInput, nov: dict, tol: float) -> int:
 
 
 def call_pass(sides, novs, tol: float) -> int:
-    """Return 1 when the call has a side and every side passes, else 0."""
+    """1 when the call has a side and every side passes, else 0."""
     return int(len(sides) > 0 and all(side_pass(s, novs[s.side], tol) == 1 for s in sides))
 
 
@@ -219,8 +219,8 @@ class Tolerance:
 
 
 def tolerance(library_ratios, own_ratios, source: str) -> Tolerance | None:
-    """Return the tolerance from the side depth ratios of the library-confirmed calls (or, with source ``own-calls`` or no
-    library-confirmed side, of the layer's own two-sided calls). Return None when neither has a side."""
+    """The tolerance from the side depth ratios of the library-confirmed calls (or, with source ``own-calls`` or no
+    library-confirmed side, of the layer's own two-sided calls). None when neither has a side."""
     use, name = (library_ratios, "library") if source == "library" and len(library_ratios) else (own_ratios, "own-calls")
     if not len(use):
         return None

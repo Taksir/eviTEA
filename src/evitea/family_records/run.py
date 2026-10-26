@@ -57,8 +57,8 @@ def _ids(scan, cluster):
 
 
 def padded_map(records):
-    """Return the family map followed by inert rows up to PAD_TO entries. The anchor-pair stage requires that many entries.
-    prepare-te keeps only rows of library records, so the prepared assets hold the records alone."""
+    """The family map followed by inert rows up to PAD_TO entries (the anchor-pair stage requires that many entries; prepare-te keeps
+    only rows of library records, so the assets hold the records alone)."""
     body = "".join("%s\t%s\t\t\t\t\n" % (te, fam) for te, fam, _ in records)
     n = len(records)
     pad = "".join("%s\t%s\t\t\t\t\n" % (PAD_ID % k, PAD_NAME % k) for k in range(1, max(0, B.PAD_TO - n) + 1))
