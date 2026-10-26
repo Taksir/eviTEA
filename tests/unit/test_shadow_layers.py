@@ -1,4 +1,4 @@
-"""Policies for appending the extension layers to the library-layer call set."""
+"""Extension-layer integration policies."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Print the arguments of the `evitea call` command recorded in a run's run_manifest.json, with --te-assets, --output and --work-dir
+"""Print the `evitea call` arguments recorded in run_manifest.json, with --te-assets, --output and --work-dir
 replaced, as NUL-separated words (for `mapfile -d ''`).   usage: call_args.py <run_manifest.json> <te-assets> <output> <work-dir>"""
 import json
 import sys

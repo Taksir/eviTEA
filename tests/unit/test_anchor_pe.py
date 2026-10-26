@@ -1,4 +1,4 @@
-"""Paired-end anchor support (anchor_pe) behavior on small synthetic inputs."""
+"""Paired-end anchor support behavior on small synthetic inputs."""
 
 from __future__ import annotations
 

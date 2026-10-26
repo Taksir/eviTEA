@@ -32,7 +32,7 @@ jobs:
         run: bash tools/library_free_tests/run_all.sh
 
   windows:
-    # the library layer runs on Windows. The library-free layer (mappy) and the Bowtie2-based tests do not run there and are skipped
+    # the library layer runs on Windows. The library-free layer (mappy) and Bowtie2 tests are skipped there
     runs-on: windows-2022
     timeout-minutes: 30
     steps:

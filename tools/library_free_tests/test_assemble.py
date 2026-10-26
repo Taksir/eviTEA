@@ -1,5 +1,5 @@
 """Family-call assembly on crafted tables: the one-site check, check scopes, the resident-copy test, the join of the first pass
-with the haplotype scan, and the family-identity filter on trusted members.
+with the haplotype scan, and family-identity filter on trusted members.
 Run: PYTHONPATH=src python -B tools/library_free_tests/test_assemble.py
 
 A1  scope none: assemble gives calling.family_calls' rows (status, e, c) on the same tables.
@@ -13,7 +13,7 @@ A8  resident-copy test: family and per-call modes; off without an annotation.
 A9  the check refuses tables with no recorded junctions.
 A10 identity evidence (--identity-min-comparisons): a family whose plain-extension members give one comparison below the cutoff but whose
     members as a whole give many above it is kept at 3 and dropped at 0. A family with one comparison in all is not judged at 3 (kept)
-    and judged at 0 (dropped). The same holds for the family-identity filter on trusted members of the haplotype scan.
+    and judged at 0 (dropped). The same holds for the family-identity filter on trusted haplotype-scan members.
 """
 import os
 import random
@@ -167,7 +167,7 @@ def main():
     f.family([1000, 1010], ratio=1.0)
     f.family([30000, 30500], ratio=1.0)                 # first-pass family call at 30000
     h = Table()
-    h.family([5000, 9000], e=0.30, ratio=1.0)          # het site absent from the first pass
+    h.family([5000, 9000], e=0.30, ratio=1.0)          # het site
     h.family([12000, 15000], e=0.30, ratio=2.0)        # fails the check
     h.family([30100, 41000], e=0.30, ratio=1.0)        # one place within 500 bp of a first-pass call: that call is NEAR_FIRST_PASS
     h.family([45000, 47000], e=0.0, ratio=1.0)         # no allele-share evidence

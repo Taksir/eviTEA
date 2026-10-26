@@ -17,4 +17,4 @@ dependencies:
   - make
   - zlib
   - pip:
-      - ".[anchorpe,library-free]"   # this repository (the environment file is in its root folder)
+      - ".[anchorpe,library-free]"   # this repository (the environment file is in its root)

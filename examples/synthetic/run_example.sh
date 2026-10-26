@@ -1,9 +1,9 @@
 #!/bin/bash
 # The public example: a small synthetic genome (five 200 kb contigs chr1..chr5 and a mitochondrial contig MT), a TE
 # library of 120 records with ordinary names (B1_Mm_1, L1MdA_I_1, Ty1_1, ...) in 60 families with a two-column family map,
-# and 125 bp paired reads (about 30x) of a sample that carries 30 non-reference TE insertions. About 10 minutes on 4 CPUs.
+# and 125 bp paired reads (about 30x) of a sample that carries 30 non-reference insertions. About 10 minutes on 4 CPUs.
 #   bash examples/synthetic/run_example.sh [OUTPUT_FOLDER]      (default examples/synthetic/run; PYTHON=python3)
-# Requires EviTEA installed (or PYTHONPATH=src) and Bowtie2 on PATH. The data are made by a script, so nothing large is stored here.
+# Requires EviTEA installed (or PYTHONPATH=src), Bowtie2 on PATH. The data are made by a script, so nothing large is stored here.
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
