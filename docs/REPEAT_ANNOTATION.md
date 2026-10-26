@@ -39,8 +39,8 @@ A species may have no curated TE library. EviTEA can call insertions without one
    (`makeblastdb` and `blastn` on `PATH`). Its `repeat_map.bed` stands in for the TE annotation in the resident-copy test of
    the library-free layer.
 2. `library-free` runs on an empty library call set, with the family-identity filter and `--repeat-map`.
-3. `build-family-records` turns the library-free families into TE records (with their reference copies and end-word
-   codebooks), and `prepare-te` prepares them.
+3. `build-family-records` turns the library-free families into TE records (with their reference copies and their TE-end and TE-interior
+   k-mer codebooks), and `prepare-te` prepares them.
 4. `call` runs the library layer once more, on those records. `add-record-calls` adds its calls to the library-free call
    set. The result is `record_pass/added/calls.combined.tsv`.
 

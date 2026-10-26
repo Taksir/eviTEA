@@ -1,14 +1,14 @@
 # Library-free layer: switches and outputs
 
-Each rule that the previous release did not have is a switch. With every switch off
-(`library-free --previous-behaviour --depth-cap 100`; the previous release has the upper depth bound 100) the layer writes the
-previous release's files byte for byte. `tools/library_free_tests/test_runtime.py` checks this on a synthetic sample.
+Each added rule is a switch. `library-free --previous-behaviour` turns off every added rule and gives the basic library-free
+scan (for comparison runs). With `--depth-cap 100` as well (the basic scan has the upper depth bound 100), the layer writes the
+files of the basic scan byte for byte. `tools/library_free_tests/test_runtime.py` checks this on a synthetic sample.
 
 ## Switches
 
 | Part | Switch | Default | What it does |
 |---|---|---|---|
-| Depth window | `--depth-cap N` | none | upper bound of the local depth D (the lower bound 10 stays). `--depth-cap 100` is the previous release's window. Also `EVITEA_DEPTH_CAP`. |
+| Depth window | `--depth-cap N` | none | upper bound of the local depth D (the lower bound 10 stays). `--depth-cap 100` is the window of the basic scan. Also `EVITEA_DEPTH_CAP`. |
 | Anchored extension | `--anchored-extension` | on | builds the inserted DNA from reads of one site only, where the plain extension stops short |
 | Walk-out | `--walk-out` | on | moves a repeated walk-start word outward (up to 50 strides) to the nearest unique word |
 | First-pass priority | `--first-pass-priority` | on | second-chance sources add calls and never change a first-pass duplicate choice, grouping or family-identity filter |
@@ -18,7 +18,7 @@ previous release's files byte for byte. `tools/library_free_tests/test_runtime.p
 | | `--early-start`, `--right-fallback`, `--second-chance`, `--second-scan-anchored`, `--het-yield` | on | parts of the full mode; `--het-yield`: an early-start or right-side-alone place yields to the plain or second-chance walk of its duplicate chain |
 | Identity evidence | `--identity-min-comparisons N` | 3 | the family-identity filter judges a family only on at least N member comparisons (each of at least 50 aligned columns): the first-pass priority members when they give N, otherwise all members. A family with fewer is not judged (its similarity is NaN, which the filter never drops). The one-site check and the resident-copy test decide. Applies to the first pass and to the haplotype scan's trusted members. 0 judges on any comparisons the members give (the previous rule). |
 | Relative depth floor | `--relative-depth-floor on\|off` | off | the lower bound of the local-depth window is the smaller of 10 reads and half the median local depth of the contig (valid words); at a median of 20 or more it is 10. The upper bound is `--depth-cap`. The floor is part of the identity of a saved scan piece. |
-| One-site check | `--check-scope none\|path-dropped\|unconfirmed` | unconfirmed | which calls must show one-site evidence: none (the previous release's rule), the calls the reference-path filter drops, or every call the library layer does not make |
+| One-site check | `--check-scope none\|path-dropped\|unconfirmed` | unconfirmed | which calls must show one-site evidence: none (the rule of the basic scan), the calls the reference-path filter drops, or every call the library layer does not make |
 | | `--tol p95\|p99` | p99 | depth tolerance of the check |
 | | `--tol-source library\|own-calls` | library | tolerance from library-confirmed calls (own two-sided calls when there are none) |
 | Resident-copy test | `--resident-guard off\|per-call\|family` | family | drops a call inside an annotated reference TE copy. `family`: only when the family's calls sit in copies more than twice the genome's TE share. Requires `--repeat-annotation` (RepeatMasker .out or BED) or the prepared reference's annotation; off without one. |
@@ -43,7 +43,7 @@ Second-scan calls: `NOT_HET`, `DROPPED_V2`, `NEAR_FIRST_PASS`, `DROPPED_CHECK`, 
 
 ## Outputs of `library-free`
 
-The previous release's files, unchanged columns, plus: `library_free_second_places.tsv`, `library_free_second_segments.fa` (with the het scan);
+The files of the basic scan, unchanged columns, plus: `library_free_second_places.tsv`, `library_free_second_segments.fa` (with the het scan);
 extra columns `walked`, `bL0` (walk-out), `origin` (second-scan places), the four `chk*` columns, and in the family-calls table
 `scan`, `origin`, `check`, `ratio_L`, `ratio_R`, `inside_copy`, `family_inside` (when a switch requires them).
 Second-scan families are named `LF_cluster_h<N>` in `calls.library_free.tsv`.
@@ -123,4 +123,4 @@ filters gets a consensus record (unless the record guard drops it), and the libr
 
 ## Tests (`tools/library_free_tests/`, run with `PYTHONPATH=src`)
 
-`test_depth_window`, `test_depth_tool`, `test_assemble`, `test_records`, `test_runtime` (`PREVIOUS_SRC`: the previous release's src for U1; `BASELINE_SRC`: the src of the commit before the identity-evidence and relative-floor switches for U8), `test_repeat_map` (requires BLAST+ on PATH for its build checks), `test_slurm_tools`; `tools/library_free_tests/run_all.sh` runs them all.
+`test_depth_window`, `test_depth_tool`, `test_assemble`, `test_records`, `test_runtime` (`PREVIOUS_SRC`: the src of the version to compare against, for U1; `BASELINE_SRC`: the src of the commit before the identity-evidence and relative-floor switches for U8), `test_repeat_map` (requires BLAST+ on PATH for its build checks), `test_slurm_tools`; `tools/library_free_tests/run_all.sh` runs them all.

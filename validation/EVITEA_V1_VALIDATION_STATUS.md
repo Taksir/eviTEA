@@ -2,13 +2,12 @@
 
 **Result:** `EVITEA_V1_METHOD_EQUIVALENCE_PASS`  
 The public pipeline (`prepare-reference` adopting the dm6 Bowtie2 index,
-`prepare-te --build-languages`, `evitea call --msbwt-index ... --profile S`)
+`prepare-te --build-languages`, `evitea call --msbwt-index ...`)
 reproduced every recorded layer byte for byte on both development
 samples, natively on the Windows laptop, with both codebooks built by
 EviTEA: `EVITEA_CALL_END_TO_END_EQUIVALENCE_PASS`
 (`<work-dir>\EVITEA_CALL_END_TO_END_EQUIVALENCE.json`).
-The source had no tracked modifications; `git_dirty` reflects untracked
-notes only.  
+The numbers in this file are results recorded at commit d7587b1.  
 **Pair-ID result:** `PAIR_ID_LEGACY_ADAPTER_ONLY`
 
 This is an implementation status, not a benchmark result. It uses no
@@ -48,10 +47,7 @@ Windows Bowtie2) and the EviTEA-built codebooks.
   `prepare-reference --bowtie2-index` adopts an existing index.
   `call --msbwt-index` uses an existing msBWT directory. Index file hashes go
   into the run manifest.
-* Not in the package: the modules `integration.py`, `proposal.py`,
-  `exact_junction.py`, `paired_end_anchor.py`, `certification.py` and
-  `internal_probe.py` and their tests. `test_shadow_layers.py` covers the
-  invariants of the extension layers.
+* `test_shadow_layers.py` covers the invariants of the extension layers.
 * VM: unit tests cover profiles, wiring (library-layer bytes, codebooks, host
   names, labels, work layout), resume policy and codebook binding. A wiring
   check on real assets (prepared reference and TE from the recorded files, plus
@@ -91,10 +87,6 @@ later stages up to the repeat-aware step (same code as for AKA017) run on the
 laptop. Launcher:
 `tools/windows/VALIDATE_INCUMBENT.ps1 -Sample ISO1` (stage-by-stage
 diagnostics) or the end-to-end launcher above.
-
-Native-Windows caveat: the research notes state that native Windows Bowtie2
-2.5.5 rejects all-numeric FASTA names. If the ISO1 run stops in the wide-anchor
-step with a Bowtie2 error, run it with a WSL/Linux Bowtie2 2.5.x.
 
 ### Codebook (probe-set) builders
 
@@ -182,8 +174,7 @@ Fed with the recorded research input tables,
 `792 -> 801 -> 820 -> 835 -> 838`, ISO1 `192 -> 192 -> 193 -> 194 -> 194`) and
 every integration decision and nearest-call attribution in the four recorded
 decision tables match. This isolates integration semantics; the layer inputs
-are the recorded research tables. Source lineage and kernel differences are
-in the author's private development notes.
+are the recorded research tables.
 
 ## Paired-end anchor candidates, one specification for both samples
 
@@ -314,7 +305,7 @@ family-resolved / 11,550 internal witnesses; ISO1 1,395,976 / 506,538 / 3,758.
 
 ## Regression suite
 
-`python -m pytest` passes (185 passed, 1 live-msBWT test skipped) in the Linux
+`python -m pytest` passes (226 passed, 3 skipped: the opt-in live-msBWT and synthetic-call tests) in the Linux
 Python 3.14 environment. Wheel/sdist creation is untested in the managed
 Windows/Drive environment. Run `tools/windows/VALIDATE_LOCAL.ps1` on an
 ordinary local shell.

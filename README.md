@@ -14,8 +14,9 @@ Author: Md Taksir Hasan Majumder. License: GPL-3.0-or-later (see [LICENSE](LICEN
 
 - **Library calls** (`evitea call`). With a TE library (consensus sequences of the species' TE families), EviTEA calls
   insertions of those families. A repeat-aware caller runs first: split-junction reads, mate-anchored search, and a
-  repeat-aware step that retains a call whose differences from the TE record recur at the locus. Four extension layers
-  follow: bilateral and asymmetric paired-end anchors, full-memory anchors, and internal TE words. Output: `calls.native.tsv`,
+  repeat-aware step that keeps a junction group that fails only because it has too many edits against its TE record, when those
+  edits recur in at least two other read groups at the same locus, family and TE record. Four extension layers
+  follow: bilateral and asymmetric paired-end anchors, full-memory anchors, and internal TE k-mers. Output: `calls.native.tsv`,
   `calls.tsv`, `calls.bed`, `calls.vcf`.
 - **Library-free calls** (`evitea library-free`, Linux or WSL). EviTEA assembles the inserted sequence at each junction in
   the reads, without using the library, and groups the insertions into families by their sequence (families named
@@ -27,10 +28,8 @@ layer runs again on them (`evitea run --no-library`; see [docs/REPEAT_ANNOTATION
 
 ## Status
 
-Version `0.1.0.dev0`. On two *Drosophila melanogaster* development samples (dm6, 125 bp reads), the pipeline reproduces
-the call sets of the research pipeline byte for byte: 838 calls with `--profile AKA017` and 194 calls with `--profile ISO1`.
-That is a **method-equivalence** result, not an accuracy benchmark. See
-[validation/EVITEA_V1_VALIDATION_STATUS.md](validation/EVITEA_V1_VALIDATION_STATUS.md).
+Version `0.1.0.dev0`. See [validation/EVITEA_V1_VALIDATION_STATUS.md](validation/EVITEA_V1_VALIDATION_STATUS.md) for the
+validation record. It is a method-equivalence record, not an accuracy benchmark.
 
 EviTEA takes these values from each sample and reference: the read length, the fragment-size 95th and 99th percentiles, the
 primary contigs and the mitochondrial contig. TE records may have any names (see

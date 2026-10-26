@@ -1,3 +1,3 @@
 # Parity tests
 
-Reserved for behavior-parity checks against fixed reference outputs.
+Tiny parity checks of the backend plumbing.
