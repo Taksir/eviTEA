@@ -8,7 +8,7 @@ previous release's files byte for byte. `tools/library_free_tests/test_runtime.p
 
 | Part | Switch | Default | What it does |
 |---|---|---|---|
-| Depth window | `--depth-cap N` | none | upper bound of the local depth D (the lower bound of 10 reads always applies). `--depth-cap 100` is the previous release's window. Also `EVITEA_DEPTH_CAP`. |
+| Depth window | `--depth-cap N` | none | upper bound of the local depth D (the lower bound 10 stays). `--depth-cap 100` is the previous release's window. Also `EVITEA_DEPTH_CAP`. |
 | Anchored extension | `--anchored-extension` | on | builds the inserted DNA from reads of one site only, where the plain extension stops short |
 | Walk-out | `--walk-out` | on | moves a repeated walk-start word outward (up to 50 strides) to the nearest unique word |
 | First-pass priority | `--first-pass-priority` | on | second-chance sources add calls and never change a first-pass duplicate choice, grouping or family-identity filter |
@@ -16,7 +16,7 @@ previous release's files byte for byte. `tools/library_free_tests/test_runtime.p
 | Poly-A TSD | `--polya-tsd` | off | a poly-A tail counts toward the two TSDs of the family rule |
 | Het scan | `--het-scan off\|safe-start\|second-walk\|full` | full | a second scan that follows both letters at a het SNP |
 | | `--early-start`, `--right-fallback`, `--second-chance`, `--second-scan-anchored`, `--het-yield` | on | parts of the full mode; `--het-yield`: an early-start or right-side-alone place yields to the plain or second-chance walk of its duplicate chain |
-| Identity evidence | `--identity-min-comparisons N` | 3 | the family-identity filter judges a family only on at least N member comparisons (each of at least 50 aligned columns): the members that the first-pass priority picks when they give N, otherwise all members. A family with fewer is not judged (its similarity is NaN, which the filter never drops). The one-site check and the resident-copy test decide. Applies to the first pass and to the haplotype scan's trusted members. 0 judges on any comparisons the members give (the previous rule). |
+| Identity evidence | `--identity-min-comparisons N` | 3 | the family-identity filter judges a family only on at least N member comparisons (each of at least 50 aligned columns): the first-pass priority members when they give N, otherwise all members. A family with fewer is not judged (its similarity is NaN, which the filter never drops). The one-site check and the resident-copy test decide. Applies to the first pass and to the haplotype scan's trusted members. 0 judges on any comparisons the members give (the previous rule). |
 | Relative depth floor | `--relative-depth-floor on\|off` | off | the lower bound of the local-depth window is the smaller of 10 reads and half the median local depth of the contig (valid words); at a median of 20 or more it is 10. The upper bound is `--depth-cap`. The floor is part of the identity of a saved scan piece. |
 | One-site check | `--check-scope none\|path-dropped\|unconfirmed` | unconfirmed | which calls must show one-site evidence: none (the previous release's rule), the calls the reference-path filter drops, or every call the library layer does not make |
 | | `--tol p95\|p99` | p99 | depth tolerance of the check |
@@ -37,7 +37,7 @@ A call passes when it has a side and every side passes. The detection records `c
 
 The tolerance is the p95 or p99 of the side depth ratios of the first-pass family calls with a library call within 500 bp.
 
-Call statuses in the family-calls table: `DROPPED_V2` (excluded by the reference-path filter), `DROPPED_RULE_C` (excluded by the family-identity filter), `NEAR_EVITEA`, `DROPPED_CHECK`, `DROPPED_RESIDENT_COPY`, `ADDED`.
+Call statuses in the family-calls table: `DROPPED_V2` (reference-path filter), `DROPPED_RULE_C` (family-identity filter), `NEAR_EVITEA`, `DROPPED_CHECK`, `DROPPED_RESIDENT_COPY`, `ADDED`.
 Second-scan calls: `NOT_HET`, `DROPPED_V2`, `NEAR_FIRST_PASS`, `DROPPED_CHECK`, `DROPPED_RULE_C`, `NEAR_EVITEA`,
 `DROPPED_RESIDENT_COPY`, `ADDED`. A second-scan call joins the first pass only where the first pass has no family call within 500 bp.
 
@@ -49,13 +49,13 @@ extra columns `walked`, `bL0` (walk-out), `origin` (second-scan places), the fou
 Second-scan families are named `LF_cluster_h<N>` in `calls.library_free.tsv`.
 
 Re-running with other grouping or assembly switches in the same `--work-dir` reuses the saved scan pieces. Set
-`EVITEA_PIECES_READONLY=1` on such a run. If a detection switch, the code or an input differs, the run then stops instead of
-scanning again and replacing the saved pieces. `--detection-dir` rebuilds the family calls from saved tables (assembly switches only).
+`EVITEA_PIECES_READONLY=1` on such a run: it then refuses, instead of scanning again and replacing the saved pieces, if a
+detection switch, the code or an input differs. `--detection-dir` rebuilds the family calls from saved tables (assembly switches only).
 
 ## Family records
 
-A library-free family with at least 2 calls away from the library layer's calls, and more away than near, is a family that the
-library does not have.
+A library-free family with at least 2 calls away from the library layer's calls, and more away than near, is a family the
+library lacks.
 
 ```
 evitea build-family-records --family-calls <library_free_family_calls.tsv> [...] --segments library_free_segments.fa \
@@ -75,7 +75,7 @@ evitea add-record-calls --calls <run>/calls.native.tsv --base-calls <existing>/c
 - Record guard: a family whose calls lie inside annotated copies more than `max(0.5, 2 x genome TE share)` of the time gets no
   record. The share is measured with `--repeat-annotation`, or read from the `family_inside` column with `--te-share`.
 - `add-record-calls`: drops a call inside a reference copy of its own record (`annotation.bed`), adds a call only where no call of
-  the existing set is within 500 bp, and retains one of the calls added within 500 bp of each other (the one nearest the contig start).
+  the existing set is within 500 bp, and retains one of calls added within 500 bp of each other (the one nearest the contig start).
   Writes `record_calls_added.tsv`, `calls.combined.tsv` (existing + added, source `RECORD`), `record_calls_report.json`.
 
 ## Runs without a library

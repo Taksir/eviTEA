@@ -6,7 +6,7 @@
 - [`REPEAT_ANNOTATION.md`](REPEAT_ANNOTATION.md): making the repeat annotation with RepeatMasker, and runs without a TE
   library (`build-repeat-map`, `evitea run --no-library`).
 - [`LIBRARY_FREE_OPTIONS.md`](LIBRARY_FREE_OPTIONS.md): the switches of the library-free layer.
-- [`NAMING.md`](NAMING.md): the plain names for the shorthand labels of the research code.
+- [`NAMING.md`](NAMING.md): plain names for the research code's shorthand labels.
 - [`../examples/README.md`](../examples/README.md): a worked example on synthetic data.
 
 Commands, in the order of a run:
@@ -21,6 +21,6 @@ Commands, in the order of a run:
 | `build-repeat-map`, `build-family-records`, `add-record-calls` | the steps of a run without a TE library |
 | `run` | all of the above as one command, with a library or `--no-library` |
 | `refine-breakpoints`, `call-tiers`, `filter-resident-copies` | optional views of a finished run |
-| `validate`, `check-install`, `version` | check the prepared assets, finished runs and the installation |
+| `validate`, `check-install`, `version` | checks prepared assets, finished runs and the installation |
 
 What has been validated is in [`../validation/EVITEA_V1_VALIDATION_STATUS.md`](../validation/EVITEA_V1_VALIDATION_STATUS.md).

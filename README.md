@@ -6,7 +6,7 @@ reference genome does not have. For each insertion it reports the position and t
 
 EviTEA reads the sample through a multi-string BWT (msBWT) of all reads, so it can look up any sequence in every read. It
 maps only the reads that matter, with Bowtie2. A call requires physically independent paired-end evidence, and each
-junction supports one call only. Evidence that cannot be resolved goes to `unresolved.tsv` and does not become a call.
+junction supports one call only. Unresolved evidence goes to `unresolved.tsv`, not into a call.
 
 Author: Md Taksir Hasan Majumder. License: GPL-3.0-or-later (see [LICENSE](LICENSE)).
 
@@ -22,7 +22,7 @@ Author: Md Taksir Hasan Majumder. License: GPL-3.0-or-later (see [LICENSE](LICEN
   `LF_cluster_<n>`). Calls within 500 bp of a library call are left out. The others are added to the library calls in
   `calls.combined.tsv` and `calls.combined.vcf`.
 
-A species without a curated TE library can be run as well. The library-free families become TE records, and the library
+A species without a curated TE library can still be run: the library-free families become TE records, and the library
 layer runs again on them (`evitea run --no-library`; see [docs/REPEAT_ANNOTATION.md](docs/REPEAT_ANNOTATION.md)).
 
 ## Status
@@ -57,7 +57,7 @@ evitea check-install
 ```
 
 `pip install evitea` installs its two required Python packages: [pymsbwt](https://pypi.org/project/pymsbwt/) (version 0.5 or
-later, which builds the multi-string BWT of the reads) and NumPy. The extras add optional packages:
+later; it builds the multi-string BWT of the reads) and NumPy. The extras add optional packages:
 
 | extra | packages | needed for |
 |---|---|---|
@@ -102,7 +102,7 @@ a 120-record TE library with ordinary names and 30x paired reads of a sample wit
 
 ## Quick start
 
-One command, from FASTQ to calls (each step writes to its own folder under `--output`; run the command again to continue
+One command, from FASTQ to calls (each step writes to its own folder under `--output`; run it again to continue
 after an interruption):
 
 ```bash
@@ -134,17 +134,16 @@ evitea call --msbwt-index path/to/msbwt_index --sample-id s \
 ```
 
 Useful options for `call`: `--threads`, `--workers`, `--work-dir`, `--resume`, `--bowtie2`, `--edlib-python`, and the values
-that EviTEA otherwise takes from the sample and the reference: `--read-length`, `--fragment-q95`, `--fragment-q99`,
+EviTEA otherwise takes from the sample and the reference: `--read-length`, `--fragment-q95`, `--fragment-q99`,
 `--primary-contigs`. Run `evitea call --help` for the full list. To reproduce a development run exactly, pass
 `--read-length 125 --fragment-q95 494 --fragment-q99 805 --primary-contigs chr2L,chr2R,chr3L,chr3R,chrX`.
 
 ## Runs without a TE library
 
-`evitea run --no-library` builds a repeat map of the reference with BLAST+ (`build-repeat-map`) and runs the library-free
-layer with it. It turns the library-free families into TE records (`build-family-records`), runs the library layer on those
-records, and adds the calls of that run to the library-free calls (`add-record-calls`). The result is
-`record_pass/added/calls.combined.tsv`. The run requires only the reference and the reads: without `--repeat-annotation`, the
-repeat map is also the reference's annotation. The same chain is in `tools/no_library.sh` (plain shell) and
+`evitea run --no-library` builds a repeat map of the reference with BLAST+ (`build-repeat-map`), runs the library-free layer
+with it, turns the library-free families into TE records (`build-family-records`), runs the library layer on those records
+and adds its calls (`add-record-calls`). The result is `record_pass/added/calls.combined.tsv`. It needs only the
+reference and the reads: without `--repeat-annotation`, the repeat map is also the reference's annotation. The same chain is in `tools/no_library.sh` (plain shell) and
 `tools/slurm/no_library.sh` (Slurm). See
 [docs/REPEAT_ANNOTATION.md](docs/REPEAT_ANNOTATION.md).
 
@@ -156,7 +155,7 @@ repeat map is also the reference's annotation. The same chain is in `tools/no_li
 | `calls.tsv` | one row per call, genomic order, with `call_origin` and supporting pair IDs |
 | `calls.bed` | BED view of the calls |
 | `calls.vcf` | VCF 4.2 view of the calls (symbolic `<INS:ME:family>` alleles, sites only) |
-| `unresolved.tsv` | events that are not reported as calls |
+| `unresolved.tsv` | events not reported as calls |
 | `run_summary.json` | counts per origin and hashes after every layer |
 | `run.log`, `run_manifest.json` | provenance: the manifest hashes every other output and records the values taken from the sample (`values.run_parameters`) |
 
@@ -165,8 +164,8 @@ are never overwritten.
 
 ## Profiles
 
-`--profile production` is the default. The profiles `AKA017` and `ISO1` reproduce the research call sets of the two
-development samples. Each accepts only the sample ID of its own sample.
+`--profile production` is the default. `AKA017` and `ISO1` reproduce the research call sets of the development samples
+and accept only their own sample IDs.
 
 ## Reproducing the validation
 
@@ -196,8 +195,8 @@ copyright and license notices in any copy or derivative, as the GPL requires.
 
 ## License
 
-EviTEA builds on msBWT (James Holt and Leonard McMillan), Bowtie2, BLAST+, mappy (minimap2), parasail, edlib and NumPy. The
-licences of these programs and packages are listed in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
+EviTEA builds on msBWT (James Holt and Leonard McMillan), Bowtie2, BLAST+, mappy (minimap2), parasail, edlib and NumPy.
+Their licences are listed in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
 
 Copyright (C) 2026 Md Taksir Hasan Majumder. Licensed under the GNU General Public
 License v3.0 or later. Any distributed derivative work must also be released under the
