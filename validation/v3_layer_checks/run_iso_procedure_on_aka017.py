@@ -3,16 +3,14 @@ support, run unchanged on AKA017, reproduce the recorded AKA017 candidates?
 
 Why: the 91-row ``ANCHOR_PE_CANDIDATES.tsv`` of AKA017 (the direct input of the
 bilateral and asymmetric layers) came from a long chain of steps.  The ISO1
-candidates came from one self-contained script that runs from raw reads to
-candidates (``route_b_v3_anchor_pe_iso1_transfer_freeze.py``).  If that script
-reproduces the AKA017 table, it is the implementable specification of the
-paired-end anchor stages for those layers.
+candidates came from one self-contained script from raw reads to candidates
+(``route_b_v3_anchor_pe_iso1_transfer_freeze.py``).  If it reproduces the AKA017
+table, it is the implementable specification of the paired-end anchor stages.
 
-The recorded ISO1 helper script is imported by SHA-256, and only its sample
-bindings (pair count, read length, paths) change.  Every scientific function and
-constant is used as recorded.  Outputs go to ``--work``; the ``--route-b-v3``
-folder is only read.  No truth file, comparator file or file of any other sample
-is opened.
+The ISO1 helper script is imported by SHA-256; only its sample bindings (pair
+count, read length, paths) change.  Every scientific function and constant is
+used as recorded.  Outputs go to ``--work``; the ``--route-b-v3`` folder is only
+read.  No truth, comparator or other-sample file is opened.
 
 Heavy: codebook projection on the 31.45 M-pair msBWT, one FASTQ pass per mate,
 edlib whole-read decoding, three Bowtie2 runs.  Resumable: rerun the same
@@ -72,7 +70,7 @@ def say(msg: str) -> None:
 
 def guard(path: Path) -> Path:
     if any(t in str(path).lower() for t in FORBIDDEN):
-        raise RuntimeError(f"blocked {path}: truth and comparator files must not be read")
+        raise RuntimeError(f"truth/comparator file blocked: {path}")
     return path
 
 
@@ -125,7 +123,7 @@ def main(argv=None) -> int:
     ap.add_argument("--threads", type=int, default=8)
     ap.add_argument("--host-read-names", choices=("iso", "aka-historical"), default="iso",
                     help="Bowtie2 query names for single-mate host mapping: 'P{pid}' (iso) "
-                         "or 'p{pid}|h{host_mate}' (aka-historical, the names of the recorded AKA017 chain). "
+                         "or 'p{pid}|h{host_mate}' (aka-historical: the AKA017 chain). "
                          "Bowtie2 seeds its per-read pseudo-random choices from the read name, "
                          "so this changes multi-mapping outcomes.")
     args = ap.parse_args(argv)
@@ -254,7 +252,7 @@ def main(argv=None) -> int:
     if strict_new:
         decoded_host = host_map("AKA017_RELAXED_DECODED_HOST_MATES", {pid: {"host_mate": int(r["host_mate"])} for pid, r in strict_new.items()})
 
-    # ---- the clustering and anchoring block of the ISO1 script's main(), same logic ----
+    # ---- the ISO1 main() clustering/anchoring block, same logic ----
     old_primary_unique = [r for r in unique if r["primary"]]
     primary_clusters = iso.cluster_mappings(old_primary_unique, require_folds=False, prefix="PRIMARY")
     decoded_unique = [{"pair_id": pid, "family": r.get("family", ""), **{k: decoded_host[pid][k] for k in ("chrom", "start", "end", "strand")},
@@ -298,7 +296,7 @@ def main(argv=None) -> int:
                    "left_B_pair_ids", "right_B_pair_ids", "bilateral_B_2p2fold"]
     iso.write_tsv(out / f"AKA017_ANCHOR_PE_CANDIDATES{suffix}.tsv", candidates, cand_fields)
 
-    # ---- comparison with the recorded AKA017 chain ----
+    # ---- comparison with the AKA017 chain ----
     def cand_key(r, with_cluster: bool):
         base = (r["family"], r["chrom"], int(r["breakpoint0"]), r["anchor_host_side"], ids(r["channel_A_pair_ids"]),
                 ids(r["left_B_pair_ids"]), ids(r["right_B_pair_ids"]))

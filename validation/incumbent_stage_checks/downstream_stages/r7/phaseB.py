@@ -26,7 +26,7 @@ print("ledger equal",mine==hist,len(mine))
 if mine!=hist:
     for a,b in zip(mine,hist):
         if a!=b: print(a);print(b);break
-# check the group hash on a sample of pairs
+# check group hash on some pairs
 sample=[(r["group_hash"],ids(r["group_pair_ids"])[0]) for r in H[::2000]]
 rs=pair_reads(A/"fastq"/"SRR9951105_1.fastq",A/"fastq"/"SRR9951105_2.fastq",[p for _,p in sample])
 print("group hash", all(jg.pair_group_hash(*rs[p])==g for g,p in sample), len(sample))

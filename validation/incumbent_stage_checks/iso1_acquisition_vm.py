@@ -1,4 +1,4 @@
-"""VM-only: ISO1 candidate acquisition, from the anchor catalogue to candidate loci, stage by stage.
+"""VM-only: ISO1 acquisition of candidate loci, stage by stage.
 
 Runs the ``evitea.incumbent`` stage functions on the ISO1 msBWT in short
 resumable steps (each step caches its result under ``--cache``) and compares

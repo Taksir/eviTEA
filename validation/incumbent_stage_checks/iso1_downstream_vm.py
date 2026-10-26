@@ -1,7 +1,6 @@
 """VM-only: the ISO1 stages after candidate acquisition, in resumable chunks.
 
-The stages run from split-junction events to repeat-aware calls.  The script
-follows ``evitea.incumbent.engine.run_incumbent_caller`` step for step, using the
+Follows ``evitea.incumbent.engine.run_incumbent_caller`` step for step, using the
 same functions, on the ISO1 candidate loci produced (and checked) by
 ``iso1_acquisition_vm.py``.  Per-locus layers run in locus chunks through
 ``map_locus_batches`` (per-locus results are independent; rows are

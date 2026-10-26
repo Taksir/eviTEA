@@ -1,9 +1,9 @@
-"""Run the library-layer engine end to end and compare it with the recorded artifacts.
+"""Run the library-layer engine end to end and compare it to recorded artifacts.
 
 Validation-only.  Production code never imports this module.  It runs
 ``evitea.incumbent.run_incumbent_caller`` from raw inputs (sample msBWT, TE
 library, family map, reference, host Bowtie2 index) and, when a recorded report
-root is given, compares the candidate loci and every emitted callset stage with
+root is given, compares candidate loci and every emitted callset stage with
 the recorded stage tables.  Truth and comparator callsets are never read.
 
 Usage (Windows PowerShell launcher: tools/windows/VALIDATE_INCUMBENT.ps1):
@@ -14,10 +14,10 @@ Usage (Windows PowerShell launcher: tools/windows/VALIDATE_INCUMBENT.ps1):
 Per-sample recorded files (``--sample`` sets the defaults):
 
 * AKA017: msBWT ``AKA017/msbwt_SRR9951105``; stage tables
-  ``AKA017/route_b_r9e_validation_full55x/shadow_v2/reports``; final callset
+  ``AKA017/route_b_r9e_validation_full55x/shadow_v2/reports``; callset
   of 792 rows, SHA-256 ``1d1110f9...1757``.
 * ISO1: msBWT ``TEMP2_ISO1/msbwt_SRR11906527``; stage tables
-  ``TE_locator_route_b_v2/reports``; final callset of 192 rows, SHA-256
+  ``TE_locator_route_b_v2/reports``; callset of 192 rows, SHA-256
   ``b3e48681...6ebc5``.
 
 Both samples share the TE library, FBte family map, dm6 reference and its
@@ -65,7 +65,7 @@ SAMPLE_DEFAULTS = {
     "ISO1": {
         "msbwt": ASSET / "msbwt_SRR11906527",
         "v2_reports": ROUTE_B_V2 / "reports",
-        # The recorded ISO1 wide-anchor host mapping names its queries {pid}.
+        # The recorded ISO1 wide-anchor host mapping names queries {pid}.
         "rescue_read_names": "numeric",
     },
 }

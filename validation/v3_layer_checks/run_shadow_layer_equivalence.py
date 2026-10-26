@@ -1,4 +1,4 @@
-"""Validation-only: merge the recorded layer tables into the callset and check each layer hash.
+"""Validation-only: merge recorded layer tables into the callset; check layer hashes.
 
 Feeds the recorded candidate tables (the inputs of the four layer merges) into
 ``evitea.shadow_layers`` on top of the recorded library-layer callset bytes, and
@@ -7,9 +7,8 @@ checks the byte identity of every layer:
     AKA017  792, 801, 820, 835, 838
     ISO1    192, 192, 193, 194, 194
 
-This isolates the merge of the layers into the callset from the upstream
-evidence stages.  It reads no truth file, comparator file or file of any other
-sample.  Production never imports it.
+This isolates the layer merge from the upstream evidence stages.  It reads no
+truth, comparator or other-sample file.  Production never imports it.
 """
 
 from __future__ import annotations
@@ -88,7 +87,7 @@ LAYERS = ("R9E", "bilateral", "asymmetric", "full-memory", "final INTERNAL21")
 def _guard(path: Path) -> Path:
     lowered = str(path).lower()
     if any(token in lowered for token in FORBIDDEN):
-        raise RuntimeError(f"blocked {path}: truth and comparator files must not be read")
+        raise RuntimeError(f"truth/comparator file blocked: {path}")
     return path
 
 
@@ -232,7 +231,7 @@ def main(argv=None) -> int:
     ap.add_argument("--route-b-v2", type=Path, required=True)
     ap.add_argument("--route-b-v3", type=Path, required=True)
     ap.add_argument("--incumbent-aka017", type=Path, default=None,
-                    help="library-layer callset to build on (default: the recorded callset; pass the engine output to chain it)")
+                    help="library-layer callset to build on (default: recorded callset; pass the engine output to chain it)")
     ap.add_argument("--output", type=Path, default=None, help="optional JSON report path")
     args = ap.parse_args(argv)
 

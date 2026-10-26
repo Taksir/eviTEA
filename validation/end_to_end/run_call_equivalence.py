@@ -1,24 +1,22 @@
 """Validation-only: run the public ``evitea call`` pipeline end to end, per sample.
 
-Prepares the reference and TE assets once, with hash checks, as a user would.
-``prepare-reference`` adopts the existing dm6 Bowtie2 index. ``prepare-te``
-either builds both codebooks (``--build-languages``) or binds the recorded
-codebook files (``--languages supplied``). The script checks the codebooks
-against their recorded SHA-256 values. Then it runs
+Prepares the reference and TE assets once, hash-checked, as a user would:
+``prepare-reference`` adopts the dm6 Bowtie2 index, and ``prepare-te`` builds both
+codebooks (``--build-languages``) or binds the recorded files (``--languages
+supplied``). It checks the codebooks against their recorded hashes, then runs
 
     python -m evitea call --msbwt-index <sample msBWT> --sample-id S --profile S ...
 
-and compares the SHA-256 of each layer (recorded in ``run_summary.json``) and of
-``calls.native.tsv`` with the recorded callsets. The call counts per layer, from
-the library layer to the internal 21-mer layer, and the final SHA-256 are:
+and compares the SHA-256 of each layer (in ``run_summary.json``) and of
+``calls.native.tsv`` with the recorded callsets. Call counts per layer, library
+layer to internal 21-mer layer, then the final SHA-256:
 
     AKA017  792, 801, 820, 835, 838  (6432c8e1...f701)
     ISO1    192, 192, 193, 194, 194  (9e538d74...92b0)
 
-The first ISO1 layer has the recorded SHA-256 b3e48681...
-Resumable: an existing work directory is resumed with ``--resume``.  No truth
-file, comparator file or file of any other sample is read.  Production code
-never imports this module.
+The first ISO1 layer has SHA-256 b3e48681...
+Resumable: an existing work directory is resumed with ``--resume``.  No truth,
+comparator or other-sample file is read.  Production code never imports this module.
 """
 
 from __future__ import annotations
@@ -108,7 +106,7 @@ def prepare_assets(args, python: str) -> tuple[Path, Path]:
             for key, (relative, expected) in FROZEN_LANGUAGES.items():
                 path = args.route_b_v3 / relative
                 if sha256(path) != expected:
-                    raise SystemExit(f"{key} codebook hash does not match the recorded hash: {path}")
+                    raise SystemExit(f"{key} codebook hash mismatch: {path}")
                 languages[key] = path
             evitea(python, *common, "--terminal-codebook", str(languages["terminal"]),
                    "--internal-codebook", str(languages["internal"]))
@@ -118,7 +116,7 @@ def prepare_assets(args, python: str) -> tuple[Path, Path]:
     bound = {key: entry["sha256"] for key, entry in manifest["languages"].items()}
     expected = {"terminal_final": FROZEN_LANGUAGES["terminal"][1], "internal_only": FROZEN_LANGUAGES["internal"][1]}
     if bound != expected:
-        raise SystemExit(f"prepared codebooks do not match the recorded hashes: {bound}")
+        raise SystemExit(f"prepared codebooks differ from recorded ones: {bound}")
     print("languages:", {k: v["source"] for k, v in manifest["languages"].items()}, "= frozen hashes", flush=True)
     return reference, te
 

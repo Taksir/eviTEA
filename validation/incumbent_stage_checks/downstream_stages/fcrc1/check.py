@@ -29,7 +29,7 @@ print("run",round(time.time()-t,1),"hyp",len(rows))
 fields=open(out/"ledger_subset.tsv").readline().rstrip("\n").split("\t")
 hist=[r for r in csv.DictReader(open(out/"ledger_subset.tsv"),delimiter="\t")]
 def norm(r): return tuple("" if r.get(f) is None else str(r.get(f)) for f in fields if f!="chr")
-# the recorded table lists loci in ascending order, as the full run does; this run uses the same order
+# loci ascend in the recorded table and in this run, as in the full run
 A=[norm(r) for r in rows]; B=[norm(r) for r in hist]
 print("equal",A==B,len(A),len(B))
 if A!=B:

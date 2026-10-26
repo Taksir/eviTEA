@@ -1,6 +1,6 @@
-"""Validation-only readers for the recorded stage tables (TSV, NPY and zip files).
+"""Validation-only readers for the recorded stage tables (TSV, NPY, zip).
 
-They let each stage of the library layer be compared with its recorded outputs.
+They let each library-layer stage be compared with recorded outputs.
 Production code never imports this module.
 """
 
@@ -58,10 +58,7 @@ def _evidence(rows: list[dict[str, str]]) -> dict[int, PairPanelEvidence]:
 
 
 def load_candidate_universe_inputs(v1_reports: Path) -> dict[str, object]:
-    """Load the recorded candidate inputs from a report root.
-
-    They are the panel routing, host-mate mapping, resident-copy families and wide-anchor repair tables.
-    """
+    """Load the recorded candidate inputs from a report root."""
 
     g1b = v1_reports / "G1B_sparse_panel_routing" / "TE_LOCATOR_ROUTE_B_G1B_RESULTS_FOR_CHATGPT.zip"
     g1f = v1_reports / "G1F_host_mate_locus_gate" / "TE_LOCATOR_ROUTE_B_G1F_RESULTS_FOR_CHATGPT.zip"

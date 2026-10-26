@@ -1,4 +1,4 @@
-"""Check the recorded callset files, in order, against their expected row counts and SHA-256 hashes."""
+"""Verify the ordered recorded callset files."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def _load_oracles() -> list[dict[str, Any]]:
 
 
 def _relative_oracle_path(value: str) -> Path:
-    """Reject absolute paths and ``..`` so checks stay within the given root."""
+    """Reject absolute paths and ``..`` so checks stay within the root."""
     path = Path(value)
     windows_path = PureWindowsPath(value)
     if (
@@ -40,7 +40,7 @@ def _relative_oracle_path(value: str) -> Path:
 
 
 def _inspect_file(path: Path) -> tuple[int | None, str | None, str | None]:
-    """Return the data-row count and SHA-256 digest, or the reason the file could not be read."""
+    """Return data-row count and digest, or the read error."""
     try:
         metadata = path.lstat()
     except FileNotFoundError:
@@ -74,7 +74,7 @@ def verify_oracles(
     *,
     checks: Sequence[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Check each recorded file in manifest order and stop at the first mismatch."""
+    """Check each file in manifest order and stop at its first mismatch."""
     roots = {
         "route_b_v2": Path(route_b_v2),
         "route_b_v3": Path(route_b_v3),
@@ -146,7 +146,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         report = verify_oracles(args.route_b_v2, args.route_b_v3)
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
-        parser.error(f"could not load the manifest of recorded files: {exc}")
+        parser.error(f"could not load manifest: {exc}")
     rendered = _render_report(report)
 
     if args.output is not None:

@@ -2,10 +2,10 @@
 
 ``evitea.extension_engine.run_extension`` runs from each prepared msBWT (plus
 the recorded safe terminal and internal-only codebooks, TE library, family map,
-RepeatMasker BED and host Bowtie2 index). It adds the four extension layers to
-the library-layer callset bytes.  Required, per sample:
+RepeatMasker BED and host Bowtie2 index) and adds the four layers to
+the library-layer bytes.  Required, per sample:
 
-* paired-end anchor support candidates equal to the recorded tables;
+* paired-end anchor candidates equal to the recorded tables;
 * full-memory proposals (full data + ten rotations), event table and
   selected events equal to the recorded tables;
 * internal 21-mer exact-junction-evidence witnesses equal to the recorded
@@ -13,9 +13,9 @@ the library-layer callset bytes.  Required, per sample:
   the recorded observability outputs;
 * layers byte-identical: AKA017 801 / 820 / 835 / 838, ISO1 192 / 193 / 194 / 194.
 
-Host read-name profiles: AKA017 ``aka-historical`` (for reproduction only),
-ISO1 ``pid`` (the default).  Resumable.
-No truth file, comparator file or file of any other sample is read.
+Host read-name profiles: AKA017 ``aka-historical`` (reproduction only),
+ISO1 ``pid`` (default).  Resumable.
+No truth, comparator or other-sample file is read.
 """
 
 from __future__ import annotations
