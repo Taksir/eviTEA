@@ -310,7 +310,7 @@ def run_engine(
     fragment = _fragment_sizes(inputs, sample, work, say)
     say(f"read length {inputs.read_length} bp ({inputs.read_length_source}); fragment size 95th / 99th percentile "
         f"{fragment.q95:g} / {fragment.q99} bp ({fragment.source}, {fragment.pairs} pairs)")
-    say(f"incumbent: sample {inputs.sample_id}, profile {profile.name}")
+    say(f"library layer: sample {inputs.sample_id}, profile {profile.name}")
     incumbent = run_incumbent_caller(
         IncumbentInputs(
             sample_id=inputs.sample_id,
@@ -334,7 +334,7 @@ def run_engine(
         work / "incumbent",
         progress=progress,
     )
-    say(f"incumbent calls: {len(incumbent.calls)}; v3 extension")
+    say(f"library layer calls: {len(incumbent.calls)}; extension layers")
     extension = run_extension(
         AnchorPEInputs(
             sample_id=inputs.sample_id,

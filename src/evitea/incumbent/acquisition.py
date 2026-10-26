@@ -95,13 +95,13 @@ def acquire_candidate_loci(
     counts["sparse_panel_queries"] = len(panel)
     counts["sparse_panel_pairs"] = len(panel_pairs)
 
-    say("coverage rescue census")
+    say("coverage panel census")
     family_by_te = catalogue.family_by_te()
     short = short_exact_census(catalogue.records, family_by_te, index)
     from .coverage_panel import baseline_anchor_loci
 
     h1 = hard_gap_h1_loci(catalogue.records, family_by_te, baseline_anchor_loci(catalogue, panel), short, read_length)
-    say("rescue panel optimization")
+    say("coverage panel selection")
     rescue = optimize_rescue_panel(catalogue, panel, short, h1, index, read_length)
     counts["rescue_panel_sequences"] = len(rescue.selected_sequences)
 
@@ -139,7 +139,7 @@ def acquire_candidate_loci(
     counts["one_mate_pairs"] = len(requests)
     counts["working_candidate_pairs"] = int(len(working))
 
-    say("candidate recall repair")
+    say("wide-anchor step")
     anchors = plan_rescue_anchors(
         catalogue, pair_panel.groups, max_interval_mass=max_rescue_interval_mass, read_window=read_length
     )

@@ -263,7 +263,7 @@ def run_incumbent_caller(
     split = store.get("split_junction", run_split)
 
     def run_mates() -> MateRescueResult:
-        say("two-sided mate rescue")
+        say("two-sided mate-anchored search")
         eligible, guarded = guard_candidate_loci(loci, split.calls)
         rows, counts = map_locus_batches(
             "mate_rescue", eligible, state(), workers=inputs.workers, progress=batch_progress("mate-rescue"),
@@ -302,7 +302,7 @@ def run_incumbent_caller(
 
     groups = store.get("junction_groups", run_groups)
 
-    say("full TE-segment family certification")
+    say("full TE-segment family confirmation")
     used = used_groups(groups.ledger, groups.winners, groups.accepted_proposals)
     source_reads = {pid: routed_reads[pid] for pid in {g.source_pair_id for g in used} if pid in routed_reads}
     missing = {g.source_pair_id for g in used} - set(source_reads)
@@ -322,7 +322,7 @@ def run_incumbent_caller(
     }
     certifications = certify_groups(used, segments, alignments, record_families)
 
-    say("repeat-aware divergence rescue")
+    say("repeat-aware step")
     te_sequences = {header.split()[0]: sequence for header, sequence in fasta_records_full_header(inputs.te_fasta)}
     decisions = crossvalidate(certifications, te_sequences, record_families)
     group_pass = {

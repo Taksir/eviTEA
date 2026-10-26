@@ -77,7 +77,7 @@ def project_internal(sample, probe_family: Mapping[str, str],
             for file_id, pid in zip(files.tolist(), pairs.tolist()):
                 hits[int(pid)][int(file_id) + 1].add(probe)
         if progress and (n % 2000 == 0 or n == len(probes)):
-            progress(f"INTERNAL21 projection {n:,}/{len(probes):,}; pairs={len(hits):,}")
+            progress(f"internal 21-mer projection {n:,}/{len(probes):,}; pairs={len(hits):,}")
     return {pid: {1: set(m.get(1, ())), 2: set(m.get(2, ()))} for pid, m in hits.items()}
 
 
@@ -148,7 +148,7 @@ def run_internal21_acquisition(
     probe_family = load_internal_codebook(internal_codebook)
     hits = store.get("projection", lambda: project_internal(sample, probe_family, say))
     meta, states = classify_internal_pairs(hits, probe_family)
-    say(f"INTERNAL21 pairs={len(hits):,}; one-mate family-resolved={len(meta):,}")
+    say(f"internal 21-mer pairs={len(hits):,}; one-mate family-resolved={len(meta):,}")
     reads = store.get("reads", lambda: sample.pair_reads(meta))
 
     def state():
@@ -170,5 +170,5 @@ def run_internal21_acquisition(
     counts = {"internal_hit_pairs": len(hits), "one_mate_family_resolved": len(meta),
               "eligible_reference_unexplained": sum(r["experiment_state"] == "ELIGIBLE" and r["reference_state"] == "REFERENCE_UNEXPLAINED" for r in accounting),
               "internal_strict_a_witnesses": len(witnesses), **{f"signature_{k.lower()}": v for k, v in states.items()}}
-    say(f"INTERNAL21 counts: {counts}")
+    say(f"internal 21-mer counts: {counts}")
     return Internal21Acquisition(witnesses, accounting, counts)

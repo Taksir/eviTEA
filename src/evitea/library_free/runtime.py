@@ -281,7 +281,7 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     if "second" in tables:
         write_bytes(output / SECOND_PLACES, tables["second"][0])
         write_bytes(output / SECOND_SEGMENTS, tables["second"][1])
-    say("library-free: family calls (v2 filter" + (", rule c" if rule_c else "") + ")")
+    say("library-free: family calls (reference-path filter" + (", family-identity filter" if rule_c else "") + ")")
     first = (D.parse_places(tables["first"][0]), D.parse_segments(tables["first"][1]))
     second = (D.parse_places(tables["second"][0]), D.parse_segments(tables["second"][1])) if "second" in tables else None
     if genome is None and (opts.check_scope != "none" or opts.resident_guard != "off"):

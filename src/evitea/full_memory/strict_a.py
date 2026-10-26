@@ -163,7 +163,7 @@ def build_b_index(b_universe: Iterable[Mapping], q99: int = Q99) -> tuple[BIndex
     for r in b_universe:
         pid, fold = int(r["pair_id"]), int(r["fold"])
         if fold != pid % N_FOLDS:
-            raise InputContractError("B fold drift")
+            raise InputContractError("paired-end anchor support row has a fold that does not match its pair ID")
         strand, start, end = str(r["strand"]), int(r["start"]), int(r["end"])
         if strand == "+":
             side, lo, hi = "LEFT", end, end + q99

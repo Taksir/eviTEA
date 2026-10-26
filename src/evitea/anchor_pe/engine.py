@@ -153,7 +153,7 @@ def run_anchor_pe(
     decoded = store.get("decoder", decode)
     strict_new = {int(r["pair_id"]): r for r in decoded
                   if int(r["strict_fragment_decodable"]) == 1 and not r["old_primary"]}
-    say(f"strict whole-read decoded outside the old primary set: {len(strict_new):,}")
+    say(f"strict whole-read decoded outside the primary set: {len(strict_new):,}")
 
     def host_mapping(stem: str, host_mates: dict[int, int]) -> dict[int, dict]:
         fasta, sam = work / f"{stem}.fa", work / f"{stem}.sam"
@@ -191,7 +191,7 @@ def run_anchor_pe(
     result.signature_rows, result.eligible, result.reads = signature_rows, eligible, reads
     result.reference_sam = work / "local_reference.sam"
     result.host_sams = {profile: work / f"host_mates_{profile}.sam"}
-    say(f"AnchorPE counts: {result.counts}")
+    say(f"paired-end anchor counts: {result.counts}")
     return result
 
 

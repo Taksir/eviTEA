@@ -169,7 +169,7 @@ def rebuild_terminal21(
     source_by_probe: dict[str, list[dict]] = defaultdict(list)
     for r in source_rows:
         source_by_probe[r["canonical_strand_probe"]].append(r)
-    say(f"terminal k21 candidates={len(canonical_candidates):,}; records={len(family_by_te)}")
+    say(f"terminal 21-mer candidates={len(canonical_candidates):,}; records={len(family_by_te)}")
 
     qmap = oriented_code_map(canonical_candidates)
     te_hits: dict[str, list[tuple[str, str, int, int]]] = defaultdict(list)

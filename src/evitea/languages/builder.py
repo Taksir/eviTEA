@@ -114,7 +114,7 @@ def build_languages(
     read_length: int = READ_LENGTH,
 ) -> LanguageBuild:
     say = progress or (lambda message: None)
-    say("languages: G1A anchor catalogue")
+    say("languages: anchor catalogue")
     catalogue, provenance = g1a_tables(te_fasta, family_map)
     assets = dict(te_fasta=te_fasta, family_map=family_map, reference_fasta=reference_fasta,
                   repeatmasker_bed=repeatmasker_bed, progress=progress)
@@ -126,7 +126,7 @@ def build_languages(
     say("languages: finalize terminal codebook")
     terminal = finalize_terminal(hybrid_codebook=gap_fill.hybrid_codebook, rebuilt_source_audit=rebuild.source_audit,
                                  gapfill_source_audit=gap_fill.source_audit, rebuilt_te_summary=rebuild.te_record_summary)
-    say("languages: internal-21 gate")
+    say("languages: internal 21-mer filter")
     internal = build_internal21(
         catalogue=catalogue, provenance=provenance, terminal_codebook=terminal.codebook, read_length=read_length, **assets
     )
