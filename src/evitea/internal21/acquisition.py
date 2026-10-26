@@ -1,4 +1,4 @@
-"""Internal 21-mer acquisition: internal-only safe 21-mers give internal exact-junction witnesses."""
+"""Acquire internal exact-junction witnesses from internal-only safe 21-mers."""
 
 from __future__ import annotations
 
@@ -29,13 +29,13 @@ __all__ = [
     "classify_internal_pairs", "internal_accounting", "Internal21Acquisition", "run_internal21_acquisition",
 ]
 
-# Resource limits that stop the run (never a biological decision).
+# Resource stops (never a biological decision).
 PER_ORIENTED_QUERY_ROW_CAP = 100_000
 TOTAL_INTERVAL_ROW_CAP = 30_000_000
 
 
 def load_internal_codebook(path: str | Path) -> dict[str, str]:
-    """Map each canonical probe to its family, from the internal-only safe codebook."""
+    """Map canonical probes to families in the internal-only safe codebook."""
 
     probe_family: dict[str, str] = {}
     with Path(path).open(encoding="utf-8-sig", newline="") as handle:
@@ -53,7 +53,7 @@ def load_internal_codebook(path: str | Path) -> dict[str, str]:
 
 def project_internal(sample, probe_family: Mapping[str, str],
                      progress: Callable[[str], None] | None = None) -> dict[int, dict[int, set[str]]]:
-    """Map pair_id, then mate, to the observed canonical probes (both strands queried)."""
+    """Map pair_id and mate to observed canonical probes (both strands queried)."""
 
     intervals: dict[str, tuple[int, int]] = {}
     total = 0
@@ -67,7 +67,7 @@ def project_internal(sample, probe_family: Mapping[str, str],
             over += int(hi - lo > PER_ORIENTED_QUERY_ROW_CAP)
     if over or total > TOTAL_INTERVAL_ROW_CAP:
         raise BackendCompatibilityError(
-            f"internal 21-mer msBWT interval budget exceeded (total={total:,}, over-cap queries={over})")
+            f"internal 21-mer interval budget exceeded (total={total:,}, over-cap queries={over})")
     hits: dict[int, dict[int, set[str]]] = defaultdict(lambda: defaultdict(set))
     for n, probe in enumerate(probes, 1):
         for q in dict.fromkeys((probe, revcomp(probe))):
