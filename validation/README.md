@@ -1,7 +1,7 @@
 # Validation assets
 
-This tree is reserved for recorded regression assets, adapters for the recorded
-research files, and optional quarantined scoring. Validation code may import
+This tree is reserved for recorded regression assets, research-file adapters,
+and optional quarantined scoring. Validation code may import
 `evitea`; the package must not import this tree. No truth data, other-tool
 outputs, or large regression assets are included.
 

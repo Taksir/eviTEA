@@ -22,7 +22,7 @@ does not alter package or scientific configuration; it exists because the
 managed development environment may deny Python build hooks access to their
 private temporary directories.
 
-Run the library layer (repeat-aware calls) end to end on one development sample and
+Run the library layer end to end on one development sample and
 compare every stage with the fixed reference artifacts (resumable; requires the author's private development
 datasets, see `validation/README.md`):
 
@@ -35,7 +35,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\windows\VALIDATE_INCUMBENT.ps1 
 fixed ISO1 library-layer result (192 rows, `b3e48681...`) and uses the ISO1 wide-anchor query
 names `{pid}`; work directory `<work-dir>`.
 Pass `-Workers N` and any `run_incumbent_validation.py` option after the named
-parameters.  Expected result: `INCUMBENT_EQUIVALENCE_PASS` in
+parameters.  Result: `INCUMBENT_EQUIVALENCE_PASS` in
 `<Work>\INCUMBENT_VALIDATION_REPORT.json`.  If native Windows Bowtie2 rejects
 the all-numeric ISO1 wide-anchor names, pass `--bowtie2 <WSL/Linux bowtie2 wrapper>`.
 
@@ -46,7 +46,7 @@ no sample data):
 powershell -ExecutionPolicy Bypass -File .\tools\windows\VALIDATE_LANGUAGES.ps1 -Cache <cache-dir> -RouteBV3 <route-b-v3-dir>
 ```
 
-Expected result: `LANGUAGE_BUILDER_EQUIVALENCE_PASS` in
+Result: `LANGUAGE_BUILDER_EQUIVALENCE_PASS` in
 `<cache-dir>\LANGUAGE_EQUIVALENCE.json`.
 
 ## End-to-end `evitea call` validation (both samples)
