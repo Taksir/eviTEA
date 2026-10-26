@@ -1,5 +1,5 @@
 """Tests of the depth window: the upper bound of the local depth and the relative lower bound (--relative-depth-floor).  Run: PYTHONPATH=src python tools/library_free_tests/test_depth_window.py
-Set PREVIOUS_SRC to the previous version's src folder to also compare against the previous package byte for byte."""
+Set PREVIOUS_SRC to the src folder of a version from before the depth cap was lifted to also compare against it (D5 expects its default cap to abstain at 150x)."""
 import json
 import math
 import os
@@ -81,7 +81,7 @@ def t_scan_above_window():
     low = probe(SRC, 30)
     assert free["segments_sha"] == low["segments_sha"], "the inserted DNA found at 150x differs from the 30x sequences"
     previous = os.environ.get("PREVIOUS_SRC")
-    if previous:
+    if previous:  # PREVIOUS_SRC must be a version from before the depth cap was lifted
         old = probe(previous, 150)
         assert (old["places_sha"], old["stages"]) == (capped["places_sha"], capped["stages"])
     RESULTS["D5"] = ("depth 150 (D median 115): --depth-cap 100 abstains on all 5 candidates (reason depth, identical to the previous version); "

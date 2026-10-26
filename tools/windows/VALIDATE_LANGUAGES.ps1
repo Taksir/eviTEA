@@ -1,6 +1,6 @@
 # Language builders (probe sets / codebooks) against the fixed reference
 # tables (-RouteBV3): every stage in isolation, then the whole chain from the
-# regenerated G1A catalogue.  Expected result LANGUAGE_BUILDER_EQUIVALENCE_PASS
+# rebuilt anchor catalogue.  Expected result LANGUAGE_BUILDER_EQUIVALENCE_PASS
 # in <Cache>\LANGUAGE_EQUIVALENCE.json (final terminal d631f16a..., internal-only
 # 44b98960...).  About 10 minutes; no sample data are read.
 #

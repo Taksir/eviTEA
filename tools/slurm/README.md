@@ -5,7 +5,7 @@ Job scripts for running the tests and the library-free layer on a cluster with S
 ## Setup
 
 1. `export EVITEA_WORK=<your working folder>`. All cluster paths are built from it.
-2. Clone this repository into a new folder (default `$EVITEA_WORK/evitea_code`; set `EVITEA_CODE` for another) and check out the branch to run. Check out the repository's checkpoint branch into a second folder: its `src` is the previous version used for the comparisons below.
+2. Clone this repository into a new folder (default `$EVITEA_WORK/evitea_code`; set `EVITEA_CODE` for another) and check out the branch to run. Check out the version to compare against into a second folder: its `src` is the previous version used for the comparisons below (set `PREVIOUS_SRC` to it).
 3. Create the output folder `$EVITEA_WORK/evitea_runs` (`EVITEA_OUT`) with a `logs` folder in it, copy `site.example.sh` to `$EVITEA_OUT/site.sh` and fill it in (container image, reference, prepared reference assets, path of the previous version's `src`, path of the sample table).
 4. Write the sample table: one line per sample, tab-separated: name, MSBWT index, folder of the library run (`evitea call` output), default contigs. The two paths are relative to `EVITEA_WORK`.
 5. Submit from `$EVITEA_OUT` with `sbatch $S/<script>`, with `S=$EVITEA_CODE/tools/slurm`. Variables go in the environment.

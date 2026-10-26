@@ -1,7 +1,7 @@
 """VM-only: ISO1 acquisition of candidate loci, stage by stage.
 
 Runs the ``evitea.incumbent`` stage functions on the ISO1 msBWT in short
-resumable steps (each step caches its result under ``--cache``) and compares
+resumable steps (each step caches its result under the folder named by the ISO1_CACHE environment variable) and compares
 every stage with the recorded ISO1 stage tables
 (``TE_locator_route_b/reports/G1*`` and ``TE_locator_route_b_v2/reports``).
 Bowtie2 host mappings are split into chunks (per-read results do not depend on

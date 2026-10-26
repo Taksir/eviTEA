@@ -23,7 +23,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-# PREVIOUS_SRC: the src folder of the previous version (a checkout of the checkpoint branch); U1 is skipped without it.
+# PREVIOUS_SRC: the src folder of the previous version (a checkout of the version to compare against); U1 is skipped without it.
 PREVIOUS = os.environ.get("PREVIOUS_SRC")
 # BASELINE_SRC: the src folder of a version without the identity-evidence and relative-floor switches; U8 is skipped without it.
 BASELINE = os.environ.get("BASELINE_SRC")

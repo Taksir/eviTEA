@@ -3,7 +3,7 @@ SIF=$EVITEA_WORK/container/evitea.sif                 # Apptainer image with pyt
 MSBWT_PATH=                                           # folder with the pymsbwt modules (MUS, MUSCython), only if pymsbwt is not pip-installed in the image
 REFFA=$EVITEA_WORK/reference/genome.fa                # reference genome (its checksum goes in the job log)
 ASSETS=$EVITEA_WORK/reference/assets                  # prepared reference assets (evitea prepare-reference output)
-PREVIOUS_SRC=$EVITEA_WORK/evitea_previous/src         # src folder of the previous version (a checkout of the repository's checkpoint branch)
+PREVIOUS_SRC=$EVITEA_WORK/evitea_previous/src         # src folder of the previous version (a checkout of the version to compare against)
 SAMPLES=$EVITEA_OUT/samples.tsv                       # tab-separated: name, MSBWT index, library run folder, contigs
 # samples.tsv columns 2 and 3 are relative to EVITEA_WORK, for example:
 #   sampleA<TAB>data/sampleA/msbwt<TAB>runs/sampleA/call_out<TAB>chr2L,chr2R,chr3L,chr3R,chrX

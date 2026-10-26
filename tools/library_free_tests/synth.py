@@ -7,7 +7,7 @@ BASES = "ACGT"
 
 
 class NoFirewall:
-    """Segment firewall that rejects nothing."""
+    """Segment filter that rejects nothing."""
 
     def local(self, *a):
         return False
