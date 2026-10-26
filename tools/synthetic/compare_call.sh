@@ -3,12 +3,15 @@
 #   PREVIOUS_SRC=<src folder of the previous version> bash tools/synthetic/compare_call.sh [WORK]
 # Requires Bowtie2 on PATH and a python ($PYTHON, default python3) with pymsbwt and numpy. Takes about 10 minutes on 4 CPUs.
 # Both versions get the same prepared sample (built by this version: every msBWT package builds the same index) and run
-# prepare-reference, prepare-te --build-languages and call. This version is given the values
-# --read-length 125 --fragment-q95 494 --fragment-q99 805 --primary-contigs chr2L,chr2R,chr3L,chr3R,chrX.
+# prepare-reference, prepare-te --build-languages and call. CURRENT_OPTS holds extra options for this version only. Its default
+# copies the fixed values of a version from before the sample supplied them: --read-length 125 --fragment-q95 494
+# --fragment-q99 805 --primary-contigs chr2L,chr2R,chr3L,chr3R,chrX. Set CURRENT_OPTS="" to compare a version that measures
+# these values itself.
 # Then the TE languages, their audit tables, calls.native.tsv, calls.tsv, calls.bed, unresolved.tsv, run_summary.json and
 # run.log must be identical. run_manifest.json is not compared: it records times, paths and the values used.
 set -euo pipefail
 : "${PREVIOUS_SRC:?set PREVIOUS_SRC to the src folder of the previous version}"
+CURRENT_OPTS=${CURRENT_OPTS---read-length 125 --fragment-q95 494 --fragment-q99 805 --primary-contigs chr2L,chr2R,chr3L,chr3R,chrX}
 cd "$(dirname "$0")/../.."
 HERE=$PWD
 PYTHON=${PYTHON:-python3}
@@ -31,8 +34,8 @@ run() {  # run <src> <out> [call options]
     --threads 4 --workers 2 "$@" > "$out/call.log" 2>&1
 }
 run "$PREVIOUS_SRC" "$WORK/previous"
-run "$HERE/src" "$WORK/current" --read-length 125 --fragment-q95 494 --fragment-q99 805 \
-  --primary-contigs chr2L,chr2R,chr3L,chr3R,chrX
+# shellcheck disable=SC2086  # CURRENT_OPTS is a list of options, split on spaces on purpose
+run "$HERE/src" "$WORK/current" $CURRENT_OPTS
 fail=0
 for f in $(cd "$WORK/previous" && ls te/languages/*.tsv te/languages/audit/*) call/calls.native.tsv call/calls.tsv call/calls.bed \
     call/unresolved.tsv call/run_summary.json call/run.log; do
