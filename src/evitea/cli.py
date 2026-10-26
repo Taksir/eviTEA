@@ -216,8 +216,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="TE record to family map: a FlyBase table (FBte_ID, FlyBase_Family columns) or two tab-separated "
         "columns record<TAB>family with any record names (the first word of each TE FASTA header)",
     )
-    te.add_argument("--g1a-archive", type=Path)
-    te.add_argument("--family-crosswalk", type=Path)
+    te.add_argument("--g1a-archive", type=Path, help=argparse.SUPPRESS)
+    te.add_argument("--family-crosswalk", type=Path, help=argparse.SUPPRESS)
     te.add_argument(
         "--terminal-codebook",
         type=Path,
