@@ -15,7 +15,7 @@
 * the record of the one-site check (``record_check``): at each side that exists, the walk's read total T at the break and the
   junction (30 host letters + 30 inserted letters), read here because the reads are at hand.
 
-With every option off the place equals ``_p4_lib.process``'s (tests/test_place.py).
+With every option off the place equals ``_p4_lib.process``'s.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ INS_USE = 30
 
 
 class PlaceContext:
-    """What one contig's places need: the counter, the contig, the repeat words, the firewall, the extension."""
+    """What one contig's places need: the counter, the contig, the repeat words, the segment filter, the extension."""
 
     def __init__(self, C, ref, rm, fw, chrom, extender=None, words=None, record_check=False, d_min=None):
         self.C, self.ref, self.rm, self.fw, self.chrom = C, ref, rm, fw, chrom

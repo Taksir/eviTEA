@@ -1,8 +1,8 @@
 """Reference-guided k-mer walk and junction placement over a sample msBWT.
 
 Port of the research modules ``oracle_walk``, ``junction``, ``j1``,
-``s3a_outcome`` and ``s3_rules`` (see ``tests/reference_s3``).  Every constant
-and tie rule is kept; the differential tests require identical results.
+``s3a_outcome`` and ``s3_rules`` (development scripts, not included).  Every constant
+and tie rule is kept.
 
 All positions are 0-based.  A side is walked on the forward reference (left
 side) or on its reverse complement (right side); ``site`` converts both to

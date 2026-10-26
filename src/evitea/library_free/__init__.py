@@ -16,9 +16,8 @@ target-site duplication (TSD):
 * A surviving call is added only when no EviTEA call lies within
   ``NEAR_EVITEA_BP`` (500) bases.
 
-``_p4_lib`` is the research module ``p4_lib.py`` (sha256 56a4a47d...),
-vendored byte for byte; the tests check its hash. Linux/WSL only (mappy and
-parasail).
+``_p4_lib`` is adapted from the development script ``p4_lib.py``.
+Linux/WSL only (mappy and parasail).
 """
 
 from __future__ import annotations

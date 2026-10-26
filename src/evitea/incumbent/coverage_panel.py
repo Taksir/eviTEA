@@ -63,7 +63,7 @@ H1_GAP_CAP = 1024
 H1_MAX_DISTINCT_VARIANTS = 1_500_000
 PANEL_CAPS = (256, 512, 1024)
 # The coverage panel that the pair-aware reselection is built for (the widest cap). Only this cap is built: the narrower caps
-# can only tie with it (when every TE word is rare) or lose, and the reselection refuses the 256-row panel.
+# can only tie with it (when every TE anchor k-mer is rare) or lose, and the reselection refuses the 256-row panel.
 RESCUE_PANEL_CAP = PANEL_CAPS[-1]
 TARGET_ABSOLUTE_COVERAGE = 0.99
 RETAIN_ATTAINABLE_FRACTION = 0.99

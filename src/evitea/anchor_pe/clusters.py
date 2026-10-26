@@ -167,7 +167,7 @@ def relaxed_provisional_clusters(
     strict_new: Mapping[int, Mapping],
     decoded_host: Mapping[int, Mapping],
 ) -> list[dict]:
-    """Delayed-aggregation novelty mask from strictly decoded fragments outside the primary set.
+    """Extra clusters from strictly decoded fragments, away from the primary clusters.
 
     Combine decoded UNIQUE_HIGH fragments with the primary set. Keep clusters
     with a decoded member that lie > 500 bp from every same-family primary

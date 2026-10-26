@@ -4,8 +4,7 @@ A wide call whose walk found no TE junction (decision ``KEEP_NO_TE_JUNCTION``)
 gets a reported position when exactly one side's walk ended in a TE junction
 label (``TE_GENOMIC`` or ``TE_CONSENSUS``, not ``UNANCHORED``) with a recorded
 position; the position is that side's ``pos`` as the walker records it.  The
-rule reads the side labels only (research implementation:
-``tests/reference_pin1/pin1_lib.py``).
+rule reads the side labels only.
 
 Positions only: the call, its range in ``calls.tsv`` and ``calls.bed`` and the
 native callset never change; the pin goes to ``breakpoints.tsv`` columns

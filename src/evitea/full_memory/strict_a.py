@@ -191,7 +191,7 @@ def score_b(anchor: Mapping, index: BIndex, folds: set[int] | None, *, exclude_a
 
 
 def historical_keys(witnesses: Iterable[Mapping]) -> set[tuple[str, str, int, str]]:
-    """Exact keys of paired-end anchor (corrected-cluster) "A" witnesses."""
+    """Exact keys of paired-end anchor (unexplained-pair cluster) "A" witnesses."""
 
     return {(normfam(w["family"]), str(w["chrom"]), int(w["breakpoint0"]), str(w["anchor_host_side"]))
             for w in witnesses if int(w["pair_id"]) >= 0 and int(w["breakpoint0"]) >= 0

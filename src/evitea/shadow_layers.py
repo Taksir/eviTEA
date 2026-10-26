@@ -129,7 +129,7 @@ def paired_end_state(left_pair_ids: Sequence[int], right_pair_ids: Sequence[int]
 
 @dataclass(frozen=True, slots=True)
 class AnchorPECandidate:
-    """One replicated exact-junction anchor of a corrected cluster, scored for paired-end anchor support."""
+    """One replicated exact-junction anchor of an unexplained-pair cluster, scored for paired-end anchor support."""
 
     cluster_id: int
     family: str
@@ -146,7 +146,7 @@ class AnchorPECandidate:
         object.__setattr__(self, "right_b_pair_ids", _ids(self.right_b_pair_ids))
         _side(self.anchor_host_side)
         if self.breakpoint0 < 0 or self.cluster_id < 0:
-            raise InputContractError("paired-end anchor candidate coordinates must be non-negative")
+            raise InputContractError("anchor candidate coordinates must be non-negative")
         if not _passes(self.a_pair_ids):
             raise InputContractError("exact junction evidence requires >=2 pairs across >=2 folds")
 
@@ -165,7 +165,7 @@ class AnchorPECandidate:
 
 @dataclass(frozen=True, slots=True)
 class FullMemoryEvent:
-    """Hostile-valid proposal-memory exact-junction event with its held-out paired-end anchor support."""
+    """One full-memory exact-junction event, with one anchor per candidate region chosen without looking at paired-end support, and its held-out paired-end anchor support."""
 
     candidate_id: str
     family: str

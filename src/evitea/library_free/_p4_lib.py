@@ -1,5 +1,5 @@
-"""P4 library-free detector, stages S1-S7 (p4_library_free/P4_DESIGN_MEMO.md section 4).
-No TE library, Dfam sequence, long-read insert, truth or hostile coordinate is read anywhere in this file.
+"""P4 library-free detector, stages S1-S7.
+No TE library, Dfam sequence, long-read data or truth set is read in this file.
 
 Counter interface (as the research walk's Counter): C.cnt(w) = occurrences of w + occurrences of rc(w) in the reads,
 0 when w contains a letter other than A/C/G/T.
@@ -381,7 +381,7 @@ def sd_rule(hits, L):
 
 
 class MappyFirewall:
-    """S4 alignment-based rules with mappy (minimap2). genome: dict name -> sequence (upper case) without the mitochondrial contig;
+    """S4 alignment-based rules with mappy (minimap2). genome_fa: FASTA path of the whole reference;
     chrm: the mitochondrial sequence (None: no mitochondrial test)."""
     def __init__(self, genome_fa, chrm, preset="map-ont"):
         """genome_fa: FASTA of the whole reference (the mitochondrial contig included; NUMTs are tested first); chrm: the sequence of
@@ -517,7 +517,7 @@ def process(C, ref, cand, rm, fw, chrom="", fork=FORK):
     pl["tsd"] = max(0, pl["delta"]) if two else None
     pl["geno"] = genotype(min(lw["frac"], rw["frac"]) if rw["status"] == "break" else lw["frac"])
     pl["pos"] = pl["bL"]
-    # S4 firewall per segment
+    # S4 segment filter, per segment
     keep, rej = [], []
     for side, sg in (("L", lseg), ("R", rseg)):
         if len(sg) < SEG_MIN:
@@ -544,7 +544,7 @@ def process(C, ref, cand, rm, fw, chrom="", fork=FORK):
 
 
 def target_candidate(pos, D, half=50):
-    """Targeted mode: a pseudo-run centered on pos (used for hostile sites off the arm and for synthetic checks)."""
+    """Targeted mode: a pseudo-run centered on pos (used for checks at chosen sites and for synthetic checks)."""
     f = (pos - half) // STRIDE * STRIDE
     return dict(first=f, last=f + 2 * half // STRIDE * STRIDE, n_low=0, D=D)
 

@@ -2,7 +2,7 @@
 
 ``Extender`` has the signature of ``_p4_lib.extend`` (``extender(C, ctx, alt, n_alt, maxlen, fork) -> (segment, stop)``).
 
-anchored   Where the plain extension stops short (the firewall would drop its segment by length or repeat content:
+anchored   Where the plain extension stops short (the segment filter would drop its segment by length or repeat content:
            under ``SEG_MIN`` letters or satellite), the extension is run again from the junction. At each letter, if the last
            K - 1 = 30 letters occur more than ``ANCHOR_RC`` x d0 times, where d0 is the count of the 30 host letters at the
            junction (the local depth at this junction), the next letter is chosen from the counts of the anchored word: the 30
