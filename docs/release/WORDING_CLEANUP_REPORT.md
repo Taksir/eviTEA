@@ -17,23 +17,23 @@ This report covers the wording rewrite of the comments, docstrings, messages, he
 | MUST, person name | 1 | 3 |
 | FIX, internal label | 142 | 56 |
 | FIX, history | 126 | 77 |
-| FIX, dev data name | 124 | 115 |
+| FIX, dev data name | 124 | 114 |
 | FIX, register | 52 | 3 |
 | FIX, stock phrase | 1 | 0 |
-| LOOK, register | 542 | 454 |
-| LOOK, field word | 279 | 189 |
+| LOOK, register | 542 | 452 |
+| LOOK, field word | 279 | 192 |
 | LOOK, stock word | 2 | 1 |
 
 `wording_scan.py stats --against $START` (words in comments, docstrings, prose and messages):
 
 | Category | Before | After |
 |---|---|---|
-| comment | 4029 | 3927 |
-| docstring | 21257 | 21152 |
-| prose | 9765 | 9694 |
-| string | 8233 | 8226 |
+| comment | 4029 | 3975 |
+| docstring | 21257 | 21167 |
+| prose | 9765 | 9684 |
+| string | 8233 | 8232 |
 
-No category has more words than before. The diff touches 196 files and adds or removes no file except this report.
+No category has more words than before. The prose count leaves out this report, which the scanner also counts (3877 words, and its labels add scan hits); the scan counts above leave it out too. The diff touches 198 files and adds no file except this report.
 
 ## 2. Checks from section 8 of the guide
 
@@ -41,19 +41,19 @@ The checks ran on Python 3.14.6 with pymsbwt 0.5.0, mappy 2.31, parasail 1.3.4, 
 
 | # | Check | Start | End |
 |---|---|---|---|
-| 1 | `guard $START` | not applicable | Exit 0, 0 failures, 220 REVIEW lines, explained in section 4 |
+| 1 | `guard $START` | not applicable | Exit 1, 1 failure: `evidence/frozen_candidates.py`, where Taksir asked for a code change (answer B). Without that file, exit 0. 201 REVIEW lines, explained in section 4 |
 | 2 | `scan --min-level MUST` | 978 hits | 146 hits. They are names, option values, ids and `say()` strings (sections 5 and 6) |
 | 3 | `stats --against $START` | not applicable | No category has more words (section 1) |
 | 4 | `python -m pytest -ra` | 226 passed, 0 failed, 3 skipped | 226 passed, 0 failed, 3 skipped |
-| 5 | `bash tools/library_free_tests/run_all.sh` (no `PREVIOUS_SRC`) | Exit 0; depth_window ALL PASS, depth_tool ALL PASS, records 40/0, assemble 35/35, runtime 30/0, repeat_map 15/0, slurm_tools 5/0 | Exit 0; the same results line for line |
-| 6 | `compare_call.sh` (byte identity of the library layer) | not applicable | All compared files identical except `run_summary.json`; see below |
+| 5 | `bash tools/library_free_tests/run_all.sh` (no `PREVIOUS_SRC`) | Exit 0; depth_window ALL PASS, depth_tool ALL PASS, records 40/0, assemble 35/35, runtime 30/0, repeat_map 15/0, slurm_tools 5/0 | Exit 0; the same results line for line, run again after the last edits |
+| 6 | `compare_call.sh` (byte identity of the library layer) | not applicable | 25 of 25 identical with `CURRENT_OPTS=""`; see below |
 | 7 | `run_all.sh` with `PREVIOUS_SRC` | not applicable | Same results as the start commit run against itself; see below |
 | 8 | Help pages | 16 pages saved | Only wording differs (section 4) |
-| 9 | `git diff --stat $START` | not applicable | 196 files changed, no file added or removed except this report |
+| 9 | `git diff --stat $START` | not applicable | 198 files changed, no file added or removed except this report |
 
-Check 6, in detail. `PREVIOUS_SRC` was the `src` folder of the start checkout. Of the 25 compared files, 24 are identical: the TE codebooks and their audit tables, `calls.native.tsv`, `calls.tsv`, `calls.bed`, `unresolved.tsv` and `run.log`. `run_summary.json` differs in a few counts of the extension layers (for example `B_universe_unique_high` 397 against 376, `corrected_clusters` 46 against 26, `eligible_reference_unexplained` 857 against 805). I ran the same script with the start commit on both sides. It gives the identical difference, and its `run_summary.json` is byte-for-byte equal to the one from the new tree. So the difference does not come from the wording edits. It comes from the script: it passes `--read-length 125 --fragment-q95 494 --fragment-q99 805 --primary-contigs ...` only to the current side. Question 19 below asks whether that is expected.
+Check 6, in detail. `PREVIOUS_SRC` was the `src` folder of the start checkout. `compare_call.sh` now takes the extra current-side options from `CURRENT_OPTS`; its default keeps the old fixed values (`--read-length 125 --fragment-q95 494 --fragment-q99 805 --primary-contigs ...`). With `CURRENT_OPTS=""` against the start commit, all 25 compared files are identical: the TE codebooks and their audit tables, `calls.native.tsv`, `calls.tsv`, `calls.bed`, `unresolved.tsv`, `run_summary.json` and `run.log`. With the default `CURRENT_OPTS` the first pass gave 24 of 25: `run_summary.json` differed in a few extension-layer counts. The same difference appeared with the start commit on both sides, so the edits did not cause it. The old fixed values are given to the current side only, so the two sides use different read-length and fragment values.
 
-Check 7, in detail. With `PREVIOUS_SRC` set, `test_depth_window` fails at `t_scan_above_window` (assertion on `places_sha`). The guide lists this as known. It fails the same way when the start commit is compared with itself. All other scripts pass: `test_depth_tool` ALL PASS, `test_records` 40 checks 0 failed, `test_assemble` 35 of 35, `test_runtime` 32 checks 0 failed (32 checks; the two extra checks that need `PREVIOUS_SRC` run, and U8 is skipped because `BASELINE_SRC` is not set), `test_repeat_map` 15 checks 0 failed (BLAST+ installed), `test_slurm_tools` 5 checks 0 failed.
+Check 7, in detail. With `PREVIOUS_SRC` set, `test_depth_window` fails at `t_scan_above_window` (assertion on `places_sha`). The guide lists this as known. It fails the same way when the start commit is compared with itself. Taksir's answer: the check expects the previous version to abstain at 150x with its default cap, so `PREVIOUS_SRC` must be a version from before the depth cap was lifted. That is a limit of the test, and the docstring and a comment now say so. All other scripts pass: `test_depth_tool` ALL PASS, `test_records` 40 checks 0 failed, `test_assemble` 35 of 35, `test_runtime` 32 checks 0 failed (32 checks; the two extra checks that need `PREVIOUS_SRC` run, and U8 is skipped because `BASELINE_SRC` is not set), `test_repeat_map` 15 checks 0 failed (BLAST+ installed), `test_slurm_tools` 5 checks 0 failed.
 
 Environment note: before Bowtie2 was installed, the first pytest run gave 225 passed and 4 skipped. The start numbers above were taken again after the install. The scan counts in section 1 were taken before this report was added. The report itself quotes labels that the scanner flags.
 
@@ -83,12 +83,12 @@ Messages that tests match and that keep their matched words:
 
 ## 4. Guard REVIEW lines
 
-`guard` exits 0 with 0 failures and 220 REVIEW lines. Every line is one of these kinds.
+`guard` exits 1 with 1 failure, and 201 REVIEW lines. The failure is `evidence/frozen_candidates.py`: the two checks `repeat_context is None` and the reference hash now run in the other order, as Taksir asked (answer B). That is a code change, in its own commit. Because the guard stops at the code change, it does not list the message edits of that file. Before the commit, the guard passed for the file with all its message edits. Every REVIEW line is one of these kinds.
 
-- 147 changed message or help strings (117 in `raise`, 25 in `help=`, 2 in print or message calls, 3 in `match=`). Each is a wording change that keeps the value, path or option name the old message showed. Typical changes: "frozen G1A archive" to "anchor archive", "mismatch" to "does not match", "needs" to "requires", "Phase 3 Bowtie2 profile" to "the Bowtie2 profile", a dropped label such as "incumbent" in a message.
-- 65 "number X appears less". Every number left with a history sentence or a project label: dates (2026, 09), stage and phase codes (Phase 0 to 9, S20 to S70, "layers 1-2", "class 1", "gate-1"), finding ids (F-031, F-035, I-165), "Section 128", "spec section 8", and the strain name GIM-024. No value, unit or threshold was dropped.
-- 7 "code span no longer present". Six are hash prefixes whose ellipsis character became `...`, and one is the source commit hash `0a45bc9` in the validation status file, deleted as history. The seventh is an artifact of line-wrapped backticks in the same file (`prepare-reference --bowtie2-index` is still there).
-- 1 "lines that are not comments changed" in `environment.yml`. It is a comment after a code line. The package string is identical.
+- 110 changed message or help strings (78 in `raise`, 27 in `help=`, 2 in print or message calls, 3 in `match=`). Each is a wording change that keeps the value, path or option name the old message showed. Typical changes: "frozen G1A archive" to "anchor archive", "mismatch" to "does not match", "needs" to "requires", "Phase 3 Bowtie2 profile" to "the Bowtie2 profile", a dropped label such as "incumbent" in a message.
+- 73 "number X appears less". Every number left with a history sentence or a project label: dates (2026, 09), stage and phase codes (Phase 0 to 9, S20 to S70, "layers 1-2", "class 1", "gate-1"), finding ids (F-031, F-035, I-165), "Section 128", "spec section 8", and the strain name GIM-024. Three are in `README.md`: 125, 194 and 838 left with the development-sample sentence that Taksir asked me to drop from the Status section (answer 14). The counts stay in the validation status file.
+- 16 "code span no longer present". Six are hash prefixes whose ellipsis character became `...` (three in `tools/windows/README.md`, three in the validation status file; one of them, `0a45bc9`, is a source commit hash deleted as history). Six are the names of removed modules (`integration.py`, `proposal.py`, `exact_junction.py`, `paired_end_anchor.py`, `certification.py`, `internal_probe.py`) in the "Retired" bullet of the validation status file, which answer 12 told me to delete. `git_dirty` and `evitea call --msbwt-index ... --profile S` went with the sentences that answer 12 removed. One is an artifact of line-wrapped backticks (`prepare-reference --bowtie2-index` is still there). One is the combined command `library-free --previous-behaviour --depth-cap 100` in `docs/LIBRARY_FREE_OPTIONS.md`, which the new text writes as two separate spans.
+- 2 "lines that are not comments changed". One is in `environment.yml`: a comment after a code line, with the package string identical. The other is in `tools/synthetic/compare_call.sh`: the `CURRENT_OPTS` change (answer 19), made in its own commit.
 
 Message changes the guard shows that need a human check:
 
@@ -103,31 +103,26 @@ Help pages: all 16 help outputs were saved at the start and compared after. Only
 
 ## 5. Labels I could not understand and left
 
-- `cli.py` `--complete-routing` help: "TE word". `cli.py` `build-family-records` help: "end-word codebooks". Are these k-mers?
-- `cli.py` `--mito-contig` help: "segment firewall". Also in `library_free/place.py` and `_p4_lib.py` (`MappyFirewall`).
-- `config.py`: "first-stage layer". `run_command.py` docstring: "flag rule kept", "record guard", "residency test".
-- `cli.py` `--g1a-archive` and `--family-crosswalk` have no help text. I do not know what the G1A archive is. In the text I call it the "anchor catalogue archive" because its members are `G1A_ANCHOR_CATALOGUE.tsv` and `G1A_ANCHOR_PROVENANCE.tsv`.
-- `shadow_layers.py` ~165 and `full_memory/selection.py`: "Hostile-valid proposal-memory". `shadow_layers.py` ~133: "corrected cluster".
-- `anchor_pe/clusters.py`: "Delayed-aggregation novelty mask". "corrected-cluster", "corrected unexplained" and "relaxed provisional" clusters match function names, so they stay.
-- `_p4_lib.py`: "hostile coordinate", "hostile sites", "prereg section 3", "design memo section 4", `class_strata cs_lib.rep_fracs`, "(synthetic)" on constants.
-- `library_free/options.py` lines 101 to 102: `--polya-cross` and `--polya-tsd` help says "(set aside; off)".
-- `library_free` docs and code: "walk-start word", "valid words", "haplotype scan's trusted members", "duplicate chain", "second-chance", "strides", "walked-out" (docs/LIBRARY_FREE_OPTIONS.md and code).
+Taksir's answers (section 11) explained most labels of the first pass, and the text now uses the plain names. These are still left.
+
+- `run_command.py` docstring: "record guard" and "residency test". `shadow_layers.py`, `anchor_pe` and `full_memory`: "relaxed provisional" clusters (they match function names).
+- `_p4_lib.py`: "(synthetic)" on constants and `class_strata cs_lib.rep_fracs`. The `library_free` docs and code: "walk-start word", "valid words", "haplotype scan's trusted members", "duplicate chain", "second-chance", "strides", "walked-out".
 - Stage labels S1 to S7, `S2_*`, `S4_*` stay because they are written to the places table.
-- Research file names in docstrings (`calling.py`: `p4_library_free/v2/code/v2_lib.py`, `precision_diag/code/precb_run.py`, `v2_diag/code/v2diag_lib.py`; `detector.py`: `p4_genome.py`, `p4_run.py`). They point to files that are not in the repository.
-- `candidates.py`: the `source` values "G1F" and "G1HR_RESCUE" are data. I describe them as "working pair" and "wide-anchor pair".
-- `extension_engine.py` title: "801/820/835/838-style layers" was dropped. I assumed these were old run ids.
-- `contracts.py` ~634: the argument "certification rotation_id" (a string in a call argument, which the guard treats as data).
-- `resident_filter.py` ~59: a data string with `dm6_TEMP2_compatible.fa.out` and "wrong-call anatomy".
-- Windows scripts: `tools/windows/VALIDATE_LANGUAGES.ps1` line 4 "regenerated G1A catalogue". `tests/unit/test_internal21.py` line 26: "A" and "B". `tools/library_free_tests/synth_elements.py` line 75: "must stay exactly as before". `r8/check.py`: "T0".
-- Progress and check strings that go through `say()`, `require()`, `_check()` or `check()` are treated as data by the guard, so they keep old labels. You decided to leave them. They are:
+- Research file names in docstrings (`calling.py`: `p4_library_free/v2/code/v2_lib.py`, `precision_diag/code/precb_run.py`, `v2_diag/code/v2diag_lib.py`; `detector.py`: `p4_genome.py`, `p4_run.py`). Answer 11 says to delete such pointers where they only confuse readers. These name the source of the method, so I left them for the next pass.
+- `candidates.py`: the `source` values "G1F" and "G1HR_RESCUE" are data. They wait for the rename table.
+- `extension_engine.py` title: "801/820/835/838-style layers" was dropped. `contracts.py` ~634: the argument "certification rotation_id". `resident_filter.py` ~59: a data string with `dm6_TEMP2_compatible.fa.out` and "wrong-call anatomy".
+- `tests/unit/test_internal21.py` line 26: "A" and "B". `tools/library_free_tests/synth_elements.py` line 75: "must stay exactly as before". "Section 128" in the validation status file ("recorded research tables").
+- Strings the guard treats as data, so they keep old labels. You decided to leave the progress strings (answer 7 is marked DECIDE and is not done yet):
   - `incumbent/acquisition.py` 98, 104, 142: "coverage rescue census", "rescue panel optimization", "candidate recall repair".
-  - `incumbent/engine.py` 266, 305, 325: "two-sided mate rescue", "full TE-segment family certification", "repeat-aware divergence rescue".
-  - `engine.py` 313, 337: "incumbent: sample ...", "incumbent calls: ...; v3 extension".
+  - `incumbent/engine.py` 266, 305, 325: "two-sided mate rescue", "full TE-segment family certification", "repeat-aware divergence rescue". `engine.py` 313, 337: "incumbent: sample ...", "incumbent calls: ...; v3 extension".
   - `library_free/runtime.py` 284: "family calls (v2 filter, rule c)".
-  - `full_memory/engine.py`, `anchor_pe/engine.py`, `internal21/acquisition.py`, `languages/builder.py` and `languages/terminal.py`, `internal.py`: progress lines such as "finite state:", "AnchorPE counts:", "INTERNAL21 projection", "languages: G1A anchor catalogue", "gap-fill targets".
+  - `full_memory/engine.py`, `anchor_pe/engine.py`, `internal21/acquisition.py`, `languages/builder.py`, `terminal.py`, `internal.py`: progress lines such as "finite state:", "AnchorPE counts:", "INTERNAL21 projection", "languages: G1A anchor catalogue", "gap-fill targets".
   - `full_memory/strict_a.py`: the message "B fold drift" (suggested text: "paired-end anchor support row has a fold that does not match its pair ID").
-  - `validation/` scripts: `require("frozen ISO transfer helper")`, `say("hashing AKA FASTQs (recorded, not historically frozen)")`, the `[ISO->AKA` log prefix, `_check()` messages in `run_shadow_layer_equivalence.py`, the print "= frozen hashes" in `run_call_equivalence.py`, and the stage-check prints "T0 rows equal", "R8E equal", "CV equal", "R9E rescues", "fcrc1 roundtrip".
+  - `library_free/options.py` lines 101 to 102: the `--polya-cross` and `--polya-tsd` help sits in a table of tuples, which the guard treats as data. It still says "(set aside; off)". Answer 10 asks for "(off by default; experimental)". That edit fails the guard.
+  - `--g1a-archive` and `--family-crosswalk` have no help text. Adding `help=` changes the syntax tree, which the guard rejects. Answer 4 suggests a text.
+  - `validation/` scripts: `require("frozen ISO transfer helper")`, `say("hashing AKA FASTQs (recorded, not historically frozen)")`, the `[ISO->AKA` log prefix, `_check()` messages in `run_shadow_layer_equivalence.py`, the print "= frozen hashes" in `run_call_equivalence.py`, and the stage-check prints "T0 rows equal", "R8E equal", "CV equal", "R9E rescues", "fcrc1 roundtrip". You said to leave these.
   - `tools/library_free_tests/test_assemble.py`: check labels A3, A6, A7 (garbled: "the family's own the family-identity filter drops it") and four A10 labels with "frozen"; `test_repeat_map.py` lines 120 and 131.
+  - `test_depth_window.py`: the D5 result string still says "identical to the previous version". Only the docstring and a comment now state that `PREVIOUS_SRC` must be a version from before the depth cap was lifted.
 
 ## 6. Names I left
 
@@ -148,18 +143,11 @@ By kind:
 
 No `TODO` or `FIXME` was found.
 
-Places where a comment and the code disagree. Neither side was changed:
+Places where a comment and the code disagreed were fixed by the answers of Taksir (stale hash claim in `library_free/__init__.py`, the `tests/test_place.py` and `tests/reference_*` pointers, the `MappyFirewall` docstring, the `--cache` text, the `fcrc1/check.py` order comment, the reserved-folder READMEs, and the order of the `None` check in `frozen_candidates.py`). These remain:
 
-- `library_free/__init__.py` lines 20 to 21 say `_p4_lib` is `p4_lib.py` (sha256 `56a4a47d...`), "vendored byte for byte; the tests check its hash". The file is not byte-identical (its sha256 starts `43730d5e`) and no test checks a hash.
-- `library_free/place.py` line 18 points to `tests/test_place.py`, which does not exist.
-- `_p4_lib.py` `MappyFirewall` docstring says `genome: dict name -> sequence`, but `__init__` takes `genome_fa`, a FASTA path.
-- `breakpoints/__init__.py`, `walker.py`, `pinning.py` point to `tests/reference_s3` and `tests/reference_pin1/pin1_lib.py`. These do not exist.
-- `evidence/frozen_candidates.py` (`build_frozen_candidate_codebooks`) reads `repeat_context.reference_semantic_sha256` before it tests `repeat_context is None`. The validation status file says this module is unused by the default engine, yet `assets/te.py` calls it when the anchor archive options are given.
-- `validation/incumbent_stage_checks/iso1_acquisition_vm.py` says each step caches under `--cache`. The script has no `--cache` option, only the `ISO1_CACHE` environment variable.
-- `validation/incumbent_stage_checks/downstream_stages/fcrc1/check.py` line 47 says the recorded table is in ascending locus order. The code does not check this.
-- `validation/EVITEA_V1_VALIDATION_STATUS.md` lists the ISO1 host read names as `iso`, but `anchor_pe/alignments.py` line 52 has `pid`. It also says native Windows Bowtie2 rejects all-numeric names, while an ISO1 run with such names is reported elsewhere in the file. Its regression line says "185 passed, 1 skipped".
+- `evidence/frozen_candidates.py`: the validation status file says this module is unused by the default engine, yet `assets/te.py` calls it when the anchor archive options are given.
+- `validation/EVITEA_V1_VALIDATION_STATUS.md` lists the ISO1 host read names as `iso`, but `anchor_pe/alignments.py` line 52 has `pid`.
 - `docs/CLI_AND_DATA.md` said the codebook builders are not yet stages. `prepare-te --build-languages` builds both. The doc now follows the help text.
-- `tests/integration/README.md` and `tests/parity/README.md` say the folders are reserved. Both hold tests.
 - `constants.py`: the old comment said q99 "is not frozen". The code does not check q99, so the comment now says "is not checked".
 - `full_memory/__init__.py` called the layer the "third" extension layer and `internal21` the "fourth". `shadow_layers.py` lists four layers. I dropped the ordinal words.
 - `library_free/runtime.py` hashes eight edited source files (`_code_sha256`) for the cache identity in `.complete.json`. Comment edits change that hash, so pieces saved by the old code are scanned again. No output byte depends on it.
@@ -192,24 +180,44 @@ These plain names come from reading the code. Please check them.
 
 All facts are kept; only the wording changed. The `--previous-behaviour` entry now says "turns off every added rule". The Unreleased section reads as a development log. Merging it into one 0.1 entry is your decision.
 
-## 11. Questions for Taksir
+## 11. Answers applied, and what is still open
 
-1. `cli.py` "every canonical" message and its test: change both together to drop the label "canonical"? The guard cannot pass that pair, because the old match string has only two words.
-2. "TE word" in the `--complete-routing` help and "end-word" in the `build-family-records` help: are these k-mers? What are their plain names?
-3. "segment firewall" (`--mito-contig`): a feature name to keep?
-4. What is the G1A archive (`--g1a-archive`)? It has no help text. Is "anchor catalogue archive" right? What is the "G1A catalogue" in `VALIDATE_LANGUAGES.ps1`?
-5. Is "coverage panel" the right plain name for the "rescue panel", and for "compact screen" in the wide-anchor step?
-6. In `--profile` help and the docs I describe `AKA017` and `ISO1` as "development samples". Is that accurate? Keep the two names in the validation docstrings and status file (they are also option and profile values), or use "the development sample"? I dropped `GIM-024` and assumed it is just another development sample.
-7. The `say()` strings listed in section 5: left as you decided. Do you want a later change that moves them to a printing call?
-8. `library_free/__init__.py`: correct the stale hash and "byte for byte" claim? That is a content change.
-9. `iso1_acquisition_vm.py`: fix the `--cache` text, or add the option?
-10. Meaning of "T0" in `r8/check.py`, "set aside" in the `--polya-cross` and `--polya-tsd` help, "hostile" in `_p4_lib.py`, "Hostile-valid proposal-memory", "Delayed-aggregation novelty mask".
-11. Keep or delete the pointers to research files and tests that are not in the repository (`calling.py`, `detector.py`, `breakpoints/`, `place.py`)?
-12. Validation status file: keep a dated record? Drop `--profile S` in the opening paragraph (not a documented value)? Keep the stale "185 passed" line, the Windows Bowtie2 caveat and the two mentions of private development notes? Delete the "Retired:" sentence as history?
-13. "checkpoint branch" in `tools/slurm/README.md`, `site.example.sh` and `test_runtime.py`: replace with "a checkout of the previous version"? Users follow that step, so I kept it.
-14. CHANGELOG and README Status: keep the development-sample sentence and the call counts 838 and 194? Merge the Unreleased changelog section? Keep "previous release" and `--previous-behaviour` wording in `docs/LIBRARY_FREE_OPTIONS.md`?
-15. README credit line for msBWT names two people (James Holt and Leonard McMillan). Keep it? It follows `THIRD_PARTY_NOTICES`.
-16. Plain names to confirm: repeat-aware step description, "extension-layer events within 500 bp" for `unresolved.tsv`, `docs/CLI_AND_DATA.md` codebook bullet (now follows the `--build-languages` help), and the stage-code readings in section 9.
-17. Are "proposal" and "proposals" (a candidate region in `full_memory`) acceptable as the name, or should a later pass rename them? Should the "G1F" and "G1HR_RESCUE" `source` values wait for the rename list?
-18. The commits are unsigned. GitHub may show them as Unverified, and a stop hook in the working session asked for the author to be Claude. They are authored and committed as you, as you asked.
-19. `compare_call.sh` passes `--read-length 125 --fragment-q95 494 --fragment-q99 805 --primary-contigs ...` only to the current side, and `run_summary.json` then differs in a few extension-layer counts, even when the start commit is compared with itself. Is that expected, or should the script give both sides the same values?
+Taksir answered the 19 questions of the first report. This section lists what was done for each answer. Items marked DECIDE in the answers were not started.
+
+Done:
+
+1. "every canonical" message: kept as is.
+2. `--complete-routing` help now describes the "TE word" as a TE anchor k-mer, and `build-family-records` help says "TE-end and TE-interior k-mer codebooks". Docstrings in `family_records/` and `docs/REPEAT_ANNOTATION.md` say the same. "TE word" in `coverage_panel.py` and the README became "TE anchor k-mer" and "TE k-mers".
+3. "segment firewall" is now "segment filter" in the `--mito-contig` help, in `place.py`, `extension.py`, `_p4_lib.py` and `tools/library_free_tests/synth.py`. The class `MappyFirewall` and variables named `firewall` keep their names.
+4. Not done (DECIDE): hiding `--g1a-archive` and `--family-crosswalk`. The help text could not be added (see section 5).
+5. Confirmed: "coverage panel". No change needed.
+6. Checked: no text calls GIM-024 or any other strain development data. GIM-024 is left only in two lists of forbidden names in `validation/` scripts.
+7. Not done (DECIDE): the `say()` pass. The old and new lines are in the answers.
+8. `library_free/__init__.py` now says "adapted from the development script `p4_lib.py`", without the hash or "byte for byte".
+9. `iso1_acquisition_vm.py` now names the `ISO1_CACHE` environment variable.
+10. Done: "untrimmed segment rows" (T0), "unexplained-pair cluster", the full-memory event docstring, the extra-clusters docstring, "family flag rule 'kept'", "a read-routing option of the library layer", "hostile" in `_p4_lib.py`. Not done: the `--polya-*` help (the guard blocks it).
+11. Pointers to files that are not in the repository were removed in `breakpoints/` and `place.py`. The research file names in `calling.py` and `detector.py` are still there.
+12. Validation status file: removed `--profile S`, the "Retired" bullet, the Windows Bowtie2 caveat and both mentions of private development notes. The regression line now says 226 passed, 3 skipped. The numbers are marked as results recorded at commit d7587b1. Not done (DECIDE): whether the file ships.
+13. "checkpoint branch" is now "the version to compare against" in `tools/slurm/README.md`, `site.example.sh` and `test_runtime.py`.
+14. README Status no longer gives the development-sample sentence or the counts 838 and 194 (they stay in the validation file). `docs/LIBRARY_FREE_OPTIONS.md` describes `--previous-behaviour` as turning off every added rule and giving the basic library-free scan, without "previous release". Not done (DECIDE): merging the Unreleased CHANGELOG section. The CHANGELOG still has the sentence with 838 and 194, and the README section "What is validated" still states the byte-for-byte equivalence. Please decide for both. Add `--previous-behaviour` to the rename list.
+15. README credit line kept.
+16. The repeat-aware step now has the longer description in the README. The `unresolved.tsv` row in `docs/CLI_AND_DATA.md` has the new text with "within 500 bp".
+17. Prose says "candidate region" only where the old text had "proposal" in a sentence I touched. `full_memory` code names stay. The output-name renames (DECIDE) wait for the rename table. Candidates for the table: call-id prefixes, statuses such as `DROPPED_V2`, call classes `MATE_RESCUE` and `REPEAT_AWARE_RESCUE`, tier `REPEAT_RESCUE`, source values `G1F` and `G1HR_RESCUE` (suggested `WORKING_PAIR` and `WIDE_ANCHOR`), `--rule-c`, `--max-rescue-interval-mass`, `--previous-behaviour`.
+18. The commits stay authored and committed as Md Taksir Hasan Majumder.
+19. `compare_call.sh` now takes the extra current-side options from `CURRENT_OPTS`, with today's values as the default. The run with `CURRENT_OPTS=""` against the start commit is in section 2.
+- `test_depth_window.py`: the docstring and a comment state that `PREVIOUS_SRC` must be a version from before the depth cap was lifted. The assertion is unchanged.
+- A: the 2 unreported trim commits were not used.
+- B: `evidence/frozen_candidates.py` now tests `repeat_context is None` before it reads the context. This is a code change in its own commit. The guard lists it as a failure for that file, as it should.
+- C: pointers to tests that do not exist were removed from `place.py`, `breakpoints/__init__.py`, `walker.py` and `pinning.py`.
+- D: the `MappyFirewall` docstring says `genome_fa` is a FASTA path.
+- E: the `fcrc1/check.py` comment says the order of loci in the recorded table is not checked.
+- F: `tests/integration/README.md` and `tests/parity/README.md` say what the tests in each folder check.
+
+Still open for Taksir:
+
+1. The DECIDE items: hide `--g1a-archive` and `--family-crosswalk`; the `say()` pass; whether the validation status file ships; the CHANGELOG merge; the output-name renames.
+2. Allow an exception in the guard (or a code change) for the `--polya-*` help table and for new `help=` text on `--g1a-archive` and `--family-crosswalk`? Both are wording, but the guard cannot tell.
+3. The README section "What is validated" and the CHANGELOG still state the byte-for-byte equivalence and the counts 838 and 194. Drop or keep?
+4. "record guard", "residency test", "Section 128", "relaxed provisional": plain names?
+5. Delete the research file names in `calling.py` and `detector.py`?
+6. The commits are unsigned. GitHub may show them as Unverified.
