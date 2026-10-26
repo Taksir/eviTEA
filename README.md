@@ -29,7 +29,7 @@ layer runs again on them (`evitea run --no-library`; see [docs/REPEAT_ANNOTATION
 ## Status
 
 Version `0.1.0.dev0`. See [validation/EVITEA_V1_VALIDATION_STATUS.md](validation/EVITEA_V1_VALIDATION_STATUS.md) for the
-validation record. It is a method-equivalence record, not an accuracy benchmark.
+validation record. It is not an accuracy benchmark.
 
 EviTEA takes these values from each sample and reference: the read length, the fragment-size 95th and 99th percentiles, the
 primary contigs and the mitochondrial contig. TE records may have any names (see
@@ -168,8 +168,7 @@ and accept only their own sample IDs.
 
 ## Reproducing the validation
 
-The scripts under `validation/` and `tools/windows/` reproduce the byte-for-byte
-comparison. They require the author's private development datasets and the output of the
+The scripts under `validation/` and `tools/windows/` compare the pipeline with the research pipeline it was ported from. They require the author's private development datasets and the output of the
 research pipeline, which are **not distributed**. The scripts contain **no hard-coded paths: you must
 provide every path yourself**, through arguments or environment variables
 (`EVITEA_DATA`, `EVITEA_ROUTE_B_V2`, `EVITEA_ROUTE_B_V3`, `EVITEA_REPO`). See
@@ -177,10 +176,10 @@ provide every path yourself**, through arguments or environment variables
 
 ## What is validated, and limitations
 
-- Validated: byte-for-byte method equivalence with the research pipeline on two *D. melanogaster* samples (dm6, 125 bp).
-  Synthetic end-to-end runs identify every planted insertion with its family: the automated test
-  (`tests/integration/test_synthetic_call.py`, 125 bp, FlyBase and plain TE names, fly and non-fly contig names) and runs at
-  100 and 150 bp.
+- Checks you can run: `python -m pytest`; the synthetic end-to-end test (`tests/integration/test_synthetic_call.py`, 125 bp,
+  FlyBase and plain TE names, fly and non-fly contig names), which identifies every planted insertion with its family; and
+  `tools/synthetic/compare_call.sh`, which compares the library layer of this version with a previous one on a synthetic
+  sample, byte for byte.
 - Not validated: accuracy (recall and precision against a truth set) on any species, including on other *D. melanogaster*
   strains.
 - Reads must be paired-end and of one length; trim them to one length first.
