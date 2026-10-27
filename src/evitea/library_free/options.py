@@ -44,7 +44,7 @@ class Options:
     tol_source: str = "library"
     resident_guard: str = "family"
     identity_min_comparisons: int = 3
-    relative_depth_floor: bool = False
+    relative_depth_floor: bool = True
 
     def __post_init__(self):
         for name, allowed in (("het_scan", HET_MODES), ("check_scope", CHECK_SCOPES), ("tol", TOLERANCES),
@@ -105,7 +105,7 @@ SWITCHES = (
     ("--second-scan-anchored", "second_scan_anchored", "on", "use the anchored extension in the het scan"),
     ("--second-chance", "second_chance", "on", "het scan (second-walk and full): walk again, following the other letter, a run that ends with no left break"),
     ("--het-yield", "het_yield", "on", "an early-start or right-only place yields to another place of its duplicate group"),
-    ("--relative-depth-floor", "relative_depth_floor", "off", "the lower bound of the local-depth window is the smaller of 10 reads and half the contig's median local depth"),
+    ("--relative-depth-floor", "relative_depth_floor", "on", "the lower bound of the local-depth window is the smaller of 10 reads and half the contig's median local depth"),
 )
 
 

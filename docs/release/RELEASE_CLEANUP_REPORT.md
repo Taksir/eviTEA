@@ -2,7 +2,7 @@
 
 - Base commit: `815f6c23a822c25bc0312f43ab49769f7aa48bc9` (head of `dev-merged` when the work started; the work order's
   placeholders were not filled in, so the head was used, as instructed). The relative depth floor default was taken from it
-  unchanged (off).
+  unchanged (off); it was set to on afterwards, before the freeze.
 - Branch: `release-cleanup` (the name asked for in the request; the work order says `dev-release-cleanup`).
 - Last code commit: `76bcbbf` (the two fixes before the freeze, below); this report is updated in the commit after it.
 - Commits are authored as `Md Taksir Hasan Majumder <Taksir@users.noreply.github.com>` with no AI attribution lines, as the work order's rule 6 asks.

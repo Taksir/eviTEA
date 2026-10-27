@@ -136,7 +136,7 @@ def t_cli():
 
 
 def t_relative_floor():
-    """--relative-depth-floor: the lower bound is min(10, half the contig's median local depth); off (default) keeps the fixed 10."""
+    """--relative-depth-floor: the lower bound is min(10, half the contig's median local depth); on by default; off keeps the fixed 10."""
     import hashlib
     from collections import Counter
 
@@ -146,7 +146,7 @@ def t_relative_floor():
     from evitea.library_free.options import Options
     from evitea.library_free.scan import depth_floor, scan_contig_passes
     on, off = Options.previous().with_(relative_depth_floor=True), Options.previous()
-    assert Options().relative_depth_floor is False
+    assert Options().relative_depth_floor is True
     assert depth_floor(np.array([np.nan, 6.0, 6.0, 8.0]), on) == 3.0 and depth_floor(np.array([30.0, 40.0]), on) == 10.0
     assert depth_floor(np.array([np.nan]), on) is None and depth_floor(np.array([6.0]), off) is None
     out = {}

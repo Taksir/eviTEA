@@ -163,7 +163,7 @@ def main():
     from evitea.library_free.options import Options as _O, from_args as _fa
     _p = lambda *a: _cli.build_parser().parse_args(["library-free", "--run-dir", "r", "--reference-assets", "a", "--output", "o", "--msbwt-index", "m", *a])
     o8 = _fa(_p())
-    check("U8 defaults: limit 3, floor off", o8.identity_min_comparisons == 3 and o8.relative_depth_floor is False)
+    check("U8 defaults: limit 3, floor on", o8.identity_min_comparisons == 3 and o8.relative_depth_floor is True)
     o9 = _fa(_p("--identity-min-comparisons", "0", "--relative-depth-floor", "on"))
     check("U8 the command line reads both switches", o9.identity_min_comparisons == 0 and o9.relative_depth_floor is True)
     check("U8 --previous-behaviour: limit 0, floor off", _fa(_p("--previous-behaviour")).identity_min_comparisons == 0 and not _fa(_p("--previous-behaviour")).relative_depth_floor)
@@ -172,15 +172,16 @@ def main():
         check("U8 a negative limit is refused", False)
     except ValueError:
         check("U8 a negative limit is refused", True)
-    check("U8 the floor is part of the detection identity, the limit is not", _O(relative_depth_floor=True).detection_identity != _O().detection_identity
+    check("U8 the floor is part of the detection identity, the limit is not", _O(relative_depth_floor=False).detection_identity != _O().detection_identity
           and _O(identity_min_comparisons=0).detection_identity == _O().detection_identity)
 
-    f0 = t / "floor_on"
-    rf = run(f0, ROOT / "src", json.dumps({"relative_depth_floor": True}))
+    fl = summ["detection"].get("depth_floors", {})
+    check("U8 floor on (default): the summary lists each contig's floor (at most 10)", list(fl) == ["chrS"] and 0 < fl["chrS"] <= 10, fl)
+    f0 = t / "floor_off"
+    rf = run(f0, ROOT / "src", json.dumps({"relative_depth_floor": False}))
     sf = json.loads((f0 / "library_free_summary.json").read_text()) if rf.returncode == 0 else {}
-    fl = sf.get("detection", {}).get("depth_floors", {})
-    check("U8 floor on: the summary lists each contig's floor (at most 10)", rf.returncode == 0 and list(fl) == ["chrS"] and 0 < fl["chrS"] <= 10, (fl, rf.stderr[-300:]))
-    check("U8 floor off: no floor entry in the summary", "depth_floors" not in summ["detection"], list(summ["detection"]))
+    check("U8 floor off: no floor entry in the summary", rf.returncode == 0 and "depth_floors" not in sf.get("detection", {"depth_floors": 0}),
+          (list(sf.get("detection", {})), rf.stderr[-300:]))
 
     print("\n%d checks, %d failed" % (NCHK[0], len(FAIL)))
     sys.exit(1 if FAIL else 0)
