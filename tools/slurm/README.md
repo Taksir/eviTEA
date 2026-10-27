@@ -16,7 +16,7 @@ Jobs refuse to run on a login node.
 
 | Script | What it does |
 |---|---|
-| `tests.sbatch` | the public tests of `tools/library_free_tests`, in the container (2 CPUs, 8 GB, 2 h); the repeat-map build checks require BLAST+ (`BLAST_BIN` in `site.sh`) and are skipped without it |
+| `tests.sbatch` | the public tests of `tools/library_free_tests`, in the container (2 CPUs, 8 GB, 4 h); the repeat-map build checks require BLAST+ (`BLAST_BIN` in `site.sh`) and are skipped without it |
 | `detect.sbatch` | one `evitea library-free` run (2 CPUs, 16 GB, up to 12 h); variables are listed at the top of the script |
 | `records.sbatch` | `build-family-records` then `prepare-te` for one sample (8 CPUs, 96 GB, 3 h) |
 | `repeat_map.sbatch` | `build-repeat-map`: the repeat map of the reference for runs without a library (8 CPUs, 8 GB, 3 h) |
@@ -26,7 +26,7 @@ Jobs refuse to run on a login node.
 
 ## Order and checks
 
-1. **Tests.** `sbatch $S/tests.sbatch`. Every test file must end with `ALL PASS` or `N checks, 0 failed`; the log ends with `done`.
+1. **Tests.** `sbatch $S/tests.sbatch`. Every test file must end with `ALL PASS` or `N checks, 0 failed`; the log ends with `done`. With `MERGE_SRC` set in `site.sh` (the merge's `src`), `test_runtime` also checks that the merge rules and the merge view write the merge's files.
 2. **Equality with the previous version.** On one sample, with the same contigs (a few are enough), run
    `DS=<sample> TAG=previous PREVIOUS=1 sbatch $S/detect.sbatch` and
    `DS=<sample> TAG=same DEPTHCAP=100 OPTS="--previous-behaviour" sbatch $S/detect.sbatch`.

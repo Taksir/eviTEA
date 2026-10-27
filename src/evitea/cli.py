@@ -398,6 +398,16 @@ def build_parser() -> argparse.ArgumentParser:
                       "that library-free scans by default)")
     rmap.add_argument("--parts", type=int, help="blastn processes (default: the CPUs, at most 8); the map does not depend on it")
 
+    rprof = commands.add_parser(
+        "repeat-profile",
+        help="repeat content of the reference windows that library-free's --repeat-cutoff genome-share reads: the window counts of an "
+        "anchor reference, and the cutoff a reference gets",
+    )
+    rprof_ref = rprof.add_mutually_exclusive_group(required=True)
+    rprof_ref.add_argument("--reference-fasta", type=Path)
+    rprof_ref.add_argument("--reference-assets", type=Path)
+    rprof.add_argument("--output", type=Path, help="JSON file for the profile (default: print only)")
+
     tiers = commands.add_parser(
         "call-tiers",
         help="confidence tier of every call of a finished run (and of its library-free calls); output only",
@@ -967,6 +977,39 @@ def _build_repeat_map(args: argparse.Namespace) -> None:
     print(f"intervals {summary['intervals']} bases {summary['bases']}")
 
 
+def _repeat_profile(args: argparse.Namespace) -> None:
+    import hashlib
+
+    import numpy as np
+
+    from .breakpoints.runtime import read_fasta
+    from .library_free import _p4_lib as P
+    from .library_free import cross as X
+
+    if args.reference_fasta is not None:
+        reference_fasta = _resolved_cli_path(args.reference_fasta)
+    else:
+        reference_fasta = load_prepared_reference(_resolved_cli_path(args.reference_assets)).reference_fasta_path
+    digest = hashlib.sha256()
+    with Path(reference_fasta).open("rb") as handle:
+        while chunk := handle.read(8 << 20):
+            digest.update(chunk)
+    genome = read_fasta(Path(reference_fasta))
+    rm = P.RefMulti(P.multi_codes(genome, P.REP_K), np.zeros(0, dtype=np.uint64))
+    reps = X.repeat_profile(genome, rm)
+    out = {"reference_fasta": str(reference_fasta), "reference_sha256": digest.hexdigest(),
+           "contigs": [name for name, seq in genome.items() if len(seq) >= X.MIN_PROFILE_CONTIG],
+           "window_bp": 2 * P.REP_FLANK, "rep_max": P.REP_MAX, "windows": int(len(reps)),
+           "at_cutoff": int(np.count_nonzero(reps >= P.REP_MAX)),
+           "quantiles": {str(q): round(float(np.quantile(reps, q)), 4) for q in (0.5, 0.75, 0.9, 0.95, 0.99)} if len(reps) else {}}
+    if X.REPEAT_ANCHOR is not None:
+        out["cutoff"] = X.repeat_cutoff(reps)[1]
+    text = json.dumps(out, indent=2)
+    if args.output is not None:
+        Path(_resolved_cli_path(args.output)).write_text(text + "\n", encoding="utf-8")
+    print(text)
+
+
 def _add_record_calls(args: argparse.Namespace) -> None:
     from .family_records.run import add_record_calls
 
@@ -1275,6 +1318,8 @@ def main(
             _build_family_records(args)
         elif args.command == "build-repeat-map":
             _build_repeat_map(args)
+        elif args.command == "repeat-profile":
+            _repeat_profile(args)
         elif args.command == "add-record-calls":
             _add_record_calls(args)
         elif args.command == "call-tiers":

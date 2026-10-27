@@ -22,6 +22,8 @@ def extra_columns(opts: Options, second: bool) -> list[str]:
         cols += ["walked", "bL0"]
     if opts.check_scope != "none":
         cols += CHECK_COLUMNS
+    if not second and opts.any_cross:
+        cols.append("cross_rule")
     return cols
 
 

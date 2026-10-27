@@ -12,6 +12,12 @@ U7  the repeat map (--repeat-map): with an empty library layer it feeds the resi
 U8  identity evidence and relative depth floor: with --identity-min-comparisons 0 and the floor off, the files equal those of a version
     without these switches (BASELINE_SRC = its src folder; skipped without it); the command line reads both switches.
 U5  default switches: the extra outputs exist (second scan tables) and the summary carries the options and the assembly.
+U9  the merge: Options.merge(), and the merge_view/ files of a default run, equal the merge's default files byte for byte on the
+    elements sample (one and two haplotypes) and the cross sample (MERGE_SRC = the merge's src folder; skipped without it).
+U10 the cross-species rules on the cross sample (synth_cross.py): each rule turns its scenario's place into a call (shared-word
+    depth, repeat cutoff, poly-A tails, recurring sequence), the low-coverage block and the local copy stay out, the anchor's own
+    share keeps the cutoff at REP_MAX, the places table names the rule, and a run from the saved tables gives both views' calls.
+U11 the repeat cutoff from window counts, and the command line of the cross-species switches.
 """
 import hashlib
 import json
@@ -27,6 +33,8 @@ ROOT = HERE.parent.parent
 PREVIOUS = os.environ.get("PREVIOUS_SRC")
 # BASELINE_SRC: the src folder of a version without the identity-evidence and relative-floor switches; U8 is skipped without it.
 BASELINE = os.environ.get("BASELINE_SRC")
+# MERGE_SRC: the src folder of the merge (the version before the cross-species rules); U9 is skipped without it.
+MERGE = os.environ.get("MERGE_SRC")
 FAIL, NCHK = [], [0]
 
 
@@ -182,6 +190,120 @@ def main():
     sf = json.loads((f0 / "library_free_summary.json").read_text()) if rf.returncode == 0 else {}
     check("U8 floor off: no floor entry in the summary", rf.returncode == 0 and "depth_floors" not in sf.get("detection", {"depth_floors": 0}),
           (list(sf.get("detection", {})), rf.stderr[-300:]))
+
+    # U9
+    outs = ["library_free_places.tsv", "library_free_segments.fa", "library_free_family_calls.tsv", "calls.library_free.tsv",
+            "calls.combined.tsv", "calls.combined.vcf", "library_free_second_places.tsv", "library_free_second_segments.fa"]
+    samples = (("elements", ["--het"], 7), ("elements", [], 7), ("cross", ["--sample", "cross"], 11))
+    if MERGE:
+        for k, (kind, extra, seed) in enumerate(samples):
+            mg, mo, cr = t / f"u9_merge{k}", t / f"u9_mopt{k}", t / f"u9_cross{k}"
+            ra = run(mg, MERGE, base, extra, seed=seed)
+            rb = run(mo, ROOT / "src", "merge", extra, seed=seed)
+            rc = run(cr, ROOT / "src", base, extra, seed=seed)
+            check(f"U9 {kind}{' ' + extra[0] if extra else ''}: the three runs finish", ra.returncode == rb.returncode == rc.returncode == 0,
+                  (ra.stderr[-300:], rb.stderr[-300:], rc.stderr[-300:]))
+            same = {n: sha(mg / n) == sha(mo / n) for n in outs}
+            check(f"U9 {kind}{' ' + extra[0] if extra else ''}: Options.merge() writes the merge's files", all(same.values()), same)
+            same = {n: sha(mg / n) == sha(cr / "merge_view" / n) for n in outs}
+            check(f"U9 {kind}{' ' + extra[0] if extra else ''}: merge_view/ holds the merge's files", all(same.values()), same)
+    else:
+        print("U9 skipped: MERGE_SRC is not set")
+
+    # U10
+    import csv
+    sys.path.insert(0, str(HERE))
+    import synth_cross as SX
+    xs = SX.build(seed=11)["sites"]
+    xa, xd = t / "x_anchor", t / "x_default"
+    ra = run(xa, ROOT / "src", base, ["--sample", "cross", "--profile-min", "1000", "--repeat-anchor", "150,1"], seed=11)
+    rd = run(xd, ROOT / "src", base, ["--sample", "cross"], seed=11)
+    check("U10 cross sample runs finish", ra.returncode == 0 and rd.returncode == 0, (ra.stderr[-400:], rd.stderr[-400:]))
+
+    def at(d, kind, k=0, view=""):
+        """The non-duplicate place with a left break nearest the k-th site of ``kind`` (within 300 letters) and its family call."""
+        pos = [x["pos"] for x in xs if x["kind"] == kind][k]
+        rows = list(csv.DictReader(open(d / view / "library_free_places.tsv"), delimiter="\t"))
+        near = [p for p in rows if p["bL"] and p["dup"] != "1" and abs(int(p["bL"]) - pos) <= 300]
+        p = min(near, key=lambda p: abs(int(p["bL"]) - pos)) if near else {}
+        calls = [c for c in csv.DictReader(open(d / view / "library_free_family_calls.tsv"), delimiter="\t")
+                 if c["bL"] and abs(int(c["bL"]) - pos) <= 300 and c["status"] != "NOT_HET"]
+        return p, calls
+
+    def called(calls):
+        return any(c["status"] == "ADDED" for c in calls)
+
+    m, x = at(xa, "DIV", view="merge_view")[0], at(xa, "DIV")[0]
+    check("U10 shared-word depth: the merge abstains on depth in the diverged block, the rule passes the place",
+          "depth" in m.get("why", "") and x.get("stage") == "S4_pass" and x.get("cross_rule") == "shared_depth" and float(x["D"]) >= 10,
+          (m.get("why"), x.get("stage"), x.get("D")))
+    m, x = at(xa, "LOWCOV", view="merge_view")[0], at(xa, "LOWCOV")[0]
+    check("U10 shared-word depth: a block read at low depth stays out", "depth" in m.get("why", "") and "depth" in x.get("why", "")
+          and not x.get("cross_rule"), (m.get("why"), x.get("why"), x.get("cross_rule")))
+    (m, mc), (x, xc) = at(xa, "REP", view="merge_view"), at(xa, "REP")
+    check("U10 repeat cutoff: the merge abstains on repeat content, the rule calls the place",
+          m.get("why") == "rep" and x.get("stage") == "S4_pass" and x.get("cross_rule") == "repeat_cutoff" and called(xc) and not called(mc),
+          (m.get("why"), x.get("stage"), xc))
+    d0x = at(xd, "REP")[0]
+    sx = lambda d: json.loads((d / "library_free_summary.json").read_text())["detection"]
+    check("U10 repeat cutoff: with the anchor's own share the cutoff is REP_MAX and the place stays out",
+          sx(xd)["repeat_cutoff"]["cutoff"] == 0.5 and d0x.get("why") == "rep" and not d0x.get("cross_rule"), (sx(xd)["repeat_cutoff"], d0x.get("why")))
+    check("U10 repeat cutoff: the summary gives the cutoff from the windows", 0.5 < sx(xa)["repeat_cutoff"]["cutoff"] < 1
+          and sx(xa)["repeat_cutoff"]["windows"] == 150, sx(xa)["repeat_cutoff"])
+    for k in (0, 1):
+        m, x = at(xa, "POLYA", k, view="merge_view")[0], at(xa, "POLYA", k)[0]
+        check(f"U10 poly-A tails ({'+-'[k]} strand): the merge rejects the tail side as short, the rule crosses the run and keeps both sides",
+              "short" in m.get("seg_reject", "") and x.get("seg_keep") == "L,R" and x.get("cross_rule") == "polya_tails"
+              and "a_x_" in (x.get("lstop", "") + x.get("rstop", "")), (m.get("seg_reject"), x.get("seg_keep"), x.get("lstop"), x.get("rstop")))
+    (m, mc), (x, xc) = at(xa, "RECUR", view="merge_view"), at(xa, "RECUR")
+    check("U10 recurring sequence: the merge rejects the copy beside its old copy as local, the rule calls it with its family",
+          m.get("seg_reject") == "L:local,R:local" and x.get("stage") == "S4_pass" and x.get("cross_rule") == "recurring_sequence"
+          and called(xc) and not called(mc), (m.get("seg_reject"), x.get("stage"), xc))
+    x = at(xa, "LOCALDUP")[0]
+    check("U10 recurring sequence: a local copy of the flank stays rejected", x.get("stage") == "S4_reject" and not x.get("cross_rule"),
+          (x.get("stage"), x.get("cross_rule")))
+    hdr = (xa / "library_free_places.tsv").read_text().split("\n", 1)[0].split("\t")
+    hdr_m = (xa / "merge_view" / "library_free_places.tsv").read_text().split("\n", 1)[0].split("\t")
+    check("U10 the places table names the rule; the merge view's has no such column", hdr[-1] == "cross_rule" and "cross_rule" not in hdr_m)
+    by = sx(xa)["cross_rules"]["places_by_rule"]
+    check("U10 the summary counts the places of each rule", all(by.get(f"{r}:S4_pass", 0) >= 1 for r in
+                                                                ("shared_depth", "repeat_cutoff", "polya_tails", "recurring_sequence")), by)
+    xr = t / "x_reuse"
+    rr = run(xr, ROOT / "src", base, ["--sample", "cross", "--detection-dir", str(xa)], seed=11)
+    check("U10 a run from the saved tables gives both views' family calls", rr.returncode == 0
+          and sha(xr / "library_free_family_calls.tsv") == sha(xa / "library_free_family_calls.tsv")
+          and sha(xr / "merge_view" / "library_free_family_calls.tsv") == sha(xa / "merge_view" / "library_free_family_calls.tsv"), rr.stderr[-300:])
+
+    # U11
+    import numpy as np
+    from evitea.library_free import cross as X
+    reps = np.array([0.1] * 90 + [0.6] * 6 + [0.7, 0.8, 0.9, 0.95])
+    cut, sm = X.repeat_cutoff(reps, {"windows": 1000, "at_cutoff": 100})
+    check("U11 a share at REP_MAX no larger than the anchor's keeps REP_MAX", cut == 0.5 and sm["at_rep_max"] == 10, sm)
+    cut, sm = X.repeat_cutoff(reps, {"windows": 1000, "at_cutoff": 30})
+    check("U11 a larger share: the cutoff is the window at the anchor's share from the top (3rd of 100)", cut == 0.8 and sm["windows_at_cutoff"] == 3, sm)
+    cut, _ = X.repeat_cutoff(np.array([0.2] * 99 + [0.51]), {"windows": 1000, "at_cutoff": 5})
+    check("U11 the cutoff is never below REP_MAX", cut == 0.51, cut)
+    saved, X.REPEAT_ANCHOR = X.REPEAT_ANCHOR, None
+    try:
+        X.repeat_cutoff(reps)
+        check("U11 genome-share without the anchor's counts is refused", False)
+    except ValueError:
+        check("U11 genome-share without the anchor's counts is refused", True)
+    finally:
+        X.REPEAT_ANCHOR = saved
+    off = from_args(parse("--shared-word-depth", "off", "--repeat-cutoff", "fixed", "--polya-tails", "off", "--recurring-sequence", "off",
+                          "--merge-view", "off"))
+    check("U11 the four rules and the merge view off on the command line = Options.merge()", off == Options.merge(), off)
+    check("U11 --previous-behaviour turns the cross-species rules off", not from_args(parse("--previous-behaviour")).any_cross)
+    check("U11 the cross-species rules are part of the detection identity", Options().detection_identity != Options.merge().detection_identity
+          and Options(merge_view=False).detection_identity == Options().detection_identity)
+    for bad, msg in ((dict(anchored_extension=False, polya_cross=False), "polya-tails"), (dict(check_scope="none"), "recurring-sequence")):
+        try:
+            Options(**bad)
+            check(f"U11 --{msg} without what it needs is refused", False)
+        except ValueError:
+            check(f"U11 --{msg} without what it needs is refused", True)
 
     print("\n%d checks, %d failed" % (NCHK[0], len(FAIL)))
     sys.exit(1 if FAIL else 0)

@@ -40,7 +40,9 @@ COMBINED = "calls.combined.tsv"
 SUMMARY = "library_free_summary.json"
 PIECES_READONLY_ENV = "EVITEA_PIECES_READONLY"
 PIECE_SCHEMA = "evitea.library_free.piece.v2"
-CODE_FILES = ("_p4_lib.py", "detector.py", "place.py", "scan.py", "walks.py", "extension.py", "priority.py", "options.py")
+CODE_FILES = ("_p4_lib.py", "detector.py", "place.py", "scan.py", "walks.py", "extension.py", "priority.py", "options.py", "cross.py")
+MERGE_VIEW = "merge_view"
+REPEAT_PROFILE = "repeat_profile.json"
 
 
 def _sha256(path: Path) -> str:
@@ -103,10 +105,33 @@ def _code_sha256() -> str:
     return digest.hexdigest()
 
 
+def _repeat_cutoff(opts: Options, genome: dict, rm, work: Path, identity: dict, progress):
+    """(cutoff, summary) of ``--repeat-cutoff`` (``cross.py``); the profile is kept in the work directory with its identity."""
+    from . import _p4_lib as P
+
+    if opts.repeat_cutoff == "fixed":
+        return P.REP_MAX, {"mode": "fixed", "cutoff": P.REP_MAX}
+    from . import cross as X
+
+    path = work / REPEAT_PROFILE
+    if path.is_file():
+        saved = json.loads(path.read_text(encoding="utf-8"))
+        if saved.get("identity") == identity:
+            return saved["summary"]["cutoff"], saved["summary"]
+    if rm is None:
+        return None, None
+    progress("library-free: repeat content of the reference windows (repeat cutoff)")
+    cut, summary = X.repeat_cutoff(X.repeat_profile(genome, rm))
+    summary = {"mode": "genome-share", **summary}
+    path.write_text(json.dumps({"identity": identity, "summary": summary}, indent=2), encoding="utf-8")
+    return cut, summary
+
+
 def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: Sequence[str] | None, work: Path,
             progress: Callable[[str], None], opts: Options, mito_contig: str | None = None):
     """Scan the contigs (resumable), then group each pass over all scanned contigs. Return the tables of the first pass
-    (places bytes, segments bytes), of the second scan (or None) and an info dict."""
+    (places bytes, segments bytes), of the second scan (or None), with a cross-species rule on also of the merge's first pass
+    (``merge_first``), and an info dict."""
 
     from ..backends.msbwt import load_msbwt
     from . import _p4_lib as P
@@ -143,8 +168,17 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
     pieces_dir = work / "pieces"
     pieces_dir.mkdir(parents=True, exist_ok=True)
     rm = words = None
+    cutoff = cutoff_info = None
+    if opts.any_cross:
+        from . import cross as X
+
+        cut_identity = {"code_sha256": identity_base["code_sha256"], "reference_sha256": identity_base["reference_sha256"],
+                        "anchor": X.REPEAT_ANCHOR, "min_contig": X.MIN_PROFILE_CONTIG}
+        identity_base["repeat_cutoff"] = {"mode": opts.repeat_cutoff, **cut_identity}
+        cutoff, cutoff_info = _repeat_cutoff(opts, genome, None, work, cut_identity, progress)
     timings: dict[str, float] = {}
     first_all: list[dict] = []
+    first_merge_all: list[dict] = []
     second_all: list[dict] = []
     stats: dict[str, dict] = {}
     for chrom in contigs:
@@ -165,6 +199,9 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
             if rm is None:
                 progress("library-free: reference multi-copy words")
                 rm = D.reference_multi(genome)
+            if opts.any_cross and cutoff is None:
+                cutoff, cutoff_info = _repeat_cutoff(opts, genome, rm, work, cut_identity, progress)
+                progress(f"library-free: repeat cutoff {cutoff}")
             if opts.walk_out and words is None:
                 progress("library-free: reference words for the walk-out")
                 words = RefWords(genome)
@@ -175,9 +212,12 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
             if opts.is_previous:
                 first, second, info = D.scan_contig(counter, genome[chrom], chrom, rm, firewall), None, {}
             else:
-                first, second, info = scan_contig_passes(counter, genome[chrom], chrom, rm, firewall, opts, words)
+                first, second, info = scan_contig_passes(counter, genome[chrom], chrom, rm, firewall, opts, words, cutoff)
+            first_merge = info.pop("first_merge", None)
             info = {k: v for k, v in info.items() if k not in ("walk_log", "cross_log")}
             piece = dict(first=first, second=second, info=info)
+            if first_merge is not None:
+                piece["first_merge"] = first_merge
             payload = pickle.dumps(piece, protocol=pickle.HIGHEST_PROTOCOL)
             tmp = data.with_suffix(".tmp")
             tmp.write_bytes(payload)
@@ -188,13 +228,19 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
             progress(f"library-free: {chrom} done, {len(first)} places, {timings[chrom]} s, peak RSS {_peak_rss_gb()} GB")
         stats[chrom] = piece.get("info", {})
         first_all.extend(piece["first"])
+        if piece.get("first_merge") is not None:
+            first_merge_all.extend(piece["first_merge"])
         if piece.get("second") is not None:
             second_all.extend(piece["second"])
     progress("library-free: grouping")
     grouped = D.group_and_call(first_all) if opts.is_previous else PR.group_and_call(first_all, opts)
     tables = {"first": (TB.places_tsv_bytes(first_all, opts), TB.segments_fa_bytes(grouped))}
+    if opts.any_cross and opts.merge_view:
+        om = opts.without_cross()
+        grouped_m = PR.group_and_call(first_merge_all, om)
+        tables["merge_first"] = (TB.places_tsv_bytes(first_merge_all, om), TB.segments_fa_bytes(grouped_m))
     if opts.het_scan != "off":
-        grouped2 = PR.group_and_call(second_all, opts)
+        grouped2 = PR.group_and_call(second_all, opts, first=False)
         tables["second"] = (TB.places_tsv_bytes(second_all, opts, second=True), TB.segments_fa_bytes(grouped2))
     stages = Tally(p["stage"] for p in first_all)
     info = {"contigs": list(contigs), "scan_seconds": timings, "stages": dict(sorted(stages.items())),
@@ -207,6 +253,15 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
         info["scan_counts"] = stats
     if opts.relative_depth_floor:
         info["depth_floors"] = {chrom: stats[chrom].get("depth_floor") for chrom in contigs}
+    if "merge_first" in tables:
+        info["merge_first"] = {"stages": dict(sorted(Tally(p["stage"] for p in first_merge_all).items())),
+                               "grouped_places": len(grouped_m)}
+    if opts.any_cross:
+        info["repeat_cutoff"] = cutoff_info
+        info["cross_rules"] = {
+            "places_by_rule": {f"{r}:{st}": n for (r, st), n in sorted(Tally((p.get("cross_rule", ""), p["stage"])
+                                                                               for p in first_all if p.get("cross_rule")).items())},
+            "per_contig": {chrom: stats[chrom].get("cross_rules") for chrom in contigs}}
     info["mito_contig"] = mito
     return tables, info
 
@@ -243,9 +298,6 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
                      mito_contig: str | None = None) -> dict:
     from ..breakpoints.runtime import read_fasta
     from ..pipeline import prepare_output_directory
-    from . import assemble as AS
-    from . import calling as CL
-    from . import detector as D
 
     opts = options if options is not None else Options.previous()
     say = progress or (lambda message: print(message, file=sys.stderr, flush=True))
@@ -265,6 +317,8 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
         tables = {"first": ((detection_dir / PLACES).read_bytes(), (detection_dir / SEGMENTS).read_bytes())}
         if (detection_dir / SECOND_PLACES).is_file():
             tables["second"] = ((detection_dir / SECOND_PLACES).read_bytes(), (detection_dir / SECOND_SEGMENTS).read_bytes())
+        if opts.any_cross and opts.merge_view and (detection_dir / MERGE_VIEW / PLACES).is_file():
+            tables["merge_first"] = ((detection_dir / MERGE_VIEW / PLACES).read_bytes(), (detection_dir / MERGE_VIEW / SEGMENTS).read_bytes())
         info = {"reused_detection": str(detection_dir)}
     else:
         if msbwt_index is None:
@@ -276,14 +330,6 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
         raise InputContractError(
             "the detection directory " + ("holds" if "second" in tables else "has no") + " second-scan tables but --het-scan is "
             + opts.het_scan)
-    write_bytes(output / PLACES, tables["first"][0])
-    write_bytes(output / SEGMENTS, tables["first"][1])
-    if "second" in tables:
-        write_bytes(output / SECOND_PLACES, tables["second"][0])
-        write_bytes(output / SECOND_SEGMENTS, tables["second"][1])
-    say("library-free: family calls (reference-path filter" + (", family-identity filter" if rule_c else "") + ")")
-    first = (D.parse_places(tables["first"][0]), D.parse_segments(tables["first"][1]))
-    second = (D.parse_places(tables["second"][0]), D.parse_segments(tables["second"][1])) if "second" in tables else None
     if genome is None and (opts.check_scope != "none" or opts.resident_guard != "off"):
         genome = read_fasta(reference_fasta)
     native_rows = ShadowCallset.from_bytes(native).rows
@@ -292,6 +338,54 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     if repeat_map is not None and (repeat_annotation is not None or native_rows):
         say("library-free: --repeat-map not used: " + ("--repeat-annotation is given" if repeat_annotation is not None
                                                       else f"the library layer made {len(native_rows)} calls"))
+    common = dict(native=native, native_rows=native_rows, sample_id=sample_id, reference=reference, genome=genome, copies=copies,
+                  genome_bp=genome_bp, rule_c=rule_c, run_dir=run_dir, command_line=command_line, source_identity=source_identity,
+                  repeat_map=repeat_map, repeat_annotation=repeat_annotation, say=say, started=started)
+    views = [(output, tables["first"], opts, info)]
+    if "merge_first" in tables:
+        merge_dir = output / MERGE_VIEW
+        merge_dir.mkdir(parents=True, exist_ok=True)
+        views.append((merge_dir, tables["merge_first"], opts.without_cross(), _merge_view_info(info)))
+        info = {k: v for k, v in info.items() if k != "merge_first"}
+        views[0] = (output, tables["first"], opts, info)
+    summary = None
+    for out_dir, first_tables, view_opts, view_info in views:
+        result = _assemble_and_write(out_dir, first_tables, tables.get("second"), view_opts, view_info, **common)
+        if summary is None:
+            summary = result
+        else:
+            summary["merge_view"] = {"output": str(out_dir), "family_calls": result["family_calls"],
+                                     "family_call_statuses": result["family_call_statuses"]}
+            write_run_summary(output / SUMMARY, summary)
+    return summary
+
+
+def _merge_view_info(info: dict) -> dict:
+    """The detection summary of the merge view: the merge's first-pass stages and grouped places, no cross-species entries."""
+    out = {k: v for k, v in info.items() if k not in ("repeat_cutoff", "cross_rules", "merge_first")}
+    out.update(info.get("merge_first", {}))
+    if "scan_counts" in out:
+        out["scan_counts"] = {c: {k: v for k, v in st.items() if k != "cross_rules"} for c, st in out["scan_counts"].items()}
+    return out
+
+
+def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options, info: dict, *, native, native_rows, sample_id,
+                        reference, genome, copies, genome_bp, rule_c, run_dir, command_line, source_identity, repeat_map,
+                        repeat_annotation, say, started) -> dict:
+    """Family calls of one set of rules from the detection tables, and the files of ``library-free`` in ``output``."""
+    from . import assemble as AS
+    from . import calling as CL
+    from . import detector as D
+
+    write_bytes(output / PLACES, first_tables[0])
+    write_bytes(output / SEGMENTS, first_tables[1])
+    if second_tables is not None:
+        write_bytes(output / SECOND_PLACES, second_tables[0])
+        write_bytes(output / SECOND_SEGMENTS, second_tables[1])
+    say("library-free: family calls (reference-path filter" + (", family-identity filter" if rule_c else "") + ")"
+        + ("" if output.name != MERGE_VIEW else ", merge rules"))
+    first = (D.parse_places(first_tables[0]), D.parse_segments(first_tables[1]))
+    second = (D.parse_places(second_tables[0]), D.parse_segments(second_tables[1])) if second_tables is not None else None
     c_started = time.time()
     index = CL.CallIndex.from_native(native_rows)
     rows, assembly = AS.assemble(first, second, index, opts, identity_filter=rule_c, reference=genome, copies=copies, genome_bp=genome_bp)

@@ -151,17 +151,29 @@ def families(places, cl, *, polya_tsd: bool):
     return out
 
 
-def group_and_call(places, opts):
-    """Group every S4_pass place (``detector.group_and_call`` with the rules above) and add cluster, track, fam_pair, fam_vtsd."""
-    if not opts.walk_out:
-        revert_walk_out(places)
+def _group_once(places, opts, polya_tsd):
     dedupe(places, priority=opts.first_pass_priority, yield_order=opts.het_yield)
     gp = [p for p in places if p["stage"] == "S4_pass" and not p.get("dup")]
     for p in gp:
         keep = p["seg_keep"].split(",")
         p["segs"] = [s for s, side in ((p.get("lseg", ""), "L"), (p.get("rseg", ""), "R")) if side in keep]
     cl, _ = group(gp, priority=opts.first_pass_priority)
-    fam = families(gp, cl, polya_tsd=opts.polya_tsd)
+    return gp, cl, families(gp, cl, polya_tsd=polya_tsd)
+
+
+def group_and_call(places, opts, *, first: bool = True):
+    """Group every S4_pass place (``detector.group_and_call`` with the rules above) and add cluster, track, fam_pair, fam_vtsd.
+    ``first``: the places are the first pass's, where the cross-species rules of ``opts`` apply (poly-A tails in the family rule,
+    the recurring sequence: ``cross.py``); the haplotype scan's are grouped with the merge rules."""
+    if not opts.walk_out:
+        revert_walk_out(places)
+    polya_tsd = opts.polya_tsd or (first and opts.polya_tails)
+    gp, cl, fam = _group_once(places, opts, polya_tsd)
+    if first and opts.recurring_sequence:
+        from .cross import readmit_recurring
+
+        if readmit_recurring(places, gp, cl, fam, polya=opts.polya_tails):
+            gp, cl, fam = _group_once(places, opts, polya_tsd)
     for p, c in zip(gp, cl):
         p["cluster"] = c
         p["track"] = P.classify_place(p, fam[c])

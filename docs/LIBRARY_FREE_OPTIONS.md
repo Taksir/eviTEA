@@ -23,9 +23,31 @@ files of the basic scan byte for byte. `tools/library_free_tests/test_runtime.py
 | | `--tol-source library\|own-calls` | library | tolerance from library-confirmed calls (own two-sided calls when there are none) |
 | Resident-copy test | `--resident-guard off\|per-call\|family` | family | drops a call inside an annotated reference TE copy. `family`: only when the family's calls sit in copies more than twice the genome's TE share. Requires `--repeat-annotation` (RepeatMasker .out or BED) or the prepared reference's annotation; off without one. |
 | | `--repeat-map FILE` | none | the repeat map of the reference (`build-repeat-map`): the resident-copy test reads it when the library layer made no call and no `--repeat-annotation` is given. With library calls it is not used, and the files are those of a run without it |
+| Shared-word depth | `--shared-word-depth on\|off` | on | first pass: where the median word count around a run is below the depth floor, the run is judged with the median count of the words in the same window that the sample carries (count above zero) |
+| Repeat cutoff | `--repeat-cutoff genome-share\|fixed` | genome-share | first pass: the repeat-content cutoff turns off the same share of this reference's windows as the fixed cutoff 0.5 does in the reference it was set on (never below 0.5; 0.5 on that reference) |
+| Poly-A tails | `--polya-tails on\|off` | on | first pass: the extension crosses a poly-A run and a poly-A tail counts toward the two TSDs of the family rule (requires anchored extension) |
+| Recurring sequence | `--recurring-sequence on\|off` | on | first pass: a place whose segment the filter rejected as a local or segmental copy is kept when the place has a TSD (or a poly-A tail) and the segment groups with a family that passes the TSD rule (requires the one-site check) |
+| Merge view | `--merge-view on\|off` | on | also writes the files of the same run under the merge rules (the four rules above off) to `merge_view/` |
 | Family records | `build-family-records`, `add-record-calls` | commands | see below |
 | Record guard | `--record-guard on\|off` | on | a family of old copies gets no record |
 | Copy report | `--copy-report on\|off` | off | per record: fraction of its words absent from the reference, reference copies |
+
+## Cross-species rules
+
+The detection constants were set on the fly genome: few repeats, few copies per family, flanks close to the reference. The four
+rules above keep each test and measure what it assumes, and act only where the merge rules give up on a place: a place they leave
+alone is written as the merge writes it. They apply to the first pass; the haplotype scan keeps the merge rules.
+
+- The first pass makes each place with the merge rules, then the same place under the cross-species rules. The candidate run is
+  walked again only where a rule can change the place (depth below the floor, repeat content between 0.5 and the cutoff, a side
+  rejected as short or satellite). A place a rule changed names the rule in the `cross_rule` column of the places table, and the
+  summary counts places by rule and stage (`detection.cross_rules`).
+- The merge view (`merge_view/`) holds the files of the merge rules from the same scan: its first-pass places are the merge's,
+  and the haplotype scan is shared. With all four rules off (`Options.merge()`) the layer writes the merge's files byte for byte.
+- `--repeat-cutoff genome-share` needs the window counts of the anchor reference (`cross.REPEAT_ANCHOR`: windows and windows at
+  0.5, contigs of 1 Mb or more, measured once on EviTEA's prepared dm6). `evitea repeat-profile --reference-fasta <fa> --output
+  <json>` measures them on any reference and, once the anchor is set, gives that reference's cutoff. A run keeps the profile of its
+  reference in the work directory (`repeat_profile.json`) and writes the cutoff to the summary (`detection.repeat_cutoff`).
 
 ## What the one-site check does
 
@@ -44,7 +66,8 @@ Second-scan calls: `NOT_HET`, `DROPPED_V2`, `NEAR_FIRST_PASS`, `DROPPED_CHECK`, 
 ## Outputs of `library-free`
 
 The files of the basic scan, unchanged columns, plus: `library_free_second_places.tsv`, `library_free_second_segments.fa` (with the het scan);
-extra columns `walked`, `bL0` (walk-out), `origin` (second-scan places), the four `chk*` columns, and in the family-calls table
+extra columns `walked`, `bL0` (walk-out), `origin` (second-scan places), the four `chk*` columns, `cross_rule` (first-pass places
+with a cross-species rule on), the folder `merge_view/` (merge view), and in the family-calls table
 `scan`, `origin`, `check`, `ratio_L`, `ratio_R`, `inside_copy`, `family_inside` (when a switch requires them).
 Second-scan families are named `LF_cluster_h<N>` in `calls.library_free.tsv`.
 
@@ -123,4 +146,4 @@ filters gets a consensus record (unless the record guard drops it), and the libr
 
 ## Tests (`tools/library_free_tests/`, run with `PYTHONPATH=src`)
 
-`test_depth_window`, `test_depth_tool`, `test_assemble`, `test_records`, `test_runtime` (`PREVIOUS_SRC`: the src of the version to compare against, for U1; `BASELINE_SRC`: the src of the commit before the identity-evidence and relative-floor switches for U8), `test_repeat_map` (requires BLAST+ on PATH for its build checks), `test_slurm_tools`; `tools/library_free_tests/run_all.sh` runs them all.
+`test_depth_window`, `test_depth_tool`, `test_assemble`, `test_records`, `test_runtime` (`PREVIOUS_SRC`: the src of the version to compare against, for U1; `BASELINE_SRC`: the src of the commit before the identity-evidence and relative-floor switches for U8; `MERGE_SRC`: the src of the merge, for U9), `test_repeat_map` (requires BLAST+ on PATH for its build checks), `test_slurm_tools`; `tools/library_free_tests/run_all.sh` runs them all.

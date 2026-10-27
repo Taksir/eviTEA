@@ -32,15 +32,17 @@ INS_USE = 30
 class PlaceContext:
     """What one contig's places need: the counter, the contig, the repeat words, the segment filter, the extension."""
 
-    def __init__(self, C, ref, rm, fw, chrom, extender=None, words=None, record_check=False, d_min=None):
+    def __init__(self, C, ref, rm, fw, chrom, extender=None, words=None, record_check=False, d_min=None, rep_max=None):
         self.C, self.ref, self.rm, self.fw, self.chrom = C, ref, rm, fw, chrom
         self.d_min = d_min          # lower bound of the local-depth window; None = the fixed ``_p4_lib.D_MIN``
+        self.rep_max = P.REP_MAX if rep_max is None else rep_max   # repeat-content cutoff (``cross.py``: genome share)
         self.extender = extender or P.extend
         self.words = words
         self.record_check = record_check
         self.walk_log: list[dict] = []
         self.stats = dict(walkout_tried=0, walkout_moved=0, walkout_no_start=0, walkout_no_break=0, walkout_rep=0)
         self._paralog = walk_repeat(words) if words is not None else None
+        self.walkout_rep = None     # repeat content at the moved break when the last walk-out failed on it
 
     def extend(self, cand, side, *args, **kw):
         where = getattr(self.extender, "where", None)
@@ -132,7 +134,7 @@ def process_place(pc, cand, *, left_strides=1, right_after_bL=False, safe_right=
             why.append(nm)
     rf = rm.rep_frac(ref, lw["i"])
     pl["rep"] = None if rf is None else round(rf, 3)
-    if rf is not None and rf >= P.REP_MAX:
+    if rf is not None and rf >= pc.rep_max:
         why.append("rep")
     jr, wrec, bL0 = 0, None, lw["i"]
     if why and walkout and set(why) <= {"anchorL", "anchorR"}:
@@ -141,6 +143,8 @@ def process_place(pc, cand, *, left_strides=1, right_after_bL=False, safe_right=
         moved = _walk_out(pc, cand, D, a, b, why, lw)
         if moved is None:
             pl.update(stage="S4_abstain", why=",".join(why))
+            if pc.walkout_rep is not None:
+                pl["_walkout_rep"] = pc.walkout_rep
             return pl, lw, None
         lw, jr, rf2, wrec = moved
         pl["bL"] = lw["i"]
@@ -185,6 +189,7 @@ def _walk_out(pc, cand, D, a, b, why, lw):
     """(left walk, right strides moved, repeat fraction, record) after moving the failing walk starts, or None."""
     st = pc.stats
     st["walkout_tried"] += 1
+    pc.walkout_rep = None
     jl = _first_start(pc, D, a, -1) if "anchorL" in why else 0
     jr = _first_start(pc, D, b, +1) if "anchorR" in why else 0
     if jl is None or jr is None:
@@ -196,8 +201,9 @@ def _walk_out(pc, cand, D, a, b, why, lw):
             st["walkout_no_break"] += 1
             return None
     rf = pc.rm.rep_frac(pc.ref, lw["i"])
-    if rf is not None and rf >= P.REP_MAX:
+    if rf is not None and rf >= pc.rep_max:
         st["walkout_rep"] += 1
+        pc.walkout_rep = rf
         return None
     st["walkout_moved"] += 1
     rec = dict(chrom=pc.chrom, first=cand["first"], last=cand["last"], why=",".join(why), left_strides=jl, right_strides=jr,

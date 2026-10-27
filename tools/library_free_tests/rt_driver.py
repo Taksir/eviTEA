@@ -1,5 +1,9 @@
 """Run evitea.library_free.runtime.run_library_free on the synthetic sample with the package on PYTHONPATH (previous or current).
-usage: rt_driver.py <out dir> <seed> <options json or -> [--het] [--annotation file] [--repeat-map file] [--native none|px] [--detection-dir dir]"""
+usage: rt_driver.py <out dir> <seed> <options json, merge or -> [--het] [--annotation file] [--repeat-map file] [--native none|px]
+                    [--detection-dir dir] [--repeat-anchor windows,at_cutoff] [--profile-min letters] [--sample elements|cross]
+merge: Options.merge(). The cross-species repeat cutoff needs the anchor reference's window counts; the driver sets them to a share of
+1 (the cutoff stays REP_MAX) unless --repeat-anchor gives others, and --profile-min lowers the 1 Mb contig minimum of the profile.
+--sample cross: the sample of synth_cross.py (one scenario per cross-species rule) instead of synth_elements.py."""
 import json
 import os
 import random
@@ -23,8 +27,15 @@ repeat_map = sys.argv[sys.argv.index("--repeat-map") + 1] if "--repeat-map" in s
 detection_dir = sys.argv[sys.argv.index("--detection-dir") + 1] if "--detection-dir" in sys.argv else None
 native_mode = sys.argv[sys.argv.index("--native") + 1] if "--native" in sys.argv else "none"
 
-S = SE.build(seed=seed, ref_len=80_000, n_px=6, n_lx=3, n_uq=2, n_st=1)
+sample_kind = sys.argv[sys.argv.index("--sample") + 1] if "--sample" in sys.argv else "elements"
+if sample_kind == "cross":
+    import synth_cross as SX  # noqa: E402
+    S = SX.build(seed=seed)
+else:
+    S = SE.build(seed=seed, ref_len=80_000, n_px=6, n_lx=3, n_uq=2, n_st=1)
 ref = S["ref"]
+if het and sample_kind == "cross":
+    raise SystemExit("--het is for the elements sample")
 if het:
     r = random.Random(seed + 1)
     reads = []
@@ -54,9 +65,21 @@ reference = types.SimpleNamespace(reference_fasta_path=fa)
 idx = work / "nobwt"
 idx.mkdir(exist_ok=True)
 kw = {}
-if opt_json != "-":
+if opt_json == "merge":
+    from evitea.library_free.options import Options
+    kw["options"] = Options.merge()
+elif opt_json != "-":
     from evitea.library_free.options import Options
     kw["options"] = Options(**json.loads(opt_json))
+try:
+    from evitea.library_free import cross as X
+except ImportError:      # a version without the cross-species rules
+    X = None
+if X is not None:
+    a = sys.argv[sys.argv.index("--repeat-anchor") + 1].split(",") if "--repeat-anchor" in sys.argv else ("1", "1")
+    X.REPEAT_ANCHOR = {"windows": int(a[0]), "at_cutoff": int(a[1])}
+    if "--profile-min" in sys.argv:
+        X.MIN_PROFILE_CONTIG = int(sys.argv[sys.argv.index("--profile-min") + 1])
 if annotation:
     kw["repeat_annotation"] = Path(annotation)
 if repeat_map:

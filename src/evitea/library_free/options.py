@@ -10,6 +10,16 @@ Rules (see LIBRARY_FREE_OPTIONS.md):
   relative depth floor the lower bound of the local-depth window is the smaller of 10 reads and half the contig's median local depth
   one-site check       a library-free call is kept only if its junction is absent from the reference and read at single-copy depth
   resident-copy test   a library-free call inside an annotated reference TE copy is dropped when its family sits mostly in such copies
+
+Rules that measure the genome and the sample instead of using values set on one species (first pass only; see ``cross.py``):
+  shared-word depth    where the median word count around a run is below the depth floor, the run is judged with the median of the
+                       words the sample shares with the reference (count above zero)
+  repeat cutoff        genome-share: the repeat-content cutoff abstains in the same share of the genome as the fixed cutoff does in the
+                       reference it was set on; fixed: the cutoff REP_MAX
+  poly-A tails         the first pass's extension crosses a poly-A run, and a poly-A tail counts toward the two TSDs of its family rule
+  recurring sequence   a segment rejected as a local or segmental copy is kept when its place has a target-site duplication and the
+                       segment groups with a family that passes the TSD rule
+  merge view           the same run also writes the files of the rules above all off (``Options.merge()``) to ``merge_view/``
 """
 
 from __future__ import annotations
@@ -24,6 +34,8 @@ CHECK_SCOPES = ("none", "path-dropped", "unconfirmed")
 TOLERANCES = ("p95", "p99")
 TOL_SOURCES = ("library", "own-calls")
 GUARDS = ("off", "per-call", "family")
+REPEAT_CUTOFFS = ("fixed", "genome-share")
+CROSS_RULES = ("shared_depth", "repeat_cutoff", "polya_tails", "recurring_sequence")
 
 
 @dataclass(frozen=True)
@@ -45,14 +57,23 @@ class Options:
     resident_guard: str = "family"
     identity_min_comparisons: int = 3
     relative_depth_floor: bool = True
+    shared_depth: bool = True
+    repeat_cutoff: str = "genome-share"
+    polya_tails: bool = True
+    recurring_sequence: bool = True
+    merge_view: bool = True
 
     def __post_init__(self):
         for name, allowed in (("het_scan", HET_MODES), ("check_scope", CHECK_SCOPES), ("tol", TOLERANCES),
-                              ("tol_source", TOL_SOURCES), ("resident_guard", GUARDS)):
+                              ("tol_source", TOL_SOURCES), ("resident_guard", GUARDS), ("repeat_cutoff", REPEAT_CUTOFFS)):
             if getattr(self, name) not in allowed:
                 raise ValueError(f"{name} must be one of {allowed}, got {getattr(self, name)!r}")
         if self.polya_cross and not self.anchored_extension:
             raise ValueError("--polya-cross needs --anchored-extension on")
+        if self.polya_tails and not self.anchored_extension:
+            raise ValueError("--polya-tails needs --anchored-extension on")
+        if self.recurring_sequence and self.check_scope == "none":
+            raise ValueError("--recurring-sequence needs the one-site check (--check-scope path-dropped or unconfirmed)")
         if not isinstance(self.identity_min_comparisons, int) or isinstance(self.identity_min_comparisons, bool) \
                 or self.identity_min_comparisons < 0:
             raise ValueError(f"identity_min_comparisons must be an integer of 0 or more, got {self.identity_min_comparisons!r}")
@@ -64,11 +85,27 @@ class Options:
                    het_scan="off", early_start=False, right_fallback=False, second_scan_anchored=False, second_chance=False,
                    het_yield=False,
                    check_scope="none", tol="p99", tol_source="library", resident_guard="off", identity_min_comparisons=0,
-                   relative_depth_floor=False)
+                   relative_depth_floor=False, shared_depth=False, repeat_cutoff="fixed", polya_tails=False,
+                   recurring_sequence=False, merge_view=False)
+
+    @classmethod
+    def merge(cls) -> "Options":
+        """Return the default options of the merge (every rule of ``CROSS_RULES`` off, no merge view)."""
+        return cls().without_cross()
+
+    def without_cross(self) -> "Options":
+        """These options with every rule of ``CROSS_RULES`` off and no merge view: the rules of the merge."""
+        return replace(self, shared_depth=False, repeat_cutoff="fixed", polya_tails=False, recurring_sequence=False,
+                       merge_view=False)
 
     @property
     def is_previous(self) -> bool:
         return self == Options.previous()
+
+    @property
+    def any_cross(self) -> bool:
+        """Is a rule of ``CROSS_RULES`` on (the first pass then has a second set of places)?"""
+        return self.shared_depth or self.repeat_cutoff != "fixed" or self.polya_tails or self.recurring_sequence
 
     @property
     def first_pass_changed(self) -> bool:
@@ -80,7 +117,10 @@ class Options:
         """The switches that change what a detection writes (part of the identity of a saved scan piece)."""
         keys = ("anchored_extension", "walk_out", "polya_cross", "het_scan", "second_chance", "early_start", "right_fallback",
                 "second_scan_anchored", "relative_depth_floor")
-        return {**{k: getattr(self, k) for k in keys}, "record_check": self.check_scope != "none"}
+        out = {**{k: getattr(self, k) for k in keys}, "record_check": self.check_scope != "none"}
+        if self.any_cross:
+            out.update({k: getattr(self, k) for k in CROSS_RULES})
+        return out
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -106,6 +146,10 @@ SWITCHES = (
     ("--second-chance", "second_chance", "on", "het scan (second-walk and full): walk again, following the other letter, a run that ends with no left break"),
     ("--het-yield", "het_yield", "on", "an early-start or right-only place yields to another place of its duplicate group"),
     ("--relative-depth-floor", "relative_depth_floor", "on", "the lower bound of the local-depth window is the smaller of 10 reads and half the contig's median local depth"),
+    ("--shared-word-depth", "shared_depth", "on", "first pass: where the median word count around a run is below the depth floor, judge the run with the median of the words the sample shares with the reference"),
+    ("--polya-tails", "polya_tails", "on", "first pass: the extension crosses a poly-A run and a poly-A tail counts toward the two TSDs of its family rule"),
+    ("--recurring-sequence", "recurring_sequence", "on", "first pass: a segment rejected as a local or segmental copy is kept when its place has a TSD and the segment groups with a family that passes the TSD rule"),
+    ("--merge-view", "merge_view", "on", "also write the files of the merge rules (the rules above and --repeat-cutoff fixed) to merge_view/ in the same run"),
 )
 
 
@@ -124,6 +168,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                    help="one-site check: none | path-dropped (a second look at the calls the reference-path filter drops) | unconfirmed "
                         "(every library-free call that the library layer does not make) (default unconfirmed)")
     g.add_argument("--tol", choices=TOLERANCES, default=None, help="depth tolerance of the one-site check (default p99)")
+    g.add_argument("--repeat-cutoff", choices=REPEAT_CUTOFFS, default=None,
+                   help="first pass: genome-share (abstain in the same share of this genome's windows as the fixed cutoff does in the reference "
+                        "it was set on) | fixed (the fixed cutoff) (default genome-share)")
     g.add_argument("--tol-source", choices=TOL_SOURCES, default=None,
                    help="library: from library-confirmed calls (the layer's own two-sided calls when there are none); own-calls: always from the layer's own two-sided calls "
                         "(default library)")
@@ -146,7 +193,7 @@ def from_args(args: argparse.Namespace) -> Options:
             kw[dest] = _onoff(v)
     if getattr(args, "identity_min_comparisons", None) is not None:
         kw["identity_min_comparisons"] = args.identity_min_comparisons
-    for dest in ("het_scan", "check_scope", "tol", "tol_source", "resident_guard"):
+    for dest in ("het_scan", "check_scope", "tol", "tol_source", "resident_guard", "repeat_cutoff"):
         v = getattr(args, dest, None)
         if v is not None:
             kw[dest] = v

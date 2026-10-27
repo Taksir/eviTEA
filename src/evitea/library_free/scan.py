@@ -18,6 +18,9 @@ Haplotype scan  (``het_scan`` safe-start | second-walk | full). In a sample with
                    left break, and the right walk alone, as a one-sided place with bL = bR, for a run still without a left
                    break.
              ``Place.origin`` tells which of these made the place ('' for the plain walk).
+Cross-species rules (``cross.py``; ``Options.any_cross``): the first pass makes each place with the merge rules, then the same
+             place under the cross-species rules (the same candidate run again only where a rule can change it). The scan returns
+             the second set as the first pass and keeps the merge places in ``info["first_merge"]``.
 """
 
 from __future__ import annotations
@@ -104,17 +107,33 @@ def depth_floor(depth, opts: Options):
     return min(float(P.D_MIN), 0.5 * float(np.median(valid)))
 
 
-def _first_pass(counter, ref, chrom, rm, fw, opts: Options, words, cands, info, record_check, d_min=None):
+def _first_pass(counter, ref, chrom, rm, fw, opts: Options, words, cands, info, record_check, d_min=None, cross=None):
+    """(merge places, walk-out log, crossing log, cross-species places or None). ``cross`` = dict(pos=, c=, rep_max=) turns on
+    the second set (``cross.py``)."""
     ext = Extender(anchored=opts.anchored_extension, cross=opts.polya_cross)
     pc = PlaceContext(counter, ref, rm, fw, chrom, ext, words if opts.walk_out else None, record_check, d_min)
-    places = []
+    X = None
+    if cross is not None:
+        from .cross import CrossContext
+
+        ext_x = Extender(anchored=opts.anchored_extension, cross=opts.polya_cross or opts.polya_tails)
+        pc_x = PlaceContext(counter, ref, rm, fw, chrom, ext_x, words if opts.walk_out else None, record_check, d_min,
+                            rep_max=cross["rep_max"])
+        X = CrossContext(pc_x, cross["pos"], cross["c"], opts, d_min)
+    places, xplaces = [], ([] if X is not None else None)
     for cand in cands:
-        pl, _, _ = process_place(pc, cand, walkout=opts.walk_out)
+        pl, lw, rw = process_place(pc, cand, walkout=opts.walk_out)
         places.append(pl)
+        if X is not None:
+            from .cross import cross_place
+
+            xplaces.append(cross_place(X, cand, pl, lw, rw))
         if len(getattr(counter, "cache", ())) > CACHE_MAX:
             counter.clear()
     info["first_pass"] = dict(candidates=len(cands), walk=dict(pc.stats), extension=dict(ext.stats))
-    return places, pc.walk_log, ext.cross_log
+    if X is not None:
+        info["cross_rules"] = dict(X.stats, walk=dict(X.pc.stats), extension=dict(ext_x.stats), rep_max=cross["rep_max"])
+    return places, pc.walk_log, ext.cross_log, xplaces
 
 
 def _het_pass(counter, ref, chrom, rm, fw, opts: Options, cands, pos, m, info, record_check, d_min=None):
@@ -166,10 +185,11 @@ def _het_pass(counter, ref, chrom, rm, fw, opts: Options, cands, pos, m, info, r
     return places
 
 
-def scan_contig_passes(counter, sequence, chrom, rm, firewall, opts: Options, words=None):
+def scan_contig_passes(counter, sequence, chrom, rm, firewall, opts: Options, words=None, rep_max=None):
     """(first-pass places, haplotype-scan places or None, info) of one contig. The 31-mer counts are read once; the
     haplotype scan reads the 41-mer counts besides. ``counter`` is a ``_p4_lib.Counter`` built with ``cache=False`` whose cache
-    is switched on after the run detection, as in ``detector.scan_contig``."""
+    is switched on after the run detection, as in ``detector.scan_contig``. With a cross-species rule on, the first-pass places
+    are those of the cross-species rules (cutoff ``rep_max``, default REP_MAX) and ``info["first_merge"]`` holds the merge's."""
     ref = sequence.upper()
     info: dict = {}
     pos, c = P.scan_counts(counter, ref)
@@ -187,7 +207,12 @@ def scan_contig_passes(counter, sequence, chrom, rm, firewall, opts: Options, wo
     d_min = depth_floor(depth, opts)
     if d_min is not None:
         info["depth_floor"] = round(d_min, 2)
-    first, walk_log, cross_log = _first_pass(counter, ref, chrom, rm, firewall, opts, words, cands, info, record, d_min)
+    cross = dict(pos=pos, c=c, rep_max=P.REP_MAX if rep_max is None else rep_max) if opts.any_cross else None
+    first, walk_log, cross_log, xfirst = _first_pass(counter, ref, chrom, rm, firewall, opts, words, cands, info, record, d_min,
+                                                     cross)
+    if xfirst is not None:
+        info["first_merge"] = first
+        first = xfirst
     second = None
     if het:
         second = _het_pass(counter, ref, chrom, rm, firewall, opts, hcands, pos, m, info, record, d_min)
