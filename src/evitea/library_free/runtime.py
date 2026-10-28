@@ -2,9 +2,13 @@
 
 Detection runs one contig at a time (resumable: each contig's places are kept
 in the work directory with the identity they were computed from), then one
-grouping over all scanned contigs in the given order. The family-call layer
-reads the written places and segments tables, so a detection can be reused
-with ``--detection-dir``. The source run directory is only read.
+grouping over all scanned contigs in the given order. Before the grouping the
+adapter test (``adapter.py``) sets aside places whose segments hold a
+sequencing-adapter core; it reads the places only, so saved scan pieces are
+reused with it on or off. The family-call layer reads the written places and
+segments tables, so a detection can be reused with ``--detection-dir`` (its
+grouping, and so its adapter test, stands as it was). The source run directory
+is only read.
 """
 
 from __future__ import annotations
@@ -140,8 +144,9 @@ def _repeat_cutoff(opts: Options, genome: dict, rm, work: Path, identity: dict, 
 
 
 def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: Sequence[str] | None, work: Path,
-            progress: Callable[[str], None], opts: Options, mito_contig: str | None = None):
-    """Scan the contigs (resumable), then group each pass over all scanned contigs. Return the tables of the first pass
+            progress: Callable[[str], None], opts: Options, mito_contig: str | None = None, adapter_test: bool = True):
+    """Scan the contigs (resumable), then group each pass over all scanned contigs (after the adapter test, unless
+    ``adapter_test`` is False or every rule switch is off). Return the tables of the first pass
     (places bytes, segments bytes), of the second scan (or None), with a cross-species rule on also of the merge's first pass
     (``merge_first``), and an info dict."""
 
@@ -244,6 +249,16 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
             first_merge_all.extend(piece["first_merge"])
         if piece.get("second") is not None:
             second_all.extend(piece["second"])
+    adapter = None
+    if adapter_test and not opts.is_previous:
+        from .adapter import mark_adapter_places
+
+        adapter = {"first": mark_adapter_places(first_all)}
+        if first_merge_all:
+            adapter["merge_first"] = mark_adapter_places(first_merge_all)
+        if second_all:
+            adapter["second"] = mark_adapter_places(second_all)
+        progress("library-free: adapter test: " + ", ".join(f"{k} {n}" for k, n in adapter.items()) + " places set aside")
     progress("library-free: grouping")
     if opts.is_previous:
         grouped = D.group_and_call(first_all)
@@ -285,6 +300,8 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
                                                                                for p in first_all if p.get("cross_rule")).items())},
             "per_contig": {chrom: stats[chrom].get("cross_rules") for chrom in contigs}}
     info["mito_contig"] = mito
+    if not opts.is_previous:
+        info["adapter_test"] = {"places": adapter} if adapter is not None else "off"
     return tables, info
 
 
@@ -317,10 +334,12 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
                      command_line: Sequence[str] = (), source_identity: dict | None = None,
                      progress: Callable[[str], None] | None = None, options: Options | None = None,
                      repeat_annotation: Path | None = None, repeat_map: Path | None = None,
-                     mito_contig: str | None = None, resident_filter=None) -> dict:
+                     mito_contig: str | None = None, resident_filter=None, adapter_test: bool = True) -> dict:
     """``resident_filter`` (``resident_filter.OwnFamilyCopyFilter``): drop the library calls inside a reference copy of their own
     family from ``calls.combined.tsv`` and ``calls.combined.vcf`` only.  Detection and assembly read the unfiltered
-    ``calls.native.tsv`` of ``run_dir``, so the family calls and the added calls do not depend on it; ``None``: no filter."""
+    ``calls.native.tsv`` of ``run_dir``, so the family calls and the added calls do not depend on it; ``None``: no filter.
+    ``adapter_test``: set aside the places whose segments hold a sequencing-adapter core before the grouping (``adapter.py``);
+    not run with ``detection_dir``, whose grouping stands."""
 
     from ..breakpoints.runtime import read_fasta
     from ..pipeline import prepare_output_directory
@@ -346,12 +365,14 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
         if opts.any_cross and opts.merge_view and (detection_dir / MERGE_VIEW / PLACES).is_file():
             tables["merge_first"] = ((detection_dir / MERGE_VIEW / PLACES).read_bytes(), (detection_dir / MERGE_VIEW / SEGMENTS).read_bytes())
         info = {"reused_detection": str(detection_dir)}
+        if not opts.is_previous:
+            info["adapter_test"] = "as in the reused detection"
     else:
         if msbwt_index is None:
             raise InputContractError("library-free detection needs an msBWT index")
         genome = read_fasta(reference_fasta)
         tables, info = _detect(reference_fasta=reference_fasta, genome=genome, msbwt_index=Path(msbwt_index), contigs=contigs,
-                               work=work, progress=say, opts=opts, mito_contig=mito_contig)
+                               work=work, progress=say, opts=opts, mito_contig=mito_contig, adapter_test=adapter_test)
     if ("second" in tables) != (opts.het_scan != "off") and detection_dir is not None:
         raise InputContractError(
             "the detection directory " + ("holds" if "second" in tables else "has no") + " second-scan tables but --het-scan is "
