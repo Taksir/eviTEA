@@ -376,6 +376,10 @@ def build_parser() -> argparse.ArgumentParser:
     lf.add_argument("--mito-contig",
                     help="the reference's mitochondrial contig; the segment filter drops inserted segments that match it (default: "
                     "first of chrM, MT, M, chrMT found; none: this test is off)")
+    lf.add_argument("--adapter-test", choices=("on", "off"), default="on",
+                    help="set aside the places whose inserted segment holds a sequencing-adapter core (TruSeq or Nextera, also "
+                    "with the junction up to 4 letters inside the adapter) before the grouping, so they form no family "
+                    "(default on; not run with --detection-dir, whose grouping stands)")
     lf.add_argument("--te-assets", type=Path,
                     help="prepared TE assets of the library run (the TE record to family map): calls.combined.tsv and "
                     "calls.combined.vcf then leave out the library calls inside a reference copy of their own family "
@@ -1112,6 +1116,7 @@ def _library_free(args: argparse.Namespace) -> None:
         repeat_map=_resolved_cli_path(Path(args.repeat_map)) if args.repeat_map else None,
         mito_contig=args.mito_contig,
         resident_filter=resident_filter,
+        adapter_test=args.adapter_test == "on",
     )
 
 

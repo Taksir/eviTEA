@@ -24,4 +24,7 @@
   family, read from the BED6 repeat annotation, and list them in `resident_copy_dropped.tsv`. `calls.native.tsv` stays the full
   table and `library-free` reads it, so its added calls are unchanged. `--keep-resident-copies` (`call`, `library-free`,
   `refine-breakpoints`, `run`) turns it off. `library-free` takes `--te-assets` for the family map. `run --no-library` is unchanged.
+- Library-free layer: adapter test, on by default (`--adapter-test on|off`). Before the grouping, places whose inserted segment
+  holds a TruSeq or Nextera adapter core (also with the junction up to 4 letters inside the adapter) are set aside with stage
+  `S4_adapter` and form no family or family record. Saved scan pieces are reused with it on or off.
 - Released under GPL-3.0-or-later.

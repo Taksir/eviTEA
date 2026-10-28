@@ -31,6 +31,7 @@ files of the basic scan byte for byte. `tools/library_free_tests/test_runtime.py
 | Poly-A tails | `--polya-tails on\|off` | on | first pass: the extension crosses a poly-A run and a poly-A tail counts toward the two TSDs of the family rule (requires anchored extension) |
 | Recurring sequence | `--recurring-sequence on\|off` | on | first pass: a place whose segment the filter rejected as a local or segmental copy is kept when the place has a TSD (or a poly-A tail) and the segment groups with a family that passes the TSD rule (requires the one-site check) |
 | Merge view | `--merge-view on\|off` | on | also writes the files of the same run under the merge rules (the four rules above off) to `merge_view/` |
+| Adapter test | `--adapter-test on\|off` | on | before the grouping, a place whose left or right segment holds a sequencing-adapter core is set aside (stage `S4_adapter`), so it forms no family and no family record. Cores: AGATCGGAAGAGC (TruSeq) and CTGTCTCTTATACACATCT (Nextera) with their reverse complements anywhere in a segment, and at the junction end also with the first 1 to 4 letters missing (the walk followed the reference into the adapter). A read that runs past the end of a short insert into the adapter is new sequence at single-copy depth, which the one-site check accepts. Applies to every pass and to `merge_view/`. Not part of the identity of a saved scan piece; not run with `--detection-dir` (its grouping stands). The detection summary counts the places it set aside |
 | Family records | `build-family-records`, `add-record-calls` | commands | see below |
 | Record guard | `--record-guard on\|off` | on | a family of old copies gets no record |
 | Copy report | `--copy-report on\|off` | off | per record: fraction of its words absent from the reference, reference copies |
@@ -73,6 +74,8 @@ extra columns `walked`, `bL0` (walk-out), `origin` (second-scan places), the fou
 with a cross-species rule on), the folder `merge_view/` (merge view), and in the family-calls table
 `scan`, `origin`, `check`, `ratio_L`, `ratio_R`, `inside_copy`, `family_inside` (when a switch requires them).
 Second-scan families are named `LF_cluster_h<N>` in `calls.library_free.tsv`.
+
+Places set aside by the adapter test keep their row in the places table with stage `S4_adapter`.
 
 Re-running with other grouping or assembly switches in the same `--work-dir` reuses the saved scan pieces. Set
 `EVITEA_PIECES_READONLY=1` on such a run: it then refuses, instead of scanning again and replacing the saved pieces, if a
