@@ -39,9 +39,10 @@ __all__ = ["MIN_PROFILE_CONTIG", "REPEAT_ANCHOR", "CrossContext", "cross_place",
            "repeat_profile", "shared_depth"]
 
 MIN_PROFILE_CONTIG = 1_000_000
-# Windows of the anchor reference (the D. melanogaster reference REP_MAX was set on: EviTEA's prepared dm6, contigs of at least
-# 1 Mb) and how many of them reach REP_MAX, measured once with ``evitea repeat-profile``.
-REPEAT_ANCHOR: dict | None = None
+# Windows of the anchor reference (the D. melanogaster reference REP_MAX was set on: EviTEA's prepared dm6, reference.fa sha256
+# eeb896ecb227ec5b2c779faa46f064cf781adddaae509c7f50b9d6503c194397, contigs of at least 1 Mb: chr2L, chr2R, chr3L, chr3R, chr4,
+# chrX, chrY) and how many of them reach REP_MAX, measured with ``evitea repeat-profile``.
+REPEAT_ANCHOR: dict | None = {"windows": 137_139, "at_cutoff": 21_303}
 COPY_REJECTS = ("local", "sd")
 SHORT_REJECTS = ("short", "sat")
 
