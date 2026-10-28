@@ -8,6 +8,9 @@ M3  a reference with a planted repeat (BLAST+ on PATH; skipped without it): the 
     diverged and reverse-complement) and nothing else, does not depend on the number of parts, refuses to replace a map, and a
     second build in the same folder with its saved BLAST work gives the same file.
 M4  the command: ``evitea build-repeat-map`` writes the map and the summary.
+M5  default contigs: the primary chromosomes and every contig of at least 1 Mb, in reference order. On dm6 and mm10 lengths the
+    list is that of the contigs of at least 1 Mb; on yeast lengths it is all 16 chromosomes (the mitochondrion stays out); the
+    map's default reads the same rule from a FASTA.
 """
 import json
 import random
@@ -141,6 +144,39 @@ def main():
         summ = json.loads((cli_out / "repeat_map_summary.json").read_text())
         check("M4 command writes the map and the summary", code == 0 and (cli_out / "repeat_map.bed").read_text() == beds[1]
               and summ["constants"]["window"] == 500 and summ["constants"]["min_identity"] == 80.0, summ)
+
+    # M5
+    from evitea.library_free.runtime import MIN_DEFAULT_CONTIG, default_contigs
+
+    def old_rule(lengths):
+        return tuple(name for name, n in lengths.items() if n >= MIN_DEFAULT_CONTIG)
+
+    dm6 = {"chr2L": 23_513_712, "chr2R": 25_286_936, "chr3L": 28_110_227, "chr3R": 32_079_331, "chr4": 1_348_131,
+           "chrM": 19_524, "chrX": 23_542_271, "chrY": 3_667_352, "chrX_DS483648v1_random": 28_022, "NW_001845059.1": 7_540}
+    mm10 = {f"chr{c}": n for c, n in zip([*range(1, 20), "X", "Y"],
+            [195_471_971, 182_113_224, 160_039_680, 156_508_116, 151_834_684, 149_736_546, 145_441_459, 129_401_213,
+             124_595_110, 130_694_993, 122_082_543, 120_129_022, 120_421_639, 124_902_244, 104_043_685, 98_207_768,
+             94_987_271, 90_702_639, 61_431_566, 171_031_299, 91_744_698])}
+    mm10.update({"chrM": 16_299, "chr1_GL456211_random": 241_735, "chrUn_JH584304": 114_452})
+    yeast = dict(zip(["chrI", "chrII", "chrIII", "chrIV", "chrV", "chrVI", "chrVII", "chrVIII", "chrIX", "chrX", "chrXI",
+                      "chrXII", "chrXIII", "chrXIV", "chrXV", "chrXVI", "chrM"],
+                     [230_218, 813_184, 316_620, 1_531_933, 576_874, 270_161, 1_090_940, 562_643, 439_888, 745_751, 666_816,
+                      1_078_177, 924_431, 784_333, 1_091_291, 948_066, 85_779]))
+    check("M5 dm6: the default is the contigs of at least 1 Mb", default_contigs(dm6) == old_rule(dm6)
+          == ("chr2L", "chr2R", "chr3L", "chr3R", "chr4", "chrX", "chrY"), default_contigs(dm6))
+    check("M5 mm10: the default is the contigs of at least 1 Mb (chr1-19, X, Y)",
+          default_contigs(mm10) == old_rule(mm10) == tuple(f"chr{c}" for c in [*range(1, 20), "X", "Y"]), default_contigs(mm10))
+    check("M5 yeast: all 16 chromosomes in reference order, no mitochondrion (4 reach 1 Mb)",
+          default_contigs(yeast) == tuple(list(yeast)[:16]) and len(old_rule(yeast)) == 4, default_contigs(yeast))
+    big_mito = {"chr1": 30_000_000, "chrM": 1_200_000, "scaffold_9": 2_000_000}
+    check("M5 every contig of at least 1 Mb stays in the default", default_contigs(big_mito) == ("chr1", "chrM", "scaffold_9"),
+          default_contigs(big_mito))
+    with tempfile.TemporaryDirectory() as td:
+        fa = Path(td) / "small.fa"
+        fa.write_text("".join(f">{n}\n{'ACGT' * (k // 4)}\n" for n, k in
+                              [("chrI", 1000), ("chrII", 900), ("chrM", 400), ("chrIII", 152), ("tig_7", 48)]))
+        check("M5 the map's default reads the rule from the FASTA", RM.default_contigs(fa) == ("chrI", "chrII", "chrIII"),
+              RM.default_contigs(fa))
 
     print("\n%d checks, %d failed" % (NCHK[0], len(FAIL)))
     sys.exit(1 if FAIL else 0)

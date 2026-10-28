@@ -64,5 +64,5 @@ The same chain is `tools/no_library.sh` (a plain shell script: `REFERENCE=<FASTA
 `ASSETS=<prepared reference>` to use a prepared reference and its annotation) and `tools/slurm/no_library.sh` (Slurm jobs, on
 a prepared reference).
 
-`build-repeat-map --contigs` limits the map to some contigs (default: contigs of 1 Mb or more, the contigs the library-free
-layer scans by default). `--parts` sets the number of blastn processes; the map does not depend on it.
+`build-repeat-map --contigs` limits the map to some contigs (default: the primary chromosomes and the contigs of 1 Mb or more,
+the contigs the library-free layer scans by default). `--parts` sets the number of blastn processes; the map does not depend on it.

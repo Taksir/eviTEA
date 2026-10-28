@@ -68,7 +68,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                          help="run without a TE library: library-free calls turned into records, then a library pass on them")
     parser.add_argument("--family-map", type=Path, help="TE record to family map (with --te-library)")
     parser.add_argument("--library-free", action="store_true", help="with a library: also run the library-free layer")
-    parser.add_argument("--contigs", help="contigs of the library-free layer and the repeat map (default: contigs >= 1 Mb)")
+    parser.add_argument("--contigs", help="contigs of the library-free layer and the repeat map (default: the primary chromosomes "
+                        "and the contigs >= 1 Mb)")
     parser.add_argument("--threads", type=int, default=0)
     parser.add_argument("--workers", type=int)
     for name in ("--read-length", "--fragment-q95", "--fragment-q99", "--primary-contigs"):

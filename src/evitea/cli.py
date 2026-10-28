@@ -356,8 +356,8 @@ def build_parser() -> argparse.ArgumentParser:
     lf.add_argument("--reference-assets", type=Path, required=True)
     lf.add_argument("--output", type=Path, required=True)
     lf.add_argument("--work-dir", type=Path)
-    lf.add_argument("--contigs", help="comma-separated contigs to scan, in this order (default: contigs >= 1 Mb, "
-                    "reference order)")
+    lf.add_argument("--contigs", help="comma-separated contigs to scan, in this order (default: the primary chromosomes and the "
+                    "contigs >= 1 Mb, reference order)")
     lf.add_argument("--rule-c", action="store_true",
                     help="the family-identity filter: also drop family calls whose members have a median pairwise "
                     "identity of <= 98.31%%")
@@ -394,8 +394,8 @@ def build_parser() -> argparse.ArgumentParser:
     rmap_ref.add_argument("--reference-fasta", type=Path)
     rmap_ref.add_argument("--reference-assets", type=Path)
     rmap.add_argument("--output", type=Path, required=True, help="output folder; the map is <output>/repeat_map.bed")
-    rmap.add_argument("--contigs", help="comma-separated contigs whose windows are aligned (default: contigs >= 1 Mb, the contigs "
-                      "that library-free scans by default)")
+    rmap.add_argument("--contigs", help="comma-separated contigs whose windows are aligned (default: the primary chromosomes and "
+                      "the contigs >= 1 Mb, the contigs that library-free scans by default)")
     rmap.add_argument("--parts", type=int, help="blastn processes (default: the CPUs, at most 8); the map does not depend on it")
 
     rprof = commands.add_parser(

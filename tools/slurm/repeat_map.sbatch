@@ -3,7 +3,8 @@
 # reference. One map per reference; every run without a library reads it. Requires BLAST+ in the image or BLAST_BIN in site.sh.
 # Writes $MAPDIR/repeat_map.bed (default MAPDIR=$EVITEA_OUT/repeat_map) and refuses to replace one.
 # Set before sbatch:
-#   CONTIGS  comma-separated contigs to align (default: the contigs of 1 Mb or more, those library-free scans by default)
+#   CONTIGS  comma-separated contigs to align (default: those library-free scans by default, the primary chromosomes and the
+#            contigs of 1 Mb or more)
 #   MAPDIR   output folder
 #SBATCH --job-name=evitea_repeat_map
 #SBATCH --partition=small

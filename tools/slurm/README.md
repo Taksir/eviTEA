@@ -46,7 +46,7 @@ Jobs refuse to run on a login node.
 
 `DS=<sample> bash $EVITEA_CODE/tools/slurm/no_library.sh`, run from `$EVITEA_OUT` on a login node (it only submits). It requires BLAST+ in the image or `BLAST_BIN` in `site.sh`. Jobs:
 
-1. `repeat_map.sbatch`, only if `$MAPDIR/repeat_map.bed` (default `$EVITEA_OUT/repeat_map`) does not exist. The map is per reference. It aligns the sample's default contigs (`CONTIGS` overrides; without a sample, the contigs of 1 Mb or more).
+1. `repeat_map.sbatch`, only if `$MAPDIR/repeat_map.bed` (default `$EVITEA_OUT/repeat_map`) does not exist. The map is per reference. It aligns the sample's default contigs (`CONTIGS` overrides; without a sample, the primary chromosomes and the contigs of 1 Mb or more).
 2. `detect.sbatch` with `NOLIB=1 REPEAT_MAP=<bed>`: the library layer's calls are an empty table (a stub of the sample's library run under `$EVITEA_OUT/nolib/<DS>_stub`: the header line of `calls.native.tsv` and the sample id), the family-identity filter is on, all other switches at their defaults (99th-percentile tolerance from the layer's own two-sided calls, one-site check, resident-copy test with the map).
 3. `records.sbatch` with `FLAG=kept REPEAT_MAP=<bed>` on that run (consensus records of the surviving families; record guard with the map), then `prepare-te`.
 4. `record_pass.sbatch`: `evitea call` with the command line recorded in the sample's library run (`run_manifest.json`; only `--te-assets`, `--output` and `--work-dir` change), then `add-record-calls` against the detection's `library_free/calls.combined.tsv`. The result is `record_pass/<DS>_<job>/added/calls.combined.tsv`.

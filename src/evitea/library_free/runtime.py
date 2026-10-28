@@ -16,10 +16,10 @@ import pickle
 import sys
 import time
 from collections import Counter as Tally
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
-from ..contigs import MITO_CONTIG_NAMES, find_mito_contig
+from ..contigs import MITO_CONTIG_NAMES, default_primary_contigs, find_mito_contig
 from .. import vcf as V
 from ..errors import InputContractError, OperationalResourceError
 from ..outputs import write_bytes, write_run_summary
@@ -27,7 +27,7 @@ from ..shadow_layers import ShadowCallset
 from . import NEAR_EVITEA_BP, RULE_C_MAX, T_E
 from .options import Options
 
-__all__ = ["MIN_DEFAULT_CONTIG", "combined_calls_tsv_bytes", "run_library_free"]
+__all__ = ["MIN_DEFAULT_CONTIG", "combined_calls_tsv_bytes", "default_contigs", "run_library_free"]
 
 MIN_DEFAULT_CONTIG = 1_000_000
 PLACES = "library_free_places.tsv"
@@ -43,6 +43,17 @@ PIECE_SCHEMA = "evitea.library_free.piece.v2"
 CODE_FILES = ("_p4_lib.py", "detector.py", "place.py", "scan.py", "walks.py", "extension.py", "priority.py", "options.py", "cross.py")
 MERGE_VIEW = "merge_view"
 REPEAT_PROFILE = "repeat_profile.json"
+
+
+def default_contigs(lengths: Mapping[str, int]) -> tuple[str, ...]:
+    """The contigs scanned without ``--contigs`` (``{name: length}`` in reference order), in reference order: every primary
+    chromosome (``contigs.default_primary_contigs``: at least a tenth of the longest contig, not an organelle, not an unplaced
+    sequence) and every contig of at least ``MIN_DEFAULT_CONTIG``. The list differs from the contigs of at least 1 Mb only when
+    the longest contig is under 10 Mb, so a genome of short chromosomes (yeast) is scanned whole and the lists of dm6 and mm10
+    are those of the contigs of at least 1 Mb."""
+
+    primary = set(default_primary_contigs(lengths))
+    return tuple(name for name, n in lengths.items() if n >= MIN_DEFAULT_CONTIG or name in primary)
 
 
 def _sha256(path: Path) -> str:
@@ -146,7 +157,7 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
     except ImportError as exc:
         raise OperationalResourceError("library-free detection needs mappy (minimap2); run on Linux or WSL") from exc
     if contigs is None:
-        contigs = tuple(name for name, seq in genome.items() if len(seq) >= MIN_DEFAULT_CONTIG)
+        contigs = default_contigs({name: len(seq) for name, seq in genome.items()})
     missing = [c for c in contigs if c not in genome]
     if missing or len(set(contigs)) != len(contigs):
         raise InputContractError(f"contigs must be distinct reference contigs; not found: {missing}")

@@ -8,6 +8,7 @@ files of the basic scan byte for byte. `tools/library_free_tests/test_runtime.py
 
 | Part | Switch | Default | What it does |
 |---|---|---|---|
+| Contigs | `--contigs a,b,c` | primary chromosomes and contigs of 1 Mb or more | the contigs scanned, in this order. The default takes every primary chromosome (at least a tenth of the longest contig, not an organelle, not an unplaced sequence) and every contig of at least 1 Mb, in reference order. It differs from the contigs of at least 1 Mb only where the longest contig is under 10 Mb: a yeast reference is scanned on all 16 chromosomes, and dm6 and mm10 on their contigs of 1 Mb or more. |
 | Depth window | `--depth-cap N` | none | upper bound of the local depth D (the lower bound 10 stays). `--depth-cap 100` is the window of the basic scan. Also `EVITEA_DEPTH_CAP`. |
 | Anchored extension | `--anchored-extension` | on | builds the inserted DNA from reads of one site only, where the plain extension stops short |
 | Walk-out | `--walk-out` | on | moves a repeated walk-start word outward (up to 50 strides) to the nearest unique word |
@@ -107,10 +108,10 @@ A run whose library layer made no call has no curated TE annotation to read. Thr
 reference and the sample:
 
 - **Repeat map.** `evitea build-repeat-map --reference-fasta <fa> --output <dir> [--contigs a,b,c] [--parts N]` aligns windows of
-  500 bp (step 250) of the chosen contigs (default: contigs of 1 Mb or more) to the whole reference with BLAST+ (`makeblastdb` and
-  `blastn` on PATH). A base is repeated when a hit of at least 100 aligned bases at 80% identity or more covers it, other than the
-  window's own locus. The map is `<dir>/repeat_map.bed`; `repeat_map_summary.json` holds the constants, the counts and checksums.
-  Build it once per reference. It does not depend on the sample.
+  500 bp (step 250) of the chosen contigs (default: the primary chromosomes and the contigs of 1 Mb or more) to the whole
+  reference with BLAST+ (`makeblastdb` and `blastn` on PATH). A base is repeated when a hit of at least 100 aligned bases at 80%
+  identity or more covers it, other than the window's own locus. The map is `<dir>/repeat_map.bed`; `repeat_map_summary.json`
+  holds the constants, the counts and checksums. Build it once per reference. It does not depend on the sample.
 - **Tolerance of the one-site check.** With no library call, the tolerance (99th percentile by default) comes from the layer's own
   two-sided calls. `--tol-source library` falls back to them on its own, so no switch is needed.
 - **Resident-copy test and record guard.** `library-free --repeat-map <bed>` reads the map for the resident-copy test when the library

@@ -77,11 +77,12 @@ def read_lengths(reference_fasta: Path) -> dict[str, int]:
 
 
 def default_contigs(reference_fasta: Path) -> tuple[str, ...]:
-    """Return the contigs ``library-free`` scans by default: those of at least 1 Mb, in reference order."""
+    """Return the contigs ``library-free`` scans by default (``library_free.runtime.default_contigs``: the primary chromosomes
+    and the contigs of at least 1 Mb), in reference order."""
 
-    from .library_free.runtime import MIN_DEFAULT_CONTIG
+    from .library_free.runtime import default_contigs as lf_default
 
-    return tuple(name for name, n in read_lengths(reference_fasta).items() if n >= MIN_DEFAULT_CONTIG)
+    return lf_default(read_lengths(reference_fasta))
 
 
 def window_records(reference_fasta: Path, contigs: Iterable[str]) -> Iterator[tuple[str, int, str]]:
@@ -202,8 +203,8 @@ def build_repeat_map(*, reference_fasta: Path, output: Path, contigs: Iterable[s
     chosen = tuple(contigs) if contigs is not None else default_contigs(reference_fasta)
     bad = [c for c in chosen if c not in lengths]
     if not chosen or bad or len(set(chosen)) != len(chosen):
-        raise InputContractError("contigs must be distinct contigs of the reference"
-                                 + (f"; not found: {bad}" if bad else "; none given and none of 1 Mb or more"))
+        raise InputContractError("contigs must be distinct contigs of the reference" + (
+            f"; not found: {bad}" if bad else "; none given, and no primary chromosome or contig of 1 Mb or more"))
     parts = max(1, int(parts if parts is not None else min(os.cpu_count() or 1, 8)))
     _require_blast()
     output.mkdir(parents=True, exist_ok=True)
