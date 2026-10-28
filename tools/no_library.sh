@@ -53,7 +53,7 @@ ev prepare-te --te-library "$OUT/records/lib/te_library.fa" --family-map "$OUT/r
   --reference-assets "$ASSETS" --output "$OUT/records/assets_te"
 echo "record pass -> $OUT/record_pass"
 ev call --sample-assets "$SAMPLE" --reference-assets "$ASSETS" --te-assets "$OUT/records/assets_te" \
-  --output "$OUT/record_pass/call" --work-dir "$OUT/work/record_pass" "${CALL_EXTRA[@]}"
+  --output "$OUT/record_pass/call" --work-dir "$OUT/work/record_pass" "${CALL_EXTRA[@]}" --keep-resident-copies
 ev add-record-calls --calls "$OUT/record_pass/call/calls.native.tsv" --base-calls "$OUT/library_free/calls.combined.tsv" \
   --records "$OUT/records/lib" --output "$OUT/record_pass/added"
 echo "done: $OUT/record_pass/added/calls.combined.tsv"

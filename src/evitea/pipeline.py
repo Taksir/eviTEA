@@ -34,6 +34,12 @@ from .errors import (
     OutputStateError,
     ResumeStateError,
 )
+from .resident_filter import (
+    RESIDENT_DROPPED_OUTPUT,
+    RESIDENT_SUMMARY_KEY,
+    FilterResult,
+    dropped_tsv_bytes,
+)
 from .callset import CallsetState, calls_bed_bytes, calls_tsv_bytes, calls_vcf_bytes, unresolved_tsv_bytes
 from .outputs import (
     write_bytes,
@@ -60,7 +66,7 @@ CANONICAL_OUTPUTS = (
 BREAKPOINTS_OUTPUT = "breakpoints.tsv"  # written only when refinement.breakpoints is on
 ANNOTATIONS_OUTPUT = "call_annotations.tsv"  # written only when refinement.call_annotations is on
 VCF_OUTPUT = "calls.vcf"  # the calls of calls.tsv as VCF
-OPTIONAL_OUTPUTS = (BREAKPOINTS_OUTPUT, ANNOTATIONS_OUTPUT, VCF_OUTPUT)
+OPTIONAL_OUTPUTS = (BREAKPOINTS_OUTPUT, ANNOTATIONS_OUTPUT, VCF_OUTPUT, RESIDENT_DROPPED_OUTPUT)
 CHECKPOINT_SCHEMA = "evitea.checkpoint.v1"
 RAW_SAMPLE_DIRECTORY = "prepared-sample"
 RAW_SAMPLE_STAGING_PREFIX = ".sample-build-"
@@ -365,12 +371,19 @@ def run_sample(
     manifest_context: RunManifestContext,
     sample_builder: RawSampleBuilder | None = None,
     breakpoint_refiner: Callable[[CallsetState], Sequence[Any]] | None = None,
+    resident_filter: Callable[[bytes], FilterResult] | None = None,
 ) -> RunResult:
     """Run the given call engine and write the canonical outputs.
 
     ``breakpoint_refiner`` is required exactly when ``refinement.breakpoints``
     is on.  It never changes ``calls.native.tsv``.  Refined ranges go to the
     ``calls.tsv`` and ``calls.bed`` views and to ``breakpoints.tsv``.
+
+    ``resident_filter`` (``OwnFamilyCopyFilter``) is applied to the native table at the final output only: ``calls.tsv``,
+    ``calls.bed``, ``calls.vcf`` (and ``breakpoints.tsv`` and ``call_annotations.tsv``) leave out the calls inside a reference copy
+    of their own family, which go to ``resident_copy_dropped.tsv``.  ``calls.native.tsv`` and everything computed before the
+    output (the extension layers, the refiner, the library-free layer that reads the native table) see all calls.  Without
+    a filter every output is as before.
     """
 
     if config.output.directory is None:
@@ -444,17 +457,31 @@ def run_sample(
         ended_at=ended_at,
     )
 
+    shown, resident = state, None
+    if resident_filter is not None:
+        resident = resident_filter(state.native)
+        shown = replace(state, native=resident.filtered)  # the user-facing views: native rows without the dropped calls
+        dropped_ids = frozenset(row.event_id for row in resident.dropped)
+        if refined:
+            refined = {call_id: span for call_id, span in refined.items() if call_id not in dropped_ids}
+        if breakpoint_rows is not None:
+            breakpoint_rows = [row for row in breakpoint_rows if row.event_id not in dropped_ids]
+            if breakpoint_pins is not None:
+                breakpoint_pins = {call_id: pin for call_id, pin in breakpoint_pins.items() if call_id not in dropped_ids}
+        if annotations is not None:
+            annotations = [row for row in annotations if row.event_id not in dropped_ids]
+
     try:
         write_bytes(output / "calls.native.tsv", state.native)
-        write_bytes(output / "calls.tsv", calls_tsv_bytes(state, refined))
+        write_bytes(output / "calls.tsv", calls_tsv_bytes(shown, refined))
         write_bytes(
             output / "calls.bed",
-            calls_bed_bytes(state, dict(prepared_assets.reference.contigs), refined),
+            calls_bed_bytes(shown, dict(prepared_assets.reference.contigs), refined),
         )
         write_bytes(output / "unresolved.tsv", unresolved_tsv_bytes(state))
         write_bytes(
             output / VCF_OUTPUT,
-            calls_vcf_bytes(state, prepared_assets.reference.contigs, prepared_assets.reference.reference_fasta_path, refined),
+            calls_vcf_bytes(shown, prepared_assets.reference.contigs, prepared_assets.reference.reference_fasta_path, refined),
         )
         summary = state.summary()
         hashed = (*(name for name in CANONICAL_OUTPUTS if name != "run_manifest.json"), VCF_OUTPUT)
@@ -464,6 +491,13 @@ def run_sample(
             f"final_call_count={summary['final_call_count']}",
             f"native_callset_sha256={summary['native_callset_sha256']}",
         )
+        output_counts = {"calls": summary["final_call_count"], "unresolved": summary["unresolved_count"]}
+        if resident is not None:
+            write_bytes(output / RESIDENT_DROPPED_OUTPUT, dropped_tsv_bytes(resident.dropped))
+            summary[RESIDENT_SUMMARY_KEY] = resident_filter.summary(resident)
+            hashed = (*hashed, RESIDENT_DROPPED_OUTPUT)
+            output_counts["calls"] = resident.kept
+            log_lines = (*log_lines, f"resident_copy_dropped_calls={len(resident.dropped)}")
         if breakpoint_rows is not None:
             from .breakpoints.refine import breakpoints_tsv_bytes, refinement_summary
 
@@ -487,10 +521,7 @@ def run_sample(
             manifest,
             output,
             hashed,
-            output_counts={
-                "calls": summary["final_call_count"],
-                "unresolved": summary["unresolved_count"],
-            },
+            output_counts=output_counts,
         )
         write_run_manifest(output / "run_manifest.json", manifest)
     except (InputContractError, OSError) as exc:

@@ -1,12 +1,14 @@
-"""Own-family resident-copy filter (``evitea filter-resident-copies``): a post-filter on a finished call table.
+"""Own-family resident-copy filter: drop the core calls inside a reference copy of their own TE family.
 
-A core call is dropped when a reference-genome copy of the call's own TE family touches or overlaps it.  It is a
-separate subcommand over finished tables: the ``call`` command and
-the library-free layer never run it, so a run's bytes cannot change because this module exists.
+It runs in two ways.  ``evitea filter-resident-copies`` is the post-filter of a finished call table, with the copies read from a
+RepeatMasker ``.out`` table.  ``call`` and ``library-free`` (so ``run``) apply the same filter by default to the tables they write
+for the user, with the copies read from the reference's BED6 repeat annotation (``OwnFamilyCopyFilter``; ``--keep-resident-copies``
+turns it off).  The in-run filter is applied at the final output only: ``calls.native.tsv`` stays the full library call table, which
+the library-free layer reads.
 
 Rule:
 
-* the copy is a RepeatMasker ``.out`` line on the same chromosome (chromosome names normalized as ``norm_chrom``:
+* the copy is a RepeatMasker ``.out`` line (or a BED6 annotation line, below) on the same chromosome (chromosome names normalized as ``norm_chrom``:
   a bare name such as ``2L`` or ``1`` gets ``chr`` when the reference has that ``chr`` contig), copy begin taken 0-based (``int(f[5]) - 1``), copy end
   ``int(f[6])``, copy id the record id (FBte id) in column 10, divergence column 2; lines with fewer than 15 fields, or whose first
   field is not a number (the header), are skipped;
@@ -15,6 +17,8 @@ Rule:
 * the call's own family is its ``family`` column.  A family that is itself a record id (an FBte id, or a record of the map)
   stands for that id; a family name stands for every record id the family map lists under it (HeT-A and a few others have several); a family with neither is
   never dropped and is counted as ``unmapped_family``;
+* a BED6 copy (``parse_bed6_copies``) is the same copy: contig, 0-based start, end and the record name of the annotation (a FlyBase id
+  anywhere in the name stands for that id; ``#class/family`` after a name is dropped); the divergence, which BED does not carry, is ``0``;
 * only core calls are judged: an ``event_id`` starting ``LF_`` (library-free layer) passes through unchanged;
 * kept rows are written byte for byte, in input order; dropped calls go to a side table with the copy that decided it
   (the smallest ``(begin, end, id, divergence)`` among the matching copies).
@@ -26,6 +30,7 @@ import bisect
 import csv
 import hashlib
 import io
+import re
 from collections import defaultdict
 from collections.abc import Collection, Iterable, Mapping
 from dataclasses import astuple, dataclass, fields
@@ -37,6 +42,9 @@ from .family_table import family_pairs
 
 __all__ = [
     "CopyIndex",
+    "OwnFamilyCopyFilter",
+    "RESIDENT_DROPPED_OUTPUT",
+    "RESIDENT_SUMMARY_KEY",
     "DROPPED_COLUMNS",
     "DroppedRow",
     "FamilyIds",
@@ -44,13 +52,17 @@ __all__ = [
     "LISTED_COPY_TABLES",
     "dropped_tsv_bytes",
     "filter_calls",
+    "load_bed6_copies",
     "load_copy_table",
     "load_family_ids",
+    "parse_bed6_copies",
     "parse_copy_table",
     "verify_copy_table",
 ]
 
 LIBRARY_FREE_PREFIX = "LF_"
+RESIDENT_DROPPED_OUTPUT = "resident_copy_dropped.tsv"  # the dropped calls of an in-run filter, next to the filtered table
+RESIDENT_SUMMARY_KEY = "resident_copy_filter"  # its entry in the run summary of the step
 REQUIRED_COLUMNS = ("event_id", "chr", "start", "end", "family")
 
 # sha256 of the reference copy tables this filter may read without ``--allow-unlisted-copies``
@@ -115,6 +127,42 @@ def parse_copy_table(lines: Iterable[str]) -> list[tuple[str, int, int, str, str
 def load_copy_table(path: str | Path) -> list[tuple[str, int, int, str, str]]:
     with Path(path).open("r", encoding="utf-8") as handle:
         return parse_copy_table(handle)
+
+
+_FLYBASE_ID = re.compile(r"(?<![A-Za-z0-9])FBte\d+(?![A-Za-z0-9])", re.IGNORECASE)  # not FBte000XXXX
+
+
+def _bed6_record(name: str) -> str:
+    """Return the TE record a BED6 name stands for: a FlyBase id anywhere in it, else the name before ``#``."""
+
+    match = _FLYBASE_ID.search(name)
+    return "FBte" + match.group(0)[4:] if match else name.split("#", 1)[0]
+
+
+def parse_bed6_copies(lines: Iterable[str]) -> list[tuple[str, int, int, str, str]]:
+    """Return (chrom, 0-based begin, end, record, divergence) for each BED6 repeat annotation line.
+
+    The tuples are those of ``parse_copy_table`` for the same copies (``.out`` begin minus 1 is the BED start).  BED has no
+    divergence: the field is ``0``.  Blank, ``#``, ``track`` and ``browser`` lines are skipped.
+    """
+
+    records = []
+    for line in lines:
+        if not line.strip() or line.startswith(("#", "track", "browser")):
+            continue
+        f = line.rstrip("\r\n").split("\t")
+        if len(f) < 4:
+            raise InputContractError(f"repeat annotation line has {len(f)} fields, fewer than 4: {line[:80]!r}")
+        try:
+            records.append((f[0], int(f[1]), int(f[2]), _bed6_record(f[3]), "0"))
+        except ValueError:
+            raise InputContractError(f"repeat annotation line has a non-integer start or end: {line[:80]!r}") from None
+    return records
+
+
+def load_bed6_copies(path: str | Path) -> list[tuple[str, int, int, str, str]]:
+    with Path(path).open("r", encoding="utf-8") as handle:
+        return parse_bed6_copies(handle)
 
 
 def verify_copy_table(path: str | Path, *, allow_unlisted: bool) -> tuple[str, bool]:
@@ -255,3 +303,25 @@ def dropped_tsv_bytes(rows: Iterable[DroppedRow]) -> bytes:
     for row in rows:
         writer.writerow(astuple(row))
     return handle.getvalue().encode("utf-8")
+
+
+class OwnFamilyCopyFilter:
+    """The in-run filter: the reference's BED6 copies and the TE family map, applied to a call table (``filter_calls``).
+
+    ``contigs``: the reference's contig names.  Call the object with the bytes of a table with the columns ``event_id``, ``chr``,
+    ``start``, ``end`` and ``family`` (``calls.native.tsv``, ``calls.combined.tsv``); it returns the ``FilterResult``.
+    """
+
+    def __init__(self, repeat_annotation: str | Path, family_map: str | Path, contigs: Collection[str]):
+        self.index = CopyIndex(load_bed6_copies(repeat_annotation), contigs)
+        self.family_ids = load_family_ids(family_map)
+
+    def __call__(self, calls: bytes) -> FilterResult:
+        return filter_calls(calls, self.index, self.family_ids)
+
+    def summary(self, result: FilterResult) -> dict:
+        """The entry of the run summary: the filter is on; calls kept and dropped, families without a record, copies read."""
+
+        return {"enabled": True, "scope": "core calls (event_id not starting LF_)", "gap_bp": 0, "kept": result.kept,
+                "dropped": len(result.dropped), "unmapped_family": result.unmapped_family,
+                "library_free_passed": result.library_free_passed, "copies": len(self.index)}

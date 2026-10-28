@@ -22,4 +22,9 @@
   chain no longer gives a second grouped place at that break (stage `S4_same_break`); the family calls stopped on such a pair
   with a duplicate segment name.
 - Tests for the library-free layer are in `tools/library_free_tests/`.
+- Own-family copy filter, on by default for every run with a TE library: `call` (`calls.tsv`, `calls.bed`, `calls.vcf`) and
+  `library-free` (`calls.combined.tsv`, `calls.combined.vcf`) leave out the library calls that touch a reference copy of their own
+  family, read from the BED6 repeat annotation, and list them in `resident_copy_dropped.tsv`. `calls.native.tsv` stays the full
+  table and `library-free` reads it, so its added calls are unchanged. `--keep-resident-copies` (`call`, `library-free`,
+  `refine-breakpoints`, `run`) turns it off. `library-free` takes `--te-assets` for the family map. `run --no-library` is unchanged.
 - Released under GPL-3.0-or-later.

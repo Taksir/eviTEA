@@ -123,10 +123,11 @@ A completed run contains:
 
 | File | Content |
 |---|---|
-| `calls.native.tsv` | the call set in the native 15-column schema, byte-exact: repeat-aware caller rows, then the rows appended by each extension layer |
-| `calls.tsv` | one row per native call, genomic order: `call_origin` (INCUMBENT_SPLIT_JUNCTION / INCUMBENT_MATE_RESCUE / INCUMBENT_REPEAT_AWARE / EXTENSION_ANCHOR_PE_BILATERAL / EXTENSION_ANCHOR_PE_ASYMMETRIC / EXTENSION_FULL_MEMORY / EXTENSION_INTERNAL21), `coordinate_kind`, supports and support pair ids |
+| `calls.native.tsv` | the full call set in the native 15-column schema, byte-exact, before the own-family copy filter: repeat-aware caller rows, then the rows appended by each extension layer |
+| `calls.tsv` | one row per native call that the own-family copy filter keeps, genomic order: `call_origin` (INCUMBENT_SPLIT_JUNCTION / INCUMBENT_MATE_RESCUE / INCUMBENT_REPEAT_AWARE / EXTENSION_ANCHOR_PE_BILATERAL / EXTENSION_ANCHOR_PE_ASYMMETRIC / EXTENSION_FULL_MEMORY / EXTENSION_INTERNAL21), `coordinate_kind`, supports and support pair ids |
 | `calls.bed` | BED view (point `p` becomes `[p, p+1)`, the last base for a contig-end point; range `[start, end)`) |
 | `calls.vcf` | VCF 4.2, sites only: one record per call of `calls.tsv`, `ALT` `<INS:ME:family>`, `POS` the base before the call, `END`/`CIPOS`/`IMPRECISE` for ranges, `INFO` with `FAMILY`, `SOURCE` (library or library-free), `ORIGIN`, `EVIDENCE` and the supports (`evitea.vcf`); `library-free` writes `calls.combined.vcf` |
+| `resident_copy_dropped.tsv` | the native calls inside a reference copy of their own family, left out of `calls.tsv`, `calls.bed`, `calls.vcf` (`--keep-resident-copies`: not written, and nothing is left out); `run_summary.json` and the manifest record the counts (`resident_copy_filter`: kept, dropped, unmapped_family) |
 | `unresolved.tsv` | extension-layer events left out of the calls because another added event lies within 500 bp (same family or a different family) |
 | `run_summary.json` | counts per origin, rows and SHA-256 after every layer, engine stage counts |
 | `run.log`, `run_manifest.json` | provenance; the manifest hashes every other output |

@@ -20,7 +20,7 @@ Commands, in the order of a run:
 | `library-free` | the library-free calls, added to the library calls (Linux/WSL) |
 | `build-repeat-map`, `build-family-records`, `add-record-calls` | the steps of a run without a TE library |
 | `run` | all of the above as one command, with a library or `--no-library` |
-| `refine-breakpoints`, `call-tiers`, `filter-resident-copies` | optional views of a finished run |
+| `refine-breakpoints`, `call-tiers`, `filter-resident-copies` | optional views of a finished run (`call` and `library-free` already apply the filter of `filter-resident-copies`; `--keep-resident-copies` turns it off) |
 | `validate`, `check-install`, `version` | checks prepared assets, finished runs and the installation |
 
 What has been validated is in [`../validation/EVITEA_V1_VALIDATION_STATUS.md`](../validation/EVITEA_V1_VALIDATION_STATUS.md).

@@ -172,6 +172,16 @@ def _add_breakpoint_extras(parser: argparse.ArgumentParser, *, use_defaults: boo
     )
 
 
+KEEP_RESIDENT_COPIES_HELP = (
+    "keep the calls inside a reference copy of their own TE family (default: they are left out of the final call tables "
+    "and listed in resident_copy_dropped.tsv; use this switch to reproduce a run without that filter)"
+)
+
+
+def _add_keep_resident_copies(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--keep-resident-copies", action="store_true", help=KEEP_RESIDENT_COPIES_HELP)
+
+
 def _add_depth_cap(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--depth-cap",
@@ -298,6 +308,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_breakpoint_extras(call)
     _add_depth_cap(call)
+    _add_keep_resident_copies(call)
     call.add_argument(
         "--max-rescue-interval-mass",
         type=int,
@@ -343,6 +354,7 @@ def build_parser() -> argparse.ArgumentParser:
     refine.add_argument("--work-dir", type=Path)
     _add_breakpoint_extras(refine, use_defaults=True)
     _add_depth_cap(refine)
+    _add_keep_resident_copies(refine)
 
     lf = commands.add_parser(
         "library-free",
@@ -364,6 +376,12 @@ def build_parser() -> argparse.ArgumentParser:
     lf.add_argument("--mito-contig",
                     help="the reference's mitochondrial contig; the segment filter drops inserted segments that match it (default: "
                     "first of chrM, MT, M, chrMT found; none: this test is off)")
+    lf.add_argument("--te-assets", type=Path,
+                    help="prepared TE assets of the library run (the TE record to family map): calls.combined.tsv and "
+                    "calls.combined.vcf then leave out the library calls inside a reference copy of their own family "
+                    "(resident_copy_dropped.tsv); the detection and the added calls read all library calls. Required when "
+                    "the run has library calls, unless --keep-resident-copies is given")
+    _add_keep_resident_copies(lf)
     lf.add_argument("--detection-dir", type=Path,
                     help="reuse library_free_places.tsv and library_free_segments.fa from an earlier detection")
     _add_depth_cap(lf)
@@ -420,8 +438,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     resident = commands.add_parser(
         "filter-resident-copies",
-        help="ablation post-filter: drop core calls that touch or overlap a reference copy of their own TE "
-        "family; reads a finished call table, never run by `call` or `library-free`",
+        help="drop core calls that touch or overlap a reference copy of their own TE family, from a finished call "
+        "table, with the copies read from a RepeatMasker .out (`call` and `library-free` apply the same filter in the run, "
+        "from the BED6 repeat annotation; this command filters tables of runs made without it)",
     )
     resident.add_argument("--calls", type=Path, required=True, help="calls.native.tsv or calls.combined.tsv")
     resident.add_argument("--reference-te-copies", type=Path, required=True, help="RepeatMasker .out of the reference")
@@ -873,6 +892,7 @@ def _refine_breakpoints(args: argparse.Namespace) -> None:
     from .callset import CallsetState, calls_bed_bytes, calls_tsv_bytes, calls_vcf_bytes
     from .outputs import write_bytes, write_run_summary
     from .pipeline import VCF_OUTPUT, prepare_output_directory
+    from .resident_filter import RESIDENT_DROPPED_OUTPUT, RESIDENT_SUMMARY_KEY
 
     run_dir = _resolved_cli_path(args.run_dir)
     native = (run_dir / "calls.native.tsv").read_bytes()
@@ -888,6 +908,7 @@ def _refine_breakpoints(args: argparse.Namespace) -> None:
         ),
     )
     assets = prepare_assets(config)
+    resident_filter = None if args.keep_resident_copies else _own_family_copy_filter(assets.reference, assets.te)
     output = prepare_output_directory(_resolved_cli_path(args.output), resume=False)
     started = time.time()
 
@@ -904,21 +925,35 @@ def _refine_breakpoints(args: argparse.Namespace) -> None:
     )
     state = CallsetState(sample_id=sample_id, native=native)
     result = RefinementResult.of(refiner(state))
-    rows = result.rows
+    rows, pins, annotations = result.rows, result.pins, result.annotations
     refined = refined_coordinates(rows)
+    shown, resident = state, None
+    if resident_filter is not None:  # the user-facing tables only; calls.native.tsv stays the full table
+        from .resident_filter import dropped_tsv_bytes
+
+        resident = resident_filter(native)
+        shown = CallsetState(sample_id=sample_id, native=resident.filtered)
+        dropped = frozenset(row.event_id for row in resident.dropped)
+        refined = {call_id: span for call_id, span in refined.items() if call_id not in dropped}
+        rows = [row for row in rows if row.event_id not in dropped]
+        pins = {call_id: pin for call_id, pin in pins.items() if call_id not in dropped} if pins is not None else None
+        annotations = [row for row in annotations if row.event_id not in dropped] if annotations is not None else None
     write_bytes(output / "calls.native.tsv", native)
-    write_bytes(output / "calls.tsv", calls_tsv_bytes(state, refined))
+    write_bytes(output / "calls.tsv", calls_tsv_bytes(shown, refined))
     write_bytes(
-        output / "calls.bed", calls_bed_bytes(state, dict(assets.reference.contigs), refined)
+        output / "calls.bed", calls_bed_bytes(shown, dict(assets.reference.contigs), refined)
     )
-    write_bytes(output / BREAKPOINTS_OUTPUT, breakpoints_tsv_bytes(rows, pins=result.pins))
+    write_bytes(output / BREAKPOINTS_OUTPUT, breakpoints_tsv_bytes(rows, pins=pins))
     write_bytes(
         output / VCF_OUTPUT,
-        calls_vcf_bytes(state, assets.reference.contigs, assets.reference.reference_fasta_path, refined),
+        calls_vcf_bytes(shown, assets.reference.contigs, assets.reference.reference_fasta_path, refined),
     )
     written = ["calls.native.tsv", "calls.tsv", "calls.bed", VCF_OUTPUT, BREAKPOINTS_OUTPUT]
-    if result.annotations is not None:
-        write_bytes(output / ANNOTATIONS_OUTPUT, call_annotations_tsv_bytes(result.annotations))
+    if resident is not None:
+        write_bytes(output / RESIDENT_DROPPED_OUTPUT, dropped_tsv_bytes(resident.dropped))
+        written.append(RESIDENT_DROPPED_OUTPUT)
+    if annotations is not None:
+        write_bytes(output / ANNOTATIONS_OUTPUT, call_annotations_tsv_bytes(annotations))
         written.append(ANNOTATIONS_OUTPUT)
     record = {
         "sample_id": sample_id,
@@ -928,8 +963,9 @@ def _refine_breakpoints(args: argparse.Namespace) -> None:
         "depth_cap": args.depth_cap,
         "seconds": round(time.time() - started, 1),
         **refinement_summary(rows),
-        **({"pinned_calls": len(result.pins)} if result.pins is not None else {}),
-        **({"annotated_calls": len(result.annotations)} if result.annotations is not None else {}),
+        **({"pinned_calls": len(pins)} if pins is not None else {}),
+        **({"annotated_calls": len(annotations)} if annotations is not None else {}),
+        **({RESIDENT_SUMMARY_KEY: resident_filter.summary(resident)} if resident is not None else {}),
         "output_hashes": {name: hash_file(output / name) for name in written},
     }
     write_run_summary(output / "refinement_summary.json", record)
@@ -1037,6 +1073,17 @@ def _library_free(args: argparse.Namespace) -> None:
         msbwt_index = sample.root / str(sample.backend_profile.get("index_directory", "index"))
     if msbwt_index is None and args.detection_dir is None:
         raise InputContractError("library-free detection requires --msbwt-index or --sample-assets (or --detection-dir)")
+    resident_filter = None
+    if not args.keep_resident_copies:
+        if args.te_assets is not None:
+            resident_filter = _own_family_copy_filter(reference, load_prepared_te_assets(_resolved_cli_path(args.te_assets)))
+        else:
+            native_path = _resolved_cli_path(args.run_dir) / "calls.native.tsv"
+            if native_path.is_file() and len(native_path.read_bytes().splitlines()) > 1:
+                raise InputContractError(
+                    "the run has library calls: pass --te-assets (the family map of the own-family reference copy filter) "
+                    "or --keep-resident-copies"
+                )
     started = time.time()
     from .library_free.options import from_args as _lf_options
 
@@ -1064,6 +1111,7 @@ def _library_free(args: argparse.Namespace) -> None:
         repeat_annotation=_resolved_cli_path(Path(args.repeat_annotation)) if args.repeat_annotation else None,
         repeat_map=_resolved_cli_path(Path(args.repeat_map)) if args.repeat_map else None,
         mito_contig=args.mito_contig,
+        resident_filter=resident_filter,
     )
 
 
@@ -1107,6 +1155,15 @@ def _call_tiers(args: argparse.Namespace) -> None:
         "input_hashes": {name: hash_file(path) for name, path in inputs.items()},
         "output_hashes": {"call_tiers.tsv": hash_file(output / "call_tiers.tsv")},
     })
+
+
+def _own_family_copy_filter(reference, te):
+    """Return the in-run own-family copy filter of prepared reference and TE assets (BED6 annotation, family map)."""
+
+    from .resident_filter import OwnFamilyCopyFilter
+
+    return OwnFamilyCopyFilter(reference.repeat_annotation_path, te.source_path("family_map"),
+                               tuple(name for name, _ in reference.contigs))
 
 
 def _resident_family_map_path(args: argparse.Namespace) -> Path:
@@ -1182,6 +1239,7 @@ def _call(
     if call_engine is None:
         call_engine = _default_engine_with_progress(config)
     assets = prepare_assets(config)
+    resident_filter = None if args.keep_resident_copies else _own_family_copy_filter(assets.reference, assets.te)
     if config.runtime.primary_contigs is not None:
         check_contig_names(config.runtime.primary_contigs, dict(assets.reference.contigs), "--primary-contigs")
     input_assets = {}
@@ -1243,6 +1301,7 @@ def _call(
         manifest_context=context,
         sample_builder=sample_builder,
         breakpoint_refiner=refiner,
+        resident_filter=resident_filter,
     )
 
 
