@@ -32,6 +32,8 @@ The remaining steps without a library::
     records/lib/, records/assets_te/   build-family-records (family flag rule 'kept', record guard with the map), prepare-te
     record_pass/call/   call on the record assets       record_pass/added/   add-record-calls
 
+With a library, `call` and the library-free layer leave the calls inside a reference copy of their own family out of the final
+call tables (``--keep-resident-copies`` keeps them); the record pass and the rest of the run without a library are unchanged.
 The final calls are ``call/`` (with a library), ``library_free/calls.combined.tsv`` (with ``--library-free``) and
 ``record_pass/added/calls.combined.tsv`` (without a library).
 """
@@ -51,6 +53,8 @@ __all__ = ["add_arguments", "library_steps", "no_library_steps", "run", "write_s
 
 # the switch of the family-identity filter, as the Slurm runs pass it
 FAMILY_IDENTITY_FILTER = "--rule-c"
+# the record pass keeps every call: its record names never match an annotation name, so the own-family copy filter is not applied
+KEEP_RESIDENT_COPIES = "--keep-resident-copies"
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -70,6 +74,10 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--library-free", action="store_true", help="with a library: also run the library-free layer")
     parser.add_argument("--contigs", help="contigs of the library-free layer and the repeat map (default: the primary chromosomes "
                         "and the contigs >= 1 Mb)")
+    parser.add_argument("--keep-resident-copies", action="store_true",
+                        help="with a library: keep the calls inside a reference copy of their own TE family (default: `call` and "
+                        "the library-free layer leave them out of the final call tables and list them in "
+                        "resident_copy_dropped.tsv); no effect with --no-library")
     parser.add_argument("--threads", type=int, default=0)
     parser.add_argument("--workers", type=int)
     for name in ("--read-length", "--fragment-q95", "--fragment-q99", "--primary-contigs"):
@@ -97,6 +105,10 @@ def _common_steps(args: argparse.Namespace, out: Path, sample_id: str) -> list[t
     ]
 
 
+def _keep_resident(args: argparse.Namespace) -> list[str]:
+    return ["--keep-resident-copies"] if args.keep_resident_copies else []
+
+
 def _contigs(args: argparse.Namespace) -> list[str]:
     return ["--contigs", args.contigs] if args.contigs else []
 
@@ -110,13 +122,13 @@ def library_steps(args: argparse.Namespace, out: Path, sample_id: str) -> list[t
         sample,
         ("call", ["call", "--sample-assets", str(out / "sample"), "--reference-assets", str(out / "reference"),
                   "--te-assets", str(out / "te"), "--output", str(out / "call"), "--work-dir", str(out / "work" / "call"),
-                  *_call_options(args)]),
+                  *_call_options(args), *_keep_resident(args)]),
     ]
     if args.library_free:
         steps.append(("library_free", [
             "library-free", "--run-dir", str(out / "call"), "--sample-assets", str(out / "sample"), "--reference-assets",
             str(out / "reference"), "--output", str(out / "library_free"), "--work-dir", str(out / "work" / "library_free"),
-            *_contigs(args)]))
+            *(_keep_resident(args) or ["--te-assets", str(out / "te")]), *_contigs(args)]))
     return steps
 
 
@@ -150,7 +162,8 @@ def no_library_steps(args: argparse.Namespace, out: Path, sample_id: str) -> lis
                         "--output", str(records / "assets_te")]),
         ("record_pass_call", ["call", "--sample-assets", str(out / "sample"), "--reference-assets", str(out / "reference"),
                               "--te-assets", str(records / "assets_te"), "--output", str(out / "record_pass" / "call"),
-                              "--work-dir", str(out / "work" / "record_pass"), *_call_options(args)]),
+                              "--work-dir", str(out / "work" / "record_pass"), *_call_options(args),
+                              KEEP_RESIDENT_COPIES]),
         ("record_pass_added", ["add-record-calls", "--calls", str(out / "record_pass" / "call" / "calls.native.tsv"),
                                "--base-calls", str(out / "library_free" / "calls.combined.tsv"), "--records",
                                str(records / "lib"), "--output", str(out / "record_pass" / "added")]),

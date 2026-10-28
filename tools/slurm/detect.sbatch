@@ -13,6 +13,8 @@
 #   NOLIB=1     run without a library: the library layer's calls are an empty table (a stub of the sample's library run, kept under
 #               $EVITEA_OUT/nolib/<DS>_stub); the one-site check then takes its tolerance from the layer's own two-sided calls
 #   REPEAT_MAP  the repeat map (build-repeat-map output, repeat_map.bed): the resident-copy test reads it when the library layer made no call
+#   TE_ASSETS   prepared TE assets of the library run (--te-assets): calls.combined.* leave out the library calls inside a reference copy of
+#               their own family; required when the run has library calls, unless OPTS holds --keep-resident-copies
 #SBATCH --job-name=evitea_detect
 #SBATCH --partition=small
 #SBATCH --cpus-per-task=2
@@ -50,6 +52,9 @@ EXTRA=""
 [ -n "${DET:-}" ] && EXTRA="$EXTRA --detection-dir $DET"
 [ -n "${DEPTHCAP:-}" ] && EXTRA="$EXTRA --depth-cap $DEPTHCAP"
 [ -n "${REPEAT_MAP:-}" ] && EXTRA="$EXTRA --repeat-map $REPEAT_MAP"
+# a run with library calls: TE_ASSETS (prepared TE assets) applies the own-family reference copy filter to calls.combined.*;
+# pass --keep-resident-copies in OPTS instead to keep those calls
+[ -n "${TE_ASSETS:-}" ] && EXTRA="$EXTRA --te-assets $TE_ASSETS"
 $PY -m evitea library-free --run-dir "$RUN" --msbwt-index "$IDX" --reference-assets "$ASSETS" --output "$OUT/library_free" \
     --work-dir "$WORKDIR" --contigs "$CONTIGS" $FAMILY_IDENTITY_FILTER ${OPTS:-} $EXTRA
 echo "wall_seconds $(( $(date +%s) - START ))"

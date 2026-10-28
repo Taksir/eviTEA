@@ -259,7 +259,7 @@ def test_cli_raw_build(
         return _state()
 
     result = cli._call(
-        SimpleNamespace(command_line=("evitea", "call"), depth_cap="none"),
+        SimpleNamespace(command_line=("evitea", "call"), depth_cap="none", keep_resident_copies=True),
         engine,
         _raw_sample_builder(builder_calls),
     )

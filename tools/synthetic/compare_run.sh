@@ -31,7 +31,7 @@ S=$WORK/sep_lib
 [ -d "$S/call" ] || ev call --sample-assets "$S/sample" --reference-assets "$S/reference" --te-assets "$S/te" --output "$S/call" \
   --work-dir "$S/work/call" --threads 4 --workers 2 2> "$S.call.log"
 [ -d "$S/library_free" ] || ev library-free --run-dir "$S/call" --sample-assets "$S/sample" --reference-assets "$S/reference" \
-  --output "$S/library_free" --work-dir "$S/work/library_free" --contigs "$C" 2> "$S.lf.log"
+  --output "$S/library_free" --work-dir "$S/work/library_free" --contigs "$C" --te-assets "$S/te" 2> "$S.lf.log"
 
 # without a library
 ev run "${COMMON[@]}" --no-library --contigs "$C" --output "$WORK/run_nolib" 2> "$WORK/run_nolib.log"
@@ -63,9 +63,9 @@ same() {  # same <A> <B> <relative files...>
     if cmp -s "$a/$f" "$b/$f"; then echo "SAME $f"; else echo "DIFF $f"; fail=1; fi
   done
 }
-CALL_FILES=(calls.native.tsv calls.tsv calls.bed calls.vcf unresolved.tsv run_summary.json run.log)
+CALL_FILES=(calls.native.tsv calls.tsv calls.bed calls.vcf unresolved.tsv resident_copy_dropped.tsv run_summary.json run.log)
 LF_FILES=(library_free_places.tsv library_free_segments.fa library_free_second_places.tsv library_free_second_segments.fa
-          library_free_family_calls.tsv calls.library_free.tsv calls.combined.tsv calls.combined.vcf)
+          library_free_family_calls.tsv calls.library_free.tsv calls.combined.tsv calls.combined.vcf resident_copy_dropped.tsv)
 same "$WORK/run_lib/call" "$S/call" "${CALL_FILES[@]}"
 same "$WORK/run_lib/library_free" "$S/library_free" "${LF_FILES[@]}"
 same "$WORK/run_lib/te/languages" "$S/te/languages" $(cd "$S/te/languages" && ls *.tsv)

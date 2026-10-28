@@ -23,6 +23,7 @@ from ..contigs import MITO_CONTIG_NAMES, default_primary_contigs, find_mito_cont
 from .. import vcf as V
 from ..errors import InputContractError, OperationalResourceError
 from ..outputs import write_bytes, write_run_summary
+from ..resident_filter import RESIDENT_DROPPED_OUTPUT, RESIDENT_SUMMARY_KEY, dropped_tsv_bytes
 from ..shadow_layers import ShadowCallset
 from . import NEAR_EVITEA_BP, RULE_C_MAX, T_E
 from .options import Options
@@ -306,7 +307,11 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
                      command_line: Sequence[str] = (), source_identity: dict | None = None,
                      progress: Callable[[str], None] | None = None, options: Options | None = None,
                      repeat_annotation: Path | None = None, repeat_map: Path | None = None,
-                     mito_contig: str | None = None) -> dict:
+                     mito_contig: str | None = None, resident_filter=None) -> dict:
+    """``resident_filter`` (``resident_filter.OwnFamilyCopyFilter``): drop the library calls inside a reference copy of their own
+    family from ``calls.combined.tsv`` and ``calls.combined.vcf`` only.  Detection and assembly read the unfiltered
+    ``calls.native.tsv`` of ``run_dir``, so the family calls and the added calls do not depend on it; ``None``: no filter."""
+
     from ..breakpoints.runtime import read_fasta
     from ..pipeline import prepare_output_directory
 
@@ -351,7 +356,8 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
                                                       else f"the library layer made {len(native_rows)} calls"))
     common = dict(native=native, native_rows=native_rows, sample_id=sample_id, reference=reference, genome=genome, copies=copies,
                   genome_bp=genome_bp, rule_c=rule_c, run_dir=run_dir, command_line=command_line, source_identity=source_identity,
-                  repeat_map=repeat_map, repeat_annotation=repeat_annotation, say=say, started=started)
+                  repeat_map=repeat_map, repeat_annotation=repeat_annotation, say=say, started=started,
+                  resident_filter=resident_filter)
     views = [(output, tables["first"], opts, info)]
     if "merge_first" in tables:
         merge_dir = output / MERGE_VIEW
@@ -382,7 +388,7 @@ def _merge_view_info(info: dict) -> dict:
 
 def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options, info: dict, *, native, native_rows, sample_id,
                         reference, genome, copies, genome_bp, rule_c, run_dir, command_line, source_identity, repeat_map,
-                        repeat_annotation, say, started) -> dict:
+                        repeat_annotation, say, started, resident_filter=None) -> dict:
     """Family calls of one set of rules from the detection tables, and the files of ``library-free`` in ``output``."""
     from . import assemble as AS
     from . import calling as CL
@@ -405,10 +411,17 @@ def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options
     added = AS.added_calls_tsv_bytes(rows)
     write_bytes(output / FAMILY_CALLS, AS.family_calls_tsv_bytes(rows, extended=extended))
     write_bytes(output / ADDED, added)
-    write_bytes(output / COMBINED, combined_calls_tsv_bytes(native, added))
-    write_bytes(output / V.COMBINED_VCF_OUTPUT, combined_calls_vcf_bytes(native, added, reference, sample_id))
+    shown, resident = native, None
+    if resident_filter is not None:  # final output only: `native` (the full table) is what the assembly above read
+        resident = resident_filter(native)
+        shown = resident.filtered
+        write_bytes(output / RESIDENT_DROPPED_OUTPUT, dropped_tsv_bytes(resident.dropped))
+    write_bytes(output / COMBINED, combined_calls_tsv_bytes(shown, added))
+    write_bytes(output / V.COMBINED_VCF_OUTPUT, combined_calls_vcf_bytes(shown, added, reference, sample_id))
     statuses = Tally(r.status for r in rows)
     names = [PLACES, SEGMENTS, FAMILY_CALLS, ADDED, COMBINED, V.COMBINED_VCF_OUTPUT] + ([SECOND_PLACES, SECOND_SEGMENTS] if second is not None else [])
+    if resident is not None:
+        names.append(RESIDENT_DROPPED_OUTPUT)
     summary = {
         "sample_id": sample_id,
         "source_run": str(run_dir),
@@ -429,6 +442,8 @@ def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options
         "peak_rss_gb": _peak_rss_gb(),
         "output_hashes": {name: _sha256(output / name) for name in names},
     }
+    if resident is not None:
+        summary[RESIDENT_SUMMARY_KEY] = resident_filter.summary(resident)
     if repeat_map is not None:
         summary["repeat_map"] = {"path": str(repeat_map), "used": repeat_annotation is None and not native_rows and copies is not None,
                                  "library_calls": len(native_rows)}

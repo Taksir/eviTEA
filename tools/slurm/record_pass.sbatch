@@ -20,7 +20,7 @@ OUT=$EVITEA_OUT/record_pass/${DS}_${SLURM_JOB_ID}
 mkdir -p "$OUT"
 mapfile -d '' ARGS < <($PY "$EVITEA_CODE/tools/slurm/call_args.py" "$RUN/run_manifest.json" "$REC/assets_te" "$OUT/call" "$OUT/work")
 echo "host $(hostname) $(date -u +%FT%TZ) id=${SLURM_JOB_ID:-} DS=$DS records=$REC base=$BASE"
-$PY -m evitea call "${ARGS[@]}"
+$PY -m evitea call "${ARGS[@]}" --keep-resident-copies   # the record names never match an annotation name: no own-family copy filter
 $PY -m evitea add-record-calls --calls "$OUT/call/calls.native.tsv" --base-calls "$BASE/library_free/calls.combined.tsv" \
     --records "$REC/lib" --output "$OUT/added"
 ( cd "$OUT" && find . -type f -not -path './work/*' -print0 | sort -z | xargs -0 sha256sum > "$OUT/OUTPUT_SHA256.txt" )

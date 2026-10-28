@@ -8,7 +8,8 @@
 contig<TAB>start (0-based)<TAB>end<TAB>TE record<TAB>score<TAB>strand (+, - or .)
 ```
 
-`call` requires it. It tells the library layer which reference places are old copies of a TE family. The contig names must be
+`call` requires it. It tells the library layer which reference places are old copies of a TE family. It also gives the copies of
+the own-family copy filter (below). The contig names must be
 those of the reference FASTA, and the name column must name the TE record (the first word of the TE library's FASTA header;
 a FlyBase id such as `FBte0000001` anywhere in the name also works). A name such as `L1MdA_I#LINE/L1` is read as the
 record `L1MdA_I`.
@@ -30,6 +31,25 @@ masker, write the same six columns.
 
 The library-free layer (`library-free --repeat-annotation`) and `filter-resident-copies` read the RepeatMasker `.out` table
 directly as well.
+
+### The own-family copy filter
+
+A run with a TE library drops, from its final call tables, every call whose `[start, end]` touches or overlaps (gap 0) a
+reference copy of the call's own TE family. The copies are the lines of this annotation: contig, 0-based start, end and the
+record in the name column, which the TE family map turns into the family (the same copies as `.out` lines give: `.out` begin
+minus 1 is the BED start). The BED score is not read (the copy's divergence is taken as 0). A call whose family the map does not
+list is kept and counted as `unmapped_family`. Library-free calls (`event_id` starting `LF_`) are not judged.
+
+- `call` writes `calls.tsv`, `calls.bed` and `calls.vcf` without the dropped calls, and `resident_copy_dropped.tsv` with them.
+  `calls.native.tsv` is the full table, before the filter.
+- `library-free` reads that full `calls.native.tsv` (its "no library call within 500 bp" test and its added calls do not depend on
+  the filter) and writes `calls.combined.tsv` and `calls.combined.vcf` without the dropped calls, and `resident_copy_dropped.tsv`.
+  It needs `--te-assets` for the family map when the run has library calls. `evitea run` passes it.
+- `--keep-resident-copies` (`call`, `library-free`, `refine-breakpoints`, `run`) turns the filter off: every output is then the one
+  of a run without it.
+- `evitea filter-resident-copies` applies the same rule to a finished table with a RepeatMasker `.out`, for tables of runs made
+  without the filter.
+- `run --no-library` never applies it: its records are named by the run, so they never match an annotation name.
 
 ## Runs without a TE library
 

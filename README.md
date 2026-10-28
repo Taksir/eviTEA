@@ -150,16 +150,27 @@ reference and the reads: without `--repeat-annotation`, the repeat map is also t
 
 | File | Content |
 |---|---|
-| `calls.native.tsv` | the call set in the native 15-column schema (the scientific result) |
-| `calls.tsv` | one row per call, genomic order, with `call_origin` and supporting pair IDs |
-| `calls.bed` | BED view of the calls |
-| `calls.vcf` | VCF 4.2 view of the calls (symbolic `<INS:ME:family>` alleles, sites only) |
+| `calls.native.tsv` | the full library call set in the native 15-column schema, before the own-family copy filter (below); what `library-free` and `call-tiers` read |
+| `calls.tsv` | one row per call, genomic order, with `call_origin` and supporting pair IDs; without the calls the own-family copy filter dropped |
+| `calls.bed` | BED view of the calls of `calls.tsv` |
+| `calls.vcf` | VCF 4.2 view of the calls of `calls.tsv` (symbolic `<INS:ME:family>` alleles, sites only) |
+| `resident_copy_dropped.tsv` | the calls the own-family copy filter dropped, each with the reference copy that decided it |
 | `unresolved.tsv` | events not reported as calls |
 | `run_summary.json` | counts per origin and hashes after every layer |
 | `run.log`, `run_manifest.json` | provenance: the manifest hashes every other output and records the values taken from the sample (`values.run_parameters`) |
 
-`library-free` adds `calls.library_free.tsv`, `calls.combined.tsv` and `calls.combined.vcf`. Completed output directories
-are never overwritten.
+`library-free` adds `calls.library_free.tsv`, `calls.combined.tsv` and `calls.combined.vcf` (and its own
+`resident_copy_dropped.tsv`). Completed output directories are never overwritten.
+
+**Own-family copy filter.** A call made with a TE library is dropped from the final call tables (`calls.tsv`, `calls.bed`,
+`calls.vcf`, and `library-free`'s `calls.combined.tsv` and `calls.combined.vcf`) when its `[start, end]` touches or overlaps a
+reference copy of the call's own family (the reference's BED6 repeat annotation, named through the TE family map; see
+[docs/REPEAT_ANNOTATION.md](docs/REPEAT_ANNOTATION.md)). Library-free calls are never judged. The filter is applied at the final output only:
+`calls.native.tsv` stays complete, and the library-free layer reads it, so its added calls do not depend on the filter. The dropped
+calls are in `resident_copy_dropped.tsv`; the counts are in `run_summary.json` (`resident_copy_filter`; `library_free_summary.json` for
+`library-free`). `--keep-resident-copies` (`call`, `library-free`, `refine-breakpoints`, `run`) turns the filter off and gives the
+outputs of a run without it. `library-free` on a run with library calls needs `--te-assets` (the family map) or `--keep-resident-copies`.
+`run --no-library` never applies the filter.
 
 ## Profiles
 
