@@ -18,6 +18,9 @@ P1  scan_contig_tiled equals scan_contig_passes by value (every place, field, th
 P2  the counter, tile and chunk sizes and the worker count change nothing else: workers 1 is scan_contig_passes itself; a worker error is raised.
 W1  whole runs (rt_driver.py): workers 1 and 3 with both counters, on the exact-table index and on a real index, write every output file of both
     views byte for byte the same; the run summary is equal after taking out the timings and its speed entry.
+W4  against the version without these files (FINAL_SRC = its src folder, for example a checkout of the build to keep calls identical with; skipped
+    without it): its run and the new code's runs (fresh scan with 3 workers and the fast counter; reuse of its pieces; its reuse of the new
+    pieces) write the same output files, and the saved pieces are equal by value.
 W2  saved pieces are shared: pieces written by one setting are reused (no scan, EVITEA_PIECES_READONLY set) by every other setting, both ways.
 S1  command line: library-free reads --workers, --counter and --reference-cache; `evitea run` gives the library-free step --workers from --threads;
     detect.sbatch gives the options (not to the previous version).
@@ -422,7 +425,12 @@ def tile_checks():
 
 # ---------------------------------------------------------------- whole runs
 def driver(out, extra=(), sample_args=("--het",), env=None, seed=7):
-    e = dict(os.environ, PYTHONPATH=str(ROOT / "src"))
+    return driver_at(str(ROOT / "src"), out, extra, sample_args, env, seed)
+
+
+def driver_at(src, out, extra=(), sample_args=("--het",), env=None, seed=7):
+    """rt_driver.py with the package of the src folder ``src`` on the path."""
+    e = dict(os.environ, PYTHONPATH=str(src))
     e.update(env or {})
     return subprocess.run([sys.executable, "-B", str(HERE / "rt_driver.py"), str(out), str(seed), "{}", "--small", *sample_args, *extra], env=e,
                           capture_output=True, text=True)
@@ -533,6 +541,31 @@ def run_checks():
     check("W3 compare_scan: a changed output file is DIFFERENT", [g[0] for g in got if g[1] == "DIFFERENT"] == ["calls.combined.tsv"], got)
 
 
+def final_src_checks():
+    final = os.environ.get("FINAL_SRC")
+    if not final:
+        print("SKIP W4 (FINAL_SRC not set)")
+        return
+    import compare_scan as CS
+    idx = TMP / "idx_w4"
+    w1, w2 = TMP / "w4_work_old", TMP / "w4_work_new"
+    common = ["--index-dir", str(idx)]
+    old = driver_at(final, TMP / "w4_old", common + ["--work-dir", str(w1)])
+    reuse = driver_at(str(ROOT / "src"), TMP / "w4_new_reuse", common + ["--work-dir", str(w1), "--workers", "3", "--counter", "fast"],
+                      env={"EVITEA_PIECES_READONLY": "1"})
+    fresh = driver_at(str(ROOT / "src"), TMP / "w4_new_fresh", common + ["--work-dir", str(w2), "--workers", "3", "--counter", "fast",
+                                                                    "--reference-cache", str(TMP / "w4_cache")])
+    back = driver_at(final, TMP / "w4_old_reuse", common + ["--work-dir", str(w2)], env={"EVITEA_PIECES_READONLY": "1"})
+    check("W4 the four runs finish (the new code reuses the old pieces without a scan, the old code reuses the new ones)",
+          all(r.returncode == 0 for r in (old, reuse, fresh, back)), [r.stderr[-300:] for r in (old, reuse, fresh, back)])
+    for name in ("w4_new_reuse", "w4_new_fresh", "w4_old_reuse"):
+        got = CS.compare_outputs(TMP / "w4_old", TMP / name)
+        check(f"W4 {name}: all {len(got)} output files equal those of the final build's run", got and all(s == "EQUAL" for _, s, _ in got) and len(got) > 16,
+              [g for g in got if g[1] != "EQUAL"])
+    got = CS.compare_pieces(w1, w2)
+    check("W4 the piece the final build wrote and the piece of the new code are EQUAL by value", got and all(s == "EQUAL" for _, s, _ in got), got)
+
+
 def command_line_checks():
     import argparse
     from evitea import cli, run_command
@@ -588,8 +621,8 @@ def hash_check():
 
 
 if __name__ == "__main__":
-    sections = sys.argv[1:] or ["counter", "ref", "tiles", "runs", "cli", "hash"]
-    for name, fn in (("counter", counter_checks), ("ref", refcache_checks), ("tiles", tile_checks), ("runs", run_checks), ("cli", command_line_checks),
+    sections = sys.argv[1:] or ["counter", "ref", "tiles", "runs", "final", "cli", "hash"]
+    for name, fn in (("counter", counter_checks), ("ref", refcache_checks), ("tiles", tile_checks), ("runs", run_checks), ("final", final_src_checks), ("cli", command_line_checks),
                      ("hash", hash_check)):
         if name in sections:
             print(f"== {name}", flush=True)
