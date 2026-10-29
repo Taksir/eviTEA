@@ -10,7 +10,7 @@ check scope   none           a call with reference-path fraction e >= T_E is dro
               unconfirmed    every library-free call the library layer does not make (no EviTEA call within 500 bp) must pass the
                              one-site check, and e <= REFERENCE_PATH_CEILING. e stays in the output as the allele-share column.
 Calls are judged in this order: DROPPED_V2 (reference-path filter: e above REFERENCE_PATH_CEILING, or e >= T_E with scope none),
-DROPPED_RULE_C (family-identity filter), NEAR_EVITEA, DROPPED_CHECK, DROPPED_RESIDENT_COPY, ADDED.
+DROPPED_RULE_C (family-identity filter), NEAR_EVITEA, DROPPED_CHECK, DROPPED_RESIDENT_COPY, DROPPED_SINGLE_COPY, ADDED.
 
 Haplotype scan. Its family calls are judged on their own grouping. They join the first pass only where the first pass has no family call
 (of any status) within 500 bp (MERGE_D), and only if they show reads of both alleles (T_E <= e <= REFERENCE_PATH_CEILING) and pass the
@@ -19,7 +19,10 @@ The family-identity filter for them is decided on trusted members: the places of
 call or that pass the check with T_E <= e <= REFERENCE_PATH_CEILING. These places are grouped again among themselves. The family rule
 and the family-identity filter are applied to those clusters. A call that the family-identity filter dropped in its own grouping is
 kept when this second decision keeps it. Status of such a call: NOT_HET (no allele-share evidence: left to the first pass),
-DROPPED_V2, NEAR_FIRST_PASS, DROPPED_CHECK, DROPPED_RULE_C, NEAR_EVITEA, DROPPED_RESIDENT_COPY, ADDED.
+DROPPED_V2, NEAR_FIRST_PASS, DROPPED_CHECK, DROPPED_RULE_C, NEAR_EVITEA, DROPPED_RESIDENT_COPY, DROPPED_SINGLE_COPY, ADDED.
+
+Single-copy contigs (``single_copy.py``): on a contig the sample carries in one copy, a call that would be added is
+DROPPED_SINGLE_COPY when it is a haplotype-scan call or a first-pass call with e above HOM_MAX.
 """
 
 from __future__ import annotations
@@ -238,10 +241,11 @@ def _trusted_identity_filter(second: _Pass, trusted: list[int], priority: bool, 
 
 
 def assemble(first, second, index: CL.CallIndex, opts: Options, *, identity_filter: bool, reference=None, copies=None, genome_bp: int = 0,
-             aligner: Callable | None = None):
+             aligner: Callable | None = None, single_copy=None):
     """(rows, summary). ``first`` / ``second`` = (places rows, segments dict) of each pass (``second`` None without a haplotype
     scan); ``reference`` = dict contig -> sequence (needed for the check); ``copies`` = ``resident.CopyIndex`` (None: no
-    resident-copy test); ``genome_bp`` = bases of the reference (the TE share's denominator)."""
+    resident-copy test); ``genome_bp`` = bases of the reference (the TE share's denominator); ``single_copy`` =
+    ``single_copy.Decision`` (None: no single-copy rule)."""
     scope = opts.check_scope
     if second is not None and scope == "none":
         raise InputContractError("the haplotype scan joins calls through the one-site check; use --check-scope path-dropped or "
@@ -322,6 +326,21 @@ def assemble(first, second, index: CL.CallIndex, opts: Options, *, identity_filt
                     st[i] = "DROPPED_RESIDENT_COPY"
     elif opts.resident_guard != "off":
         summary["resident_guard"] = "off: no repeat annotation"
+    # single-copy contigs, on the calls that would be added
+    if single_copy is not None:
+        from . import single_copy as SC
+
+        passes = [(pa, st) for pa, st in ((F, status), (H, hstatus)) if pa is not None]
+        flagged, info = single_copy.decide([(F.places[i]["chrom"], F.e[i]) for i in F.calls if status[i] == "NEAR_EVITEA"],
+                                           {pa.places[i]["chrom"] for pa, _st in passes for i in pa.calls})
+        if flagged:
+            for pa, st in passes:
+                for i in pa.calls:
+                    if st[i] == "ADDED" and pa.places[i]["chrom"] in flagged and SC.dropped(pa.scan, pa.e[i]):
+                        st[i] = SC.DROPPED
+            info.update(SC.report(((pa.scan, pa.places[i]["cluster"], pa.places[i]["chrom"], st[i], pa.e[i])
+                                   for pa, st in passes for i in pa.calls), flagged))
+        summary["single_copy"] = info
     rows = []
     for pa, st in ((F, status), (H, hstatus)):
         if pa is None:

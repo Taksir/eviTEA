@@ -380,6 +380,12 @@ def build_parser() -> argparse.ArgumentParser:
                     help="set aside the places whose inserted segment holds a sequencing-adapter core (TruSeq or Nextera, also "
                     "with the junction up to 4 letters inside the adapter) before the grouping, so they form no family "
                     "(default on; not run with --detection-dir, whose grouping stands)")
+    lf.add_argument("--single-copy-contigs", default="auto", metavar="auto|all|none|LIST",
+                    help="contigs the sample carries in one copy (the X and Y of a male, every contig of a haploid genome): there "
+                    "a library-free call that would be added is dropped when it comes from the haplotype scan or has the "
+                    "heterozygous genotype (reference-path fraction above 0.15). auto: contigs at no more than 0.625 of the "
+                    "genome depth whose library-confirmed calls (at least 10) are at most 25%% heterozygous; all: every contig; "
+                    "none: off; or comma-separated contig names (default auto)")
     lf.add_argument("--te-assets", type=Path,
                     help="prepared TE assets of the library run (the TE record to family map): calls.combined.tsv and "
                     "calls.combined.vcf then leave out the library calls inside a reference copy of their own family "
@@ -1090,9 +1096,11 @@ def _library_free(args: argparse.Namespace) -> None:
                 )
     started = time.time()
     from .library_free.options import from_args as _lf_options
+    from .library_free.single_copy import Choice as _single_copy
 
     try:
         options = _lf_options(args)
+        single_copy = _single_copy.parse(args.single_copy_contigs)
     except ValueError as exc:
         raise InputContractError(str(exc)) from exc
 
@@ -1117,6 +1125,7 @@ def _library_free(args: argparse.Namespace) -> None:
         mito_contig=args.mito_contig,
         resident_filter=resident_filter,
         adapter_test=args.adapter_test == "on",
+        single_copy=single_copy,
     )
 
 

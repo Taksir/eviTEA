@@ -18,6 +18,9 @@ U10 the cross-species rules on the cross sample (synth_cross.py): each rule turn
     depth, repeat cutoff, poly-A tails, recurring sequence), the low-coverage block and the local copy stay out, the anchor's own
     share keeps the cutoff at REP_MAX, the places table names the rule, and a run from the saved tables gives both views' calls.
 U11 the repeat cutoff from window counts, and the command line of the cross-species switches.
+U12 single-copy contigs: the default (auto) measures the contig depth once (copy_profile.json in the work directory, reused) and
+    flags nothing without library calls; none gives the same call tables; naming the contig changes only added calls (haplotype-scan
+    calls and first-pass calls with e above HOM_MAX) to DROPPED_SINGLE_COPY, and the merge view takes the main view's contigs.
 """
 import hashlib
 import json
@@ -113,6 +116,38 @@ def main():
     r4 = run(dd, ROOT / "src", base, ["--het", "--detection-dir", str(d0)])
     check("U4 run from saved tables", r4.returncode == 0, r4.stderr[-400:])
     check("U4 same family calls as the run that wrote the tables", sha(dd / "library_free_family_calls.tsv") == sha(d0 / "library_free_family_calls.tsv"))
+
+    # U12
+    def fam_rows(d):
+        lines = (d / "library_free_family_calls.tsv").read_text().splitlines()
+        head = lines[0].split("\t")
+        return [dict(zip(head, x.split("\t"))) for x in lines[1:]]
+    tables = ("library_free_family_calls.tsv", "calls.library_free.tsv", "calls.combined.tsv")
+    sc0 = summ["assembly"].get("single_copy", {})
+    prof = t / "d0_work" / "copy_profile.json"
+    check("U12 auto by default: profile measured and kept, nothing flagged without library calls",
+          sc0.get("mode") == "auto" and sc0.get("flagged") == [] and prof.is_file()
+          and abs((sc0.get("contigs", {}).get("chrS", {}).get("ratio") or 0) - 1) < 0.01, sc0)
+    pm = prof.stat().st_mtime_ns
+    u_none, u_auto, u_list = t / "u_none", t / "u_auto", t / "u_list"
+    runs = {d: subprocess.run([sys.executable, "-B", str(drv_path), str(d), "7", base, "--het", "--single-copy", mode],
+                              env=dict(env, EVITEA_PIECES_READONLY="1"), capture_output=True, text=True)
+            for d, mode in ((u_none, "none"), (u_auto, "auto"), (u_list, "chrS"))}
+    check("U12 none / auto / named contig run from the saved pieces", all(x.returncode == 0 for x in runs.values()),
+          [x.stderr[-300:] for x in runs.values()])
+    check("U12 none and a second auto run give the call tables of the default run",
+          all(sha(u / n) == sha(d0 / n) for u in (u_none, u_auto) for n in tables))
+    check("U12 the profile is reused", prof.stat().st_mtime_ns == pm)
+    a, b = fam_rows(d0), fam_rows(u_list)
+    changed = [(x, y) for x, y in zip(a, b) if x != y]
+    only = all({k for k in x if x[k] != y[k]} == {"status"} and x["status"] == "ADDED" and y["status"] == "DROPPED_SINGLE_COPY"
+               and (x["scan"] == "second" or float(x["e"] or "nan") > 0.15) for x, y in changed)
+    missed = [x for x in a if x["status"] == "ADDED" and (x["scan"] == "second" or float(x["e"] or "nan") > 0.15)]
+    check("U12 a named contig turns exactly its heterozygous-looking added calls into DROPPED_SINGLE_COPY",
+          len(a) == len(b) and only and len(changed) == len(missed) > 0, (len(changed), len(missed)))
+    ms = json.loads((u_list / "merge_view" / "library_free_summary.json").read_text())["assembly"].get("single_copy", {}) \
+        if (u_list / "merge_view").is_dir() else {"flagged": ["chrS"], "source": "main view"}
+    check("U12 the merge view takes the main view's contigs", ms.get("flagged") == ["chrS"] and ms.get("source") == "main view", ms)
 
     sys.path.insert(0, str(ROOT / "src"))
     from evitea import cli

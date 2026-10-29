@@ -7,8 +7,9 @@ adapter test (``adapter.py``) sets aside places whose segments hold a
 sequencing-adapter core; it reads the places only, so saved scan pieces are
 reused with it on or off. The family-call layer reads the written places and
 segments tables, so a detection can be reused with ``--detection-dir`` (its
-grouping, and so its adapter test, stands as it was). The source run directory
-is only read.
+grouping, and so its adapter test, stands as it was). The single-copy rule
+(``single_copy.py``) acts on the family calls; its contig depth profile is kept
+in the work directory with its identity. The source run directory is only read.
 """
 
 from __future__ import annotations
@@ -48,6 +49,8 @@ PIECE_SCHEMA = "evitea.library_free.piece.v2"
 CODE_FILES = ("_p4_lib.py", "detector.py", "place.py", "scan.py", "walks.py", "extension.py", "priority.py", "options.py", "cross.py")
 MERGE_VIEW = "merge_view"
 REPEAT_PROFILE = "repeat_profile.json"
+COPY_PROFILE = "copy_profile.json"
+COPY_SCHEMA = "evitea.library_free.copy_profile.v1"
 
 
 def default_contigs(lengths: Mapping[str, int]) -> tuple[str, ...]:
@@ -329,17 +332,64 @@ def _load_copies(opts: Options, reference, repeat_annotation, genome, progress, 
     return copies, sum(len(v) for v in genome.values())
 
 
+def _single_copy(choice, genome: dict, reference_fasta: Path, msbwt_index: Path | None, contigs: Sequence[str] | None, work: Path,
+                 progress: Callable[[str], None]):
+    """``single_copy.Decision`` of ``--single-copy-contigs``. For auto, the depth profile of the default contigs and the run's
+    contigs, kept in the work directory (``copy_profile.json``) with the identity of the reference and the msBWT."""
+    from . import single_copy as SC
+
+    if choice.mode == "list":
+        missing = [c for c in choice.names if c not in genome]
+        if missing:
+            raise InputContractError(f"--single-copy-contigs names contigs that are not in the reference: {missing}")
+    if choice.mode != "auto":
+        return SC.Decision(choice)
+    if msbwt_index is None:
+        return SC.Decision(choice, reason="no msBWT index: the contig depth is not measured")
+    wanted = set(default_contigs({name: len(seq) for name, seq in genome.items()})) | set(contigs or ())
+    measured = [c for c in genome if c in wanted]
+    about = Path(msbwt_index) / "about.npy"
+    identity = {"schema": COPY_SCHEMA, "reference_sha256": _sha256(reference_fasta),
+                "msbwt_about_sha256": _sha256(about) if about.is_file() else None, "msbwt_index": str(msbwt_index),
+                "words": SC.N_WORDS, "word_length": SC.K, "contigs": measured}
+    path = work / COPY_PROFILE
+    if path.is_file():
+        saved = json.loads(path.read_text(encoding="utf-8"))
+        if saved.get("identity") == identity:
+            progress("library-free: single-copy contigs: depth profile reused from the work directory")
+            return SC.Decision(choice, profile=saved["profile"])
+    from ..backends.msbwt import load_msbwt
+    from . import _p4_lib as P
+
+    started = time.time()
+    progress(f"library-free: single-copy contigs: depth of {len(measured)} contigs")
+    counter = P.Counter(load_msbwt(msbwt_index), cache=False)
+    profile = SC.measure(genome, counter.cnt, measured, progress=progress)
+    profile["seconds"] = round(time.time() - started, 1)
+    work.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"identity": identity, "profile": profile}, indent=2), encoding="utf-8")
+    tmp.replace(path)
+    low = [c for c, m in profile["contigs"].items() if m["ratio"] is not None and m["words"] >= SC.MIN_WORDS
+           and m["ratio"] <= SC.DEPTH_RATIO_MAX]
+    progress(f"library-free: single-copy contigs: genome depth {profile['genome_depth']}, low depth: {', '.join(low) or 'none'}"
+             f" ({profile['seconds']} s)")
+    return SC.Decision(choice, profile=profile)
+
+
 def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, output: Path, work_dir: Path | None,
                      contigs: Sequence[str] | None, rule_c: bool, detection_dir: Path | None,
                      command_line: Sequence[str] = (), source_identity: dict | None = None,
                      progress: Callable[[str], None] | None = None, options: Options | None = None,
                      repeat_annotation: Path | None = None, repeat_map: Path | None = None,
-                     mito_contig: str | None = None, resident_filter=None, adapter_test: bool = True) -> dict:
+                     mito_contig: str | None = None, resident_filter=None, adapter_test: bool = True,
+                     single_copy="auto") -> dict:
     """``resident_filter`` (``resident_filter.OwnFamilyCopyFilter``): drop the library calls inside a reference copy of their own
     family from ``calls.combined.tsv`` and ``calls.combined.vcf`` only.  Detection and assembly read the unfiltered
     ``calls.native.tsv`` of ``run_dir``, so the family calls and the added calls do not depend on it; ``None``: no filter.
     ``adapter_test``: set aside the places whose segments hold a sequencing-adapter core before the grouping (``adapter.py``);
-    not run with ``detection_dir``, whose grouping stands."""
+    not run with ``detection_dir``, whose grouping stands. ``single_copy``: ``--single-copy-contigs`` (text or
+    ``single_copy.Choice``); the merge view takes the main view's single-copy contigs."""
 
     from ..breakpoints.runtime import read_fasta
     from ..pipeline import prepare_output_directory
@@ -377,7 +427,11 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
         raise InputContractError(
             "the detection directory " + ("holds" if "second" in tables else "has no") + " second-scan tables but --het-scan is "
             + opts.het_scan)
-    if genome is None and (opts.check_scope != "none" or opts.resident_guard != "off"):
+    from . import single_copy as SC
+
+    choice = single_copy if isinstance(single_copy, SC.Choice) else SC.Choice.parse(single_copy)
+    rule_on = not opts.is_previous and choice.mode != "none"
+    if genome is None and (opts.check_scope != "none" or opts.resident_guard != "off" or rule_on):
         genome = read_fasta(reference_fasta)
     native_rows = ShadowCallset.from_bytes(native).rows
     copies, genome_bp = (_load_copies(opts, reference, repeat_annotation, genome, say, repeat_map, len(native_rows))
@@ -385,6 +439,9 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     if repeat_map is not None and (repeat_annotation is not None or native_rows):
         say("library-free: --repeat-map not used: " + ("--repeat-annotation is given" if repeat_annotation is not None
                                                       else f"the library layer made {len(native_rows)} calls"))
+    decision = None
+    if not opts.is_previous:
+        decision = _single_copy(choice, genome, reference_fasta, msbwt_index, contigs, work, say) if rule_on else SC.Decision(choice)
     common = dict(native=native, native_rows=native_rows, sample_id=sample_id, reference=reference, genome=genome, copies=copies,
                   genome_bp=genome_bp, rule_c=rule_c, run_dir=run_dir, command_line=command_line, source_identity=source_identity,
                   repeat_map=repeat_map, repeat_annotation=repeat_annotation, say=say, started=started,
@@ -398,9 +455,12 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
         views[0] = (output, tables["first"], opts, info)
     summary = None
     for out_dir, first_tables, view_opts, view_info in views:
-        result = _assemble_and_write(out_dir, first_tables, tables.get("second"), view_opts, view_info, **common)
+        result = _assemble_and_write(out_dir, first_tables, tables.get("second"), view_opts, view_info, single_copy=decision,
+                                     **common)
         if summary is None:
             summary = result
+            if decision is not None:
+                decision = SC.Decision.from_view(choice, result["assembly"]["single_copy"].get("flagged", ()), "main view")
         else:
             summary["merge_view"] = {"output": str(out_dir), "family_calls": result["family_calls"],
                                      "family_call_statuses": result["family_call_statuses"]}
@@ -419,7 +479,7 @@ def _merge_view_info(info: dict) -> dict:
 
 def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options, info: dict, *, native, native_rows, sample_id,
                         reference, genome, copies, genome_bp, rule_c, run_dir, command_line, source_identity, repeat_map,
-                        repeat_annotation, say, started, resident_filter=None) -> dict:
+                        repeat_annotation, say, started, resident_filter=None, single_copy=None) -> dict:
     """Family calls of one set of rules from the detection tables, and the files of ``library-free`` in ``output``."""
     from . import assemble as AS
     from . import calling as CL
@@ -436,7 +496,8 @@ def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options
     second = (D.parse_places(second_tables[0]), D.parse_segments(second_tables[1])) if second_tables is not None else None
     c_started = time.time()
     index = CL.CallIndex.from_native(native_rows)
-    rows, assembly = AS.assemble(first, second, index, opts, identity_filter=rule_c, reference=genome, copies=copies, genome_bp=genome_bp)
+    rows, assembly = AS.assemble(first, second, index, opts, identity_filter=rule_c, reference=genome, copies=copies, genome_bp=genome_bp,
+                                 single_copy=single_copy)
     c_seconds = round(time.time() - c_started, 1)
     extended = not opts.is_previous
     added = AS.added_calls_tsv_bytes(rows)

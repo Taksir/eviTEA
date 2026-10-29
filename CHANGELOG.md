@@ -30,4 +30,10 @@
 - Library-free layer: adapter test, on by default (`--adapter-test on|off`). Before the grouping, places whose inserted segment
   holds a TruSeq or Nextera adapter core (also with the junction up to 4 letters inside the adapter) are set aside with stage
   `S4_adapter` and form no family or family record. Saved scan pieces are reused with it on or off.
+- Library-free layer: single-copy contigs (`--single-copy-contigs auto|all|none|LIST`, default auto). On a contig the sample
+  carries in one copy (the X and Y of a male, a haploid genome), a call that would be added is not added (status
+  `DROPPED_SINGLE_COPY`) when it is a haplotype-scan call or a first-pass call with the heterozygous genotype (e above 0.15).
+  `auto` flags a contig at no more than 0.625 of the genome depth (sampled words that occur once in the reference, counted in
+  the msBWT; `copy_profile.json` in the work directory) whose library-confirmed calls (at least 10) are at most 25%
+  heterozygous. The family records count these calls as kept. Saved scan pieces are reused with any choice.
 - Released under GPL-3.0-or-later.

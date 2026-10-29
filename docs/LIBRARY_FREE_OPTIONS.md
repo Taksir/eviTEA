@@ -32,6 +32,7 @@ files of the basic scan byte for byte. `tools/library_free_tests/test_runtime.py
 | Recurring sequence | `--recurring-sequence on\|off` | on | first pass: a place whose segment the filter rejected as a local or segmental copy is kept when the place has a TSD (or a poly-A tail) and the segment groups with a family that passes the TSD rule (requires the one-site check) |
 | Merge view | `--merge-view on\|off` | on | also writes the files of the same run under the merge rules (the four rules above off) to `merge_view/` |
 | Adapter test | `--adapter-test on\|off` | on | before the grouping, a place whose left or right segment holds a sequencing-adapter core is set aside (stage `S4_adapter`), so it forms no family and no family record. Cores: AGATCGGAAGAGC (TruSeq) and CTGTCTCTTATACACATCT (Nextera) with their reverse complements anywhere in a segment, and at the junction end also with the first 1 to 4 letters missing (the walk followed the reference into the adapter). A read that runs past the end of a short insert into the adapter is new sequence at single-copy depth, which the one-site check accepts. Applies to every pass and to `merge_view/`. Not part of the identity of a saved scan piece; not run with `--detection-dir` (its grouping stands). The detection summary counts the places it set aside |
+| Single-copy contigs | `--single-copy-contigs auto\|all\|none\|LIST` | auto | on a contig the sample carries in one copy (the X and Y of a male, every contig of a haploid genome), a call that would be added gets status `DROPPED_SINGLE_COPY` when it is a haplotype-scan call or a first-pass call with the heterozygous genotype (reference-path fraction e above 0.15, the detector's homozygous bound). One copy is one haplotype, so a real insertion there is carried by every read at the break. `auto`: a contig is single copy when its depth is at most 0.625 of the genome depth (one copy gives 0.5; a pool of equal numbers of males and females gives 0.75 on the X) and it carries at least 10 library-confirmed first-pass calls (`NEAR_EVITEA`), at most 25% of them with e above 0.15 (a pool of males has the depth of one male but carries heterozygous insertions). Without library calls, `auto` flags nothing. Depth: about 200,000 words of 31 letters at an even stride on the default contigs and the run's contigs, each occurring once in the reference, counted in the sample msBWT; the median of a contig's counted words (count above zero) against the median of all, a contig with fewer than 1,000 such words not judged. The profile is kept in the work directory (`copy_profile.json`) with the identity of the reference and the msBWT. `all`: every contig (a haploid genome, whose contigs all have the same depth); `none`: off; `LIST`: the named contigs, comma-separated. Acts after every other status, on the added calls only, in both views (the merge view takes the main view's contigs). Not part of the identity of a saved scan piece. The assembly summary (`assembly.single_copy`) records each contig's depth, ratio and guard counts, the contigs flagged and the calls dropped |
 | Family records | `build-family-records`, `add-record-calls` | commands | see below |
 | Record guard | `--record-guard on\|off` | on | a family of old copies gets no record |
 | Copy report | `--copy-report on\|off` | off | per record: fraction of its words absent from the reference, reference copies |
@@ -63,9 +64,9 @@ A call passes when it has a side and every side passes. The detection records `c
 
 The tolerance is the p95 or p99 of the side depth ratios of the first-pass family calls with a library call within 500 bp.
 
-Call statuses in the family-calls table: `DROPPED_V2` (reference-path filter), `DROPPED_RULE_C` (family-identity filter), `NEAR_EVITEA`, `DROPPED_CHECK`, `DROPPED_RESIDENT_COPY`, `ADDED`.
+Call statuses in the family-calls table: `DROPPED_V2` (reference-path filter), `DROPPED_RULE_C` (family-identity filter), `NEAR_EVITEA`, `DROPPED_CHECK`, `DROPPED_RESIDENT_COPY`, `DROPPED_SINGLE_COPY`, `ADDED`.
 Second-scan calls: `NOT_HET`, `DROPPED_V2`, `NEAR_FIRST_PASS`, `DROPPED_CHECK`, `DROPPED_RULE_C`, `NEAR_EVITEA`,
-`DROPPED_RESIDENT_COPY`, `ADDED`. A second-scan call joins the first pass only where the first pass has no family call within 500 bp.
+`DROPPED_RESIDENT_COPY`, `DROPPED_SINGLE_COPY`, `ADDED`. A second-scan call joins the first pass only where the first pass has no family call within 500 bp.
 
 ## Outputs of `library-free`
 
@@ -96,7 +97,7 @@ evitea call ... --te-assets <assets> ...                       # the library lay
 evitea add-record-calls --calls <run>/calls.native.tsv --base-calls <existing>/calls.combined.tsv --records <dir> --output <out>
 ```
 
-- Flag rule `kept` (default): away = calls the filters left (`ADDED`, `DROPPED_RESIDENT_COPY`); near = `NEAR_EVITEA`
+- Flag rule `kept` (default): away = calls the filters left (`ADDED`, `DROPPED_RESIDENT_COPY`, `DROPPED_SINGLE_COPY`); near = `NEAR_EVITEA`
   (`NEAR_FIRST_PASS` counts as neither). `before-filters`: away = calls not near a library call that the family-identity filter does not drop. `both`: either.
 - Record names: first-pass families `FBte99<cluster>` / `LF<cluster>`; second-scan families `FBte97<cluster>` / `LFh<cluster>`.
   `family_map_padded.tsv` adds inert `FBte98` / `PAD` rows up to 100 entries (the anchor-pair stage requires that many); `prepare-te`
