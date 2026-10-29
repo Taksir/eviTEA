@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -114,8 +115,19 @@ def _executable_version(executable: str | Path) -> str | None:
     return lines[0].strip() if completed.returncode == 0 and lines else None
 
 
+def _source_tree_sha256() -> str:
+    """sha256 over the relative path and the sha256 of every .py file of this package, sorted by path: which code ran, also where the
+    container has no git. ``tools/compare_scan.py treehash`` computes the same value for a checkout."""
+
+    package = Path(__file__).resolve().parent
+    digest = hashlib.sha256()
+    for path in sorted(p for p in package.rglob("*.py") if "__pycache__" not in p.parts):
+        digest.update(path.relative_to(package).as_posix().encode() + b"\0" + hashlib.sha256(path.read_bytes()).hexdigest().encode() + b"\0")
+    return digest.hexdigest()
+
+
 def _source_identity() -> dict[str, object]:
-    identity: dict[str, object] = {"package_version": __version__}
+    identity: dict[str, object] = {"package_version": __version__, "source_tree_sha256": _source_tree_sha256()}
     root = Path(__file__).resolve().parents[2]
     try:
         commit = subprocess.run(
@@ -372,10 +384,10 @@ def build_parser() -> argparse.ArgumentParser:
                     help="processes that scan a contig (default 1; 0 = every CPU of the job). A contig is cut into tiles of 250 kb "
                     "that the processes walk, with the same places as one process; the scan pieces and every output table are the "
                     "same for any N")
-    lf.add_argument("--counter", choices=("plain", "fast"), default="plain",
-                    help="how the read index is searched (default plain). fast keeps and extends the search intervals of the "
+    lf.add_argument("--counter", choices=("plain", "fast"), default="fast",
+                    help="how the read index is searched (default fast). fast keeps and extends the search intervals of the "
                     "words it has counted, so it makes fewer index searches for the same counts; it checks 2,000 words against the "
-                    "plain counts before the scan and stops on any difference")
+                    "plain counts before the scan and stops on any difference; plain is the search of the basic scan, one word at a time")
     lf.add_argument("--reference-cache", type=Path, metavar="DIR",
                     help="folder that keeps the reference word tables (multi-copy words, walk-out words) under a key of the "
                     "reference and the detection code, so that a later job loads them instead of building them (default: "

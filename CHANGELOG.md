@@ -50,7 +50,7 @@
   family records count these calls as kept. Saved scan pieces are reused with it on or off. `evitea run` takes the same switch.
 - Released under GPL-3.0-or-later.
 - Library-free layer: faster scans that change no call. `--workers N` scans a contig on N processes (tiles of 250 kb), `--counter fast`
-  searches the read index with fewer steps for the same counts, `--reference-cache DIR` keeps the reference word tables between jobs,
+  (the default; `plain` is the basic search) searches the read index with fewer steps for the same counts, `--reference-cache DIR` keeps the reference word tables between jobs,
   and the read index and the minimap2 index are loaded once per job. None is part of the identity of a saved scan piece; the
   detection code is unchanged. `evitea run` gives the library-free step its CPUs (`--workers` from `--threads`).
   `tools/compare_scan.py` compares two scans.

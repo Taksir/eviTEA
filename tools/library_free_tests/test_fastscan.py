@@ -462,7 +462,7 @@ def run_checks():
     idx_fake = TMP / "idx_fake"
     idx_real = TMP / "idx_real"
     settings = [("workers1_plain", ["--workers", "1", "--counter", "plain"]), ("workers3_fast", ["--workers", "3", "--counter", "fast"]),
-                ("workers3_plain", ["--workers", "3", "--counter", "plain"]), ("workers2_fast", ["--workers", "2", "--counter", "fast"])]
+                ("workers3_plain", ["--workers", "3", "--counter", "plain"]), ("workers2_fast", ["--workers", "2", "--counter", "fast"]), ("workers2_default", ["--workers", "2"])]
     kinds = [("fake", ["--index-dir", str(idx_fake)])] + ([("real", ["--index", "real", "--index-dir", str(idx_real)])] if MB else [])
     for kind, kextra in kinds:
         results = {}
@@ -487,6 +487,8 @@ def run_checks():
               sp.get("workers") == 3 and sp.get("counter") == "fast" and sp.get("tile") == PA.TILE and sp.get("self_check_words", 0) >= 2000
               and set(sp.get("seconds", {})) >= {"setup", "scan", "first_look", "walks"} and "speed" not in json.loads(
                   (out / "merge_view" / R.SUMMARY).read_text()), sp)
+    default_summary = json.loads((TMP / "w1_fake_workers2_default" / R.SUMMARY).read_text())
+    check("W1 without --counter the run uses the fast counter", default_summary["speed"]["counter"] == "fast", default_summary["speed"])
     # W2: pieces written by each setting are reused by the others
     work = TMP / "w2_work"
     idx = TMP / "idx_w2"
@@ -554,6 +556,29 @@ def run_checks():
     ok = subprocess.run([sys.executable, str(ROOT / "tools" / "compare_scan.py"), "commit", str(summ), "25d9b99"], capture_output=True, text=True)
     bad = subprocess.run([sys.executable, str(ROOT / "tools" / "compare_scan.py"), "commit", str(summ), "30c0ac3"], capture_output=True, text=True)
     check("W3 compare_scan commit: the right commit passes, another fails", ok.returncode == 0 and bad.returncode == 1 and "WRONG" in bad.stdout, (ok.stdout, bad.stdout))
+    # a container without git records no commit: the source tree hash decides
+    from evitea import cli as _cli
+    tree_value = CS.tree_hash(ROOT)
+    check("W3 treehash: compare_scan computes what the package records (evitea.cli._source_tree_sha256)", tree_value == _cli._source_tree_sha256(), tree_value)
+    check("W3 treehash: the source identity of a run holds it", _cli._source_identity().get("source_tree_sha256") == tree_value)
+    nogit = TMP / "w2c_nogit"
+    shutil.copytree(TMP / "w2c", nogit)
+    f = nogit / "library_free_summary.json"
+    doc = json.loads(f.read_text())
+    doc["source_identity"] = {"package_version": "x", "source_tree_sha256": tree_value}
+    f.write_text(json.dumps(doc))
+    tool = str(ROOT / "tools" / "compare_scan.py")
+    good = subprocess.run([sys.executable, tool, "commit", str(f), "1b4965b", "--tree", str(ROOT)], capture_output=True, text=True)
+    nope = subprocess.run([sys.executable, tool, "commit", str(f), "1b4965b"], capture_output=True, text=True)
+    other = TMP / "other_tree"
+    (other / "src" / "evitea").mkdir(parents=True)
+    (other / "src" / "evitea" / "x.py").write_text("x = 1\n")
+    bad = subprocess.run([sys.executable, tool, "commit", str(f), "1b4965b", "--tree", str(other)], capture_output=True, text=True)
+    check("W3 commit without git: the tree hash of the checkout passes; no --tree or another tree fails",
+          good.returncode == 0 and nope.returncode == 1 and bad.returncode == 1 and "WRONG" in nope.stdout and "WRONG" in bad.stdout,
+          (good.stdout, nope.stdout, bad.stdout))
+    th = subprocess.run([sys.executable, tool, "treehash", str(ROOT)], capture_output=True, text=True)
+    check("W3 the treehash command prints the hash", th.returncode == 0 and th.stdout.strip() == tree_value, th.stdout)
     target = mutated / "calls.combined.tsv"
     target.write_text(target.read_text() + "x\n")
     got = CS.compare_outputs(TMP / "w2c", mutated)
@@ -592,7 +617,7 @@ def command_line_checks():
     parser = cli.build_parser()
     base = ["library-free", "--run-dir", "r", "--reference-assets", "a", "--output", "o", "--sample-assets", "s"]
     a = parser.parse_args(base)
-    check("S1 library-free defaults: one worker, plain counter, no reference cache folder", (a.workers, a.counter, a.reference_cache) == (1, "plain", None))
+    check("S1 library-free defaults: one worker, fast counter, no reference cache folder", (a.workers, a.counter, a.reference_cache) == (1, "fast", None))
     a = parser.parse_args(base + ["--workers", "8", "--counter", "fast", "--reference-cache", "/x/cache"])
     check("S1 library-free reads --workers, --counter and --reference-cache", (a.workers, a.counter, str(a.reference_cache)) == (8, "fast", "/x/cache"))
     try:

@@ -170,7 +170,7 @@ def _children_peak_rss_gb() -> float | None:
 
 def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: Sequence[str] | None, work: Path,
             progress: Callable[[str], None], opts: Options, mito_contig: str | None = None, adapter_test: bool = True,
-            workers: int = 1, counter: str = "plain", reference_cache: Path | None = None, speed: dict | None = None):
+            workers: int = 1, counter: str = "fast", reference_cache: Path | None = None, speed: dict | None = None):
     """Scan the contigs (resumable), then group each pass over all scanned contigs (after the adapter test, unless
     ``adapter_test`` is False or every rule switch is off). Return the tables of the first pass
     (places bytes, segments bytes), of the second scan (or None), with a cross-species rule on also of the merge's first pass
@@ -441,7 +441,7 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
                      progress: Callable[[str], None] | None = None, options: Options | None = None,
                      repeat_annotation: Path | None = None, repeat_map: Path | None = None,
                      mito_contig: str | None = None, resident_filter=None, adapter_test: bool = True,
-                     single_copy="auto", het_guard="on", tsd_skip=None, workers: int = 1, counter: str = "plain",
+                     single_copy="auto", het_guard="on", tsd_skip=None, workers: int = 1, counter: str = "fast",
                      reference_cache: Path | None = None) -> dict:
     """``resident_filter`` (``resident_filter.OwnFamilyCopyFilter``): drop the library calls inside a reference copy of their own
     family from ``calls.combined.tsv`` and ``calls.combined.vcf`` only.  Detection and assembly read the unfiltered
@@ -451,7 +451,7 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     ``single_copy.Choice``); the merge view takes the main view's single-copy contigs. ``het_guard``: ``--het-guard`` (on or off, or a
     ``het_guard.Guard``); the merge view takes the main view's confirmed places. ``tsd_skip``: ``tsd_skip.Skip`` of
     ``--rule-c-tsd-skip`` (None: on, share 0.3, 5 trusted members); each view judges its own families. ``workers`` (0 = all CPUs),
-    ``counter`` (``plain`` | ``fast``) and ``reference_cache`` (a folder shared by work directories; default
+    ``counter`` (``fast`` | ``plain``; default fast) and ``reference_cache`` (a folder shared by work directories; default
     ``<work>/refcache``) make the scan faster and change no call; the summary's ``speed`` entry records them."""
 
     from ..breakpoints.runtime import read_fasta

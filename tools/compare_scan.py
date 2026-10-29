@@ -2,7 +2,8 @@
 
     python tools/compare_scan.py pieces  WORK_A WORK_B  [--contigs c1,c2,...]
     python tools/compare_scan.py outputs OUT_A  OUT_B
-    python tools/compare_scan.py commit  SUMMARY.json  COMMIT_PREFIX
+    python tools/compare_scan.py commit  SUMMARY.json  COMMIT_PREFIX  [--tree CODE_DIR]
+    python tools/compare_scan.py treehash CODE_DIR
 
 ``pieces``: for each contig, the scan piece in ``WORK/pieces/<contig>.pkl`` of both folders (or the folder itself if it holds
 ``<contig>.pkl``), loaded and compared by value: every place and field, the info block, dict key order, list order; NaN equals NaN.
@@ -14,8 +15,11 @@ timings, the memory use, the ``speed`` entry, the paths of the run folders, the 
 and dirty flag of the code that ran) are taken out. The last two are printed as NOTE lines when they differ, so that what was left out is
 visible; a NOTE is not a difference.
 
-``commit``: reads ``source_identity`` of a run summary and exits 0 only if its git commit starts with COMMIT_PREFIX and the checkout was not
-dirty. The hash of the detection code is the same for the final build and the fast-scan build, so this is the check of which code ran.
+``commit``: which code ran. The hash of the detection code is the same for the final build and the fast-scan build, so the summary's
+``source_identity`` is read: ``git_commit`` must start with COMMIT_PREFIX and ``git_dirty`` be false. A container without git records no
+commit; then ``--tree CODE_DIR`` (the checkout the job used) is needed: the summary's ``source_tree_sha256`` (a hash of every .py file of the
+package the run imported) must equal ``treehash`` of CODE_DIR. ``treehash CODE_DIR``: that hash of ``CODE_DIR/src/evitea``; run it on a checkout
+of a known commit (with git) to learn the value its runs must show.
 
 Exit 0 when everything is equal, 1 otherwise. Prints EQUAL or DIFFERENT per item, then the first difference of each different item.
 """
@@ -123,17 +127,37 @@ def compare_outputs(out_a: Path, out_b: Path) -> list[tuple[str, str, str | None
     return results
 
 
-def check_commit(summary: Path, prefix: str) -> int:
+def tree_hash(code_dir: Path) -> str:
+    """The hash ``evitea.cli._source_tree_sha256`` records: relative path and sha256 of every .py file under CODE_DIR/src/evitea, by path."""
+    package = Path(code_dir) / "src" / "evitea"
+    digest = hashlib.sha256()
+    for path in sorted(p for p in package.rglob("*.py") if "__pycache__" not in p.parts):
+        digest.update(path.relative_to(package).as_posix().encode() + b"\0" + hashlib.sha256(path.read_bytes()).hexdigest().encode() + b"\0")
+    return digest.hexdigest()
+
+
+def check_commit(summary: Path, prefix: str, tree: Path | None = None) -> int:
     identity = json.loads(summary.read_text()).get("source_identity", {})
-    commit, dirty = identity.get("git_commit"), identity.get("git_dirty")
-    ok = bool(commit) and commit.startswith(prefix) and dirty is False
-    print(f"{'OK' if ok else 'WRONG'} git_commit {commit} (wanted {prefix}...), git_dirty {dirty}")
+    commit, dirty, ran = identity.get("git_commit"), identity.get("git_dirty"), identity.get("source_tree_sha256")
+    if commit:
+        ok = commit.startswith(prefix) and dirty is False
+        print(f"{'OK' if ok else 'WRONG'} git_commit {commit} (wanted {prefix}...), git_dirty {dirty}")
+        return 0 if ok else 1
+    if tree is None:
+        print(f"WRONG no git_commit in the summary (a container without git); give --tree CODE_DIR. source_tree_sha256 {ran}")
+        return 1
+    want = tree_hash(tree)
+    ok = ran == want
+    print(f"{'OK' if ok else 'WRONG'} no git commit recorded; source_tree_sha256 of the run {ran}, of {tree} {want}")
     return 0 if ok else 1
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) == 3 and argv[0] == "commit":
-        return check_commit(Path(argv[1]), argv[2])
+    if len(argv) == 2 and argv[0] == "treehash":
+        print(tree_hash(Path(argv[1])))
+        return 0
+    if len(argv) in (3, 5) and argv[0] == "commit" and (len(argv) == 3 or argv[3] == "--tree"):
+        return check_commit(Path(argv[1]), argv[2], Path(argv[4]) if len(argv) == 5 else None)
     if len(argv) < 3 or argv[0] not in ("pieces", "outputs"):
         print(__doc__)
         return 2
