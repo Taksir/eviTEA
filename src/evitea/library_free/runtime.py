@@ -147,21 +147,51 @@ def _repeat_cutoff(opts: Options, genome: dict, rm, work: Path, identity: dict, 
     return cut, summary
 
 
+def _cgroup_peak_gb() -> float | None:
+    """Peak memory of this job's cgroup (all its processes; shared pages once), or None where it cannot be read."""
+
+    for name in ("/sys/fs/cgroup/memory.peak", "/sys/fs/cgroup/memory/memory.max_usage_in_bytes"):
+        try:
+            return round(int(Path(name).read_text(encoding="utf-8").strip()) / 1024**3, 3)
+        except (OSError, ValueError):
+            continue
+    return None
+
+
+def _children_peak_rss_gb() -> float | None:
+    """Largest resident size reached by one finished child process (a scan worker)."""
+
+    try:
+        import resource
+    except ImportError:
+        return None
+    return round(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1024 / 1024, 3)
+
+
 def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: Sequence[str] | None, work: Path,
-            progress: Callable[[str], None], opts: Options, mito_contig: str | None = None, adapter_test: bool = True):
+            progress: Callable[[str], None], opts: Options, mito_contig: str | None = None, adapter_test: bool = True,
+            workers: int = 1, counter: str = "plain", reference_cache: Path | None = None, speed: dict | None = None):
     """Scan the contigs (resumable), then group each pass over all scanned contigs (after the adapter test, unless
     ``adapter_test`` is False or every rule switch is off). Return the tables of the first pass
     (places bytes, segments bytes), of the second scan (or None), with a cross-species rule on also of the merge's first pass
-    (``merge_first``), and an info dict."""
+    (``merge_first``), and an info dict.
+
+    ``workers`` (0 = every CPU of the process), ``counter`` (``plain`` or ``fast``) and ``reference_cache`` change how fast a
+    contig is scanned, never what it yields: they are not part of the identity of a saved piece, and the detection code files
+    (``CODE_FILES``) are not touched by them. ``speed``, when given, is filled with what the scan cost."""
 
     from ..backends.msbwt import load_msbwt
     from . import _p4_lib as P
     from . import detector as D
+    from . import fastcount as FC
+    from . import parallel as PA
     from . import priority as PR
+    from . import refcache as RC
     from . import tables as TB
-    from .scan import scan_contig_passes
-    from .walks import RefWords
 
+    if counter not in ("plain", "fast"):
+        raise InputContractError(f"--counter must be plain or fast, not {counter}")
+    workers = PA.resolve_workers(workers)
     try:
         import mappy  # noqa: F401
     except ImportError as exc:
@@ -188,7 +218,11 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
     }
     pieces_dir = work / "pieces"
     pieces_dir.mkdir(parents=True, exist_ok=True)
-    rm = words = None
+    rm = words = bwt = firewall = None
+    make_counter = None
+    cache_dir = Path(reference_cache) if reference_cache is not None else work / "refcache"
+    seconds = {"setup": 0.0, "scan": 0.0}
+    self_check = None
     cutoff = cutoff_info = None
     if opts.any_cross:
         from . import cross as X
@@ -218,22 +252,38 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
                 "detection switches, code or inputs; this run would scan again and replace it. Use a work directory of its own.")
         if piece is None:
             if rm is None:
-                progress("library-free: reference multi-copy words")
-                rm = D.reference_multi(genome)
+                setup = time.time()
+                rm, words = RC.load_or_build(genome, reference_sha256=identity_base["reference_sha256"],
+                                             code_sha256=identity_base["code_sha256"], cache_dir=cache_dir,
+                                             need_words=opts.walk_out, progress=progress)
+                seconds["setup"] += time.time() - setup
             if opts.any_cross and cutoff is None:
                 cutoff, cutoff_info = _repeat_cutoff(opts, genome, rm, work, cut_identity, progress)
                 progress(f"library-free: repeat cutoff {cutoff}")
-            if opts.walk_out and words is None:
-                progress("library-free: reference words for the walk-out")
-                words = RefWords(genome)
+            if bwt is None:  # the index and the minimap2 index are read-only: loaded once for every contig of the job
+                setup = time.time()
+                bwt = load_msbwt(msbwt_index)
+                firewall = P.MappyFirewall(str(reference_fasta), genome[mito] if mito else None)
+                if counter == "fast":
+                    self_check = FC.self_check(bwt, genome, contigs)
+                    progress(f"library-free: fast counter self-check: {self_check['words']} words equal the plain counts"
+                             + ("" if self_check["intervals"] else " (this index has no interval search: plain searches)"))
+                    make_counter = lambda use: FC.FastCounter(bwt, use)  # noqa: E731
+                else:
+                    make_counter = lambda use: P.Counter(bwt, cache=use)  # noqa: E731
+                seconds["setup"] += time.time() - setup
             started = time.time()
             progress(f"library-free: scanning {chrom}")
-            counter = P.Counter(load_msbwt(msbwt_index), cache=False)
-            firewall = P.MappyFirewall(str(reference_fasta), genome[mito] if mito else None)
             if opts.is_previous:
-                first, second, info = D.scan_contig(counter, genome[chrom], chrom, rm, firewall), None, {}
+                if workers > 1:
+                    progress("library-free: --workers does not apply to the previous behaviour; one process")
+                first, second, info = D.scan_contig(make_counter(False), genome[chrom], chrom, rm, firewall), None, {}
             else:
-                first, second, info = scan_contig_passes(counter, genome[chrom], chrom, rm, firewall, opts, words, cutoff)
+                timing: dict[str, float] = {}
+                first, second, info = PA.scan_contig_tiled(make_counter, genome[chrom], chrom, rm, firewall, opts, words, cutoff,
+                                                           workers=workers, timing=timing)
+                for key, value in timing.items():
+                    seconds[key] = seconds.get(key, 0.0) + value
             first_merge = info.pop("first_merge", None)
             info = {k: v for k, v in info.items() if k not in ("walk_log", "cross_log")}
             piece = dict(first=first, second=second, info=info)
@@ -246,6 +296,7 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
             marker.write_text(json.dumps({"identity": identity, "sha256": hashlib.sha256(payload).hexdigest()}, indent=2),
                               encoding="utf-8")
             timings[chrom] = round(time.time() - started, 1)
+            seconds["scan"] += time.time() - started
             progress(f"library-free: {chrom} done, {len(first)} places, {timings[chrom]} s, peak RSS {_peak_rss_gb()} GB")
         stats[chrom] = piece.get("info", {})
         first_all.extend(piece["first"])
@@ -253,6 +304,12 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
             first_merge_all.extend(piece["first_merge"])
         if piece.get("second") is not None:
             second_all.extend(piece["second"])
+    if speed is not None:
+        speed.update(workers=workers, counter=counter, tile=PA.TILE if workers > 1 and not opts.is_previous else None,
+                     reference_cache=str(cache_dir) if rm is not None else None,
+                     self_check_words=self_check["words"] if self_check else None,
+                     seconds={k: round(v, 1) for k, v in seconds.items()}, peak_rss_gb=_peak_rss_gb(),
+                     worker_peak_rss_gb=_children_peak_rss_gb(), cgroup_peak_gb=_cgroup_peak_gb())
     adapter = None
     if adapter_test and not opts.is_previous:
         from .adapter import mark_adapter_places
@@ -384,7 +441,8 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
                      progress: Callable[[str], None] | None = None, options: Options | None = None,
                      repeat_annotation: Path | None = None, repeat_map: Path | None = None,
                      mito_contig: str | None = None, resident_filter=None, adapter_test: bool = True,
-                     single_copy="auto", het_guard="on", tsd_skip=None) -> dict:
+                     single_copy="auto", het_guard="on", tsd_skip=None, workers: int = 1, counter: str = "plain",
+                     reference_cache: Path | None = None) -> dict:
     """``resident_filter`` (``resident_filter.OwnFamilyCopyFilter``): drop the library calls inside a reference copy of their own
     family from ``calls.combined.tsv`` and ``calls.combined.vcf`` only.  Detection and assembly read the unfiltered
     ``calls.native.tsv`` of ``run_dir``, so the family calls and the added calls do not depend on it; ``None``: no filter.
@@ -392,7 +450,9 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     not run with ``detection_dir``, whose grouping stands. ``single_copy``: ``--single-copy-contigs`` (text or
     ``single_copy.Choice``); the merge view takes the main view's single-copy contigs. ``het_guard``: ``--het-guard`` (on or off, or a
     ``het_guard.Guard``); the merge view takes the main view's confirmed places. ``tsd_skip``: ``tsd_skip.Skip`` of
-    ``--rule-c-tsd-skip`` (None: on, share 0.3, 5 trusted members); each view judges its own families."""
+    ``--rule-c-tsd-skip`` (None: on, share 0.3, 5 trusted members); each view judges its own families. ``workers`` (0 = all CPUs),
+    ``counter`` (``plain`` | ``fast``) and ``reference_cache`` (a folder shared by work directories; default
+    ``<work>/refcache``) make the scan faster and change no call; the summary's ``speed`` entry records them."""
 
     from ..breakpoints.runtime import read_fasta
     from ..pipeline import prepare_output_directory
@@ -410,6 +470,7 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     work = Path(work_dir) if work_dir is not None else output / ".evitea-work"
     reference_fasta = Path(reference.reference_fasta_path)
     genome = None
+    speed: dict | None = None
     if detection_dir is not None:
         detection_dir = Path(detection_dir)
         tables = {"first": ((detection_dir / PLACES).read_bytes(), (detection_dir / SEGMENTS).read_bytes())}
@@ -424,8 +485,10 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
         if msbwt_index is None:
             raise InputContractError("library-free detection needs an msBWT index")
         genome = read_fasta(reference_fasta)
+        speed = {}
         tables, info = _detect(reference_fasta=reference_fasta, genome=genome, msbwt_index=Path(msbwt_index), contigs=contigs,
-                               work=work, progress=say, opts=opts, mito_contig=mito_contig, adapter_test=adapter_test)
+                               work=work, progress=say, opts=opts, mito_contig=mito_contig, adapter_test=adapter_test,
+                               workers=workers, counter=counter, reference_cache=reference_cache, speed=speed)
     if ("second" in tables) != (opts.het_scan != "off") and detection_dir is not None:
         raise InputContractError(
             "the detection directory " + ("holds" if "second" in tables else "has no") + " second-scan tables but --het-scan is "
@@ -468,7 +531,7 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     summary = None
     for out_dir, first_tables, view_opts, view_info in views:
         result = _assemble_and_write(out_dir, first_tables, tables.get("second"), view_opts, view_info, single_copy=decision,
-                                     het_guard=guard, tsd_skip=skip, **common)
+                                     het_guard=guard, tsd_skip=skip, speed=speed if summary is None else None, **common)
         if summary is None:
             summary = result
             if decision is not None:
@@ -493,7 +556,8 @@ def _merge_view_info(info: dict) -> dict:
 
 def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options, info: dict, *, native, native_rows, sample_id,
                         reference, genome, copies, genome_bp, rule_c, run_dir, command_line, source_identity, repeat_map,
-                        repeat_annotation, say, started, resident_filter=None, single_copy=None, het_guard=None, tsd_skip=None) -> dict:
+                        repeat_annotation, say, started, resident_filter=None, single_copy=None, het_guard=None, tsd_skip=None,
+                        speed=None) -> dict:
     """Family calls of one set of rules from the detection tables, and the files of ``library-free`` in ``output``."""
     from . import assemble as AS
     from . import calling as CL
@@ -553,6 +617,8 @@ def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options
         "peak_rss_gb": _peak_rss_gb(),
         "output_hashes": {name: _sha256(output / name) for name in names},
     }
+    if speed:
+        summary["speed"] = speed
     if resident is not None:
         summary[RESIDENT_SUMMARY_KEY] = resident_filter.summary(resident)
     if repeat_map is not None:

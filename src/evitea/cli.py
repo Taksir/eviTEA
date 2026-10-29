@@ -368,6 +368,18 @@ def build_parser() -> argparse.ArgumentParser:
     lf.add_argument("--reference-assets", type=Path, required=True)
     lf.add_argument("--output", type=Path, required=True)
     lf.add_argument("--work-dir", type=Path)
+    lf.add_argument("--workers", type=int, default=1, metavar="N",
+                    help="processes that scan a contig (default 1; 0 = every CPU of the job). A contig is cut into tiles of 250 kb "
+                    "that the processes walk, with the same places as one process; the scan pieces and every output table are the "
+                    "same for any N")
+    lf.add_argument("--counter", choices=("plain", "fast"), default="plain",
+                    help="how the read index is searched (default plain). fast keeps and extends the search intervals of the "
+                    "words it has counted, so it makes fewer index searches for the same counts; it checks 2,000 words against the "
+                    "plain counts before the scan and stops on any difference")
+    lf.add_argument("--reference-cache", type=Path, metavar="DIR",
+                    help="folder that keeps the reference word tables (multi-copy words, walk-out words) under a key of the "
+                    "reference and the detection code, so that a later job loads them instead of building them (default: "
+                    "refcache/ in the work directory; one folder can serve several work directories)")
     lf.add_argument("--contigs", help="comma-separated contigs to scan, in this order (default: the primary chromosomes and the "
                     "contigs >= 1 Mb, reference order)")
     lf.add_argument("--rule-c", nargs="?", choices=("on", "off"), const="on", default="on",
@@ -1147,6 +1159,9 @@ def _library_free(args: argparse.Namespace) -> None:
         single_copy=single_copy,
         het_guard=args.het_guard,
         tsd_skip=tsd_skip,
+        workers=args.workers,
+        counter=args.counter,
+        reference_cache=_resolved_cli_path(args.reference_cache),
     )
 
 
