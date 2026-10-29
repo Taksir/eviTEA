@@ -18,5 +18,8 @@
 - `build-repeat-map` and the switch `--repeat-map` (`library-free`, `build-family-records`). For a run whose library layer made
   no call, the resident-copy test and the record guard read a repeat map built from the reference's alignment to itself
   (BLAST+ on PATH). Runs with library calls are unchanged. Slurm files for the chain: `tools/slurm/no_library.sh`.
+- Library-free layer: one place per break. A walked-out place whose final break is the break of a place in another duplicate
+  chain no longer gives a second grouped place at that break (stage `S4_same_break`); the family calls stopped on such a pair
+  with a duplicate segment name.
 - Tests for the library-free layer are in `tools/library_free_tests/`.
 - Released under GPL-3.0-or-later.

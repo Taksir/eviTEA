@@ -12,7 +12,7 @@ files of the basic scan byte for byte. `tools/library_free_tests/test_runtime.py
 | Depth window | `--depth-cap N` | none | upper bound of the local depth D (the lower bound 10 stays). `--depth-cap 100` is the window of the basic scan. Also `EVITEA_DEPTH_CAP`. |
 | Anchored extension | `--anchored-extension` | on | builds the inserted DNA from reads of one site only, where the plain extension stops short |
 | Walk-out | `--walk-out` | on | moves a repeated walk-start word outward (up to 50 strides) to the nearest unique word |
-| First-pass priority | `--first-pass-priority` | on | second-chance sources add calls and never change a first-pass duplicate choice, grouping or family-identity filter |
+| First-pass priority | `--first-pass-priority` | on | second-chance sources add calls and never change a first-pass duplicate choice, grouping or family-identity filter. A walked-out place is chained on the break of its plain walk; where two places that each won their duplicate choice share a break, the duplicate order keeps one and the other places' duplicate groups get stage `S4_same_break` (one place per break) |
 | Poly-A crossing | `--polya-cross` | off | the extension crosses a poly-A run (requires anchored extension) |
 | Poly-A TSD | `--polya-tsd` | off | a poly-A tail counts toward the two TSDs of the family rule |
 | Het scan | `--het-scan off\|safe-start\|second-walk\|full` | full | a second scan that follows both letters at a het SNP |

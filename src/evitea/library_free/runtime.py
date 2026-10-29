@@ -244,15 +244,25 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
         if piece.get("second") is not None:
             second_all.extend(piece["second"])
     progress("library-free: grouping")
-    grouped = D.group_and_call(first_all) if opts.is_previous else PR.group_and_call(first_all, opts)
+    if opts.is_previous:
+        grouped = D.group_and_call(first_all)
+    else:
+        from .same_break import set_aside_same_break
+
+        same = {"first": set_aside_same_break(first_all, opts)}
+        grouped = PR.group_and_call(first_all, opts)
     tables = {"first": (TB.places_tsv_bytes(first_all, opts), TB.segments_fa_bytes(grouped))}
     if opts.any_cross and opts.merge_view:
         om = opts.without_cross()
+        same["merge_first"] = set_aside_same_break(first_merge_all, om)
         grouped_m = PR.group_and_call(first_merge_all, om)
         tables["merge_first"] = (TB.places_tsv_bytes(first_merge_all, om), TB.segments_fa_bytes(grouped_m))
     if opts.het_scan != "off":
+        same["second"] = set_aside_same_break(second_all, opts)
         grouped2 = PR.group_and_call(second_all, opts, first=False)
         tables["second"] = (TB.places_tsv_bytes(second_all, opts, second=True), TB.segments_fa_bytes(grouped2))
+    if not opts.is_previous:
+        progress("library-free: one place per break: " + ", ".join(f"{k} {n}" for k, n in same.items()) + " places set aside")
     stages = Tally(p["stage"] for p in first_all)
     info = {"contigs": list(contigs), "scan_seconds": timings, "stages": dict(sorted(stages.items())),
             "grouped_places": len(grouped)}
