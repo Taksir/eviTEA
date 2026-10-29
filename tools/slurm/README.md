@@ -42,6 +42,12 @@ Jobs refuse to run on a login node.
 7. **Family records.** `DS=<sample> SRC=$EVITEA_OUT/runs/<run folder> sbatch $S/records.sbatch`, with `RM=<RepeatMasker table>` for the record guard. Then run the library layer once more on the record assets (`evitea call` with the sample's own command line, changing only `--te-assets`, `--output` and `--work-dir`) and add its calls with `python3 -m evitea add-record-calls --calls <run>/calls.native.tsv --base-calls <run folder>/library_free/calls.combined.tsv --records <records folder>/lib --output <out>`.
    **Reproduction of the record builder.** Run it on the saved first-pass tables of a sample (`SRC=<saved run> FLAG=both FC="<the three saved family-call tables>" SEGFILE=<the saved segments file>`, no `RM`): `te_library.fa` and `family_map.tsv` must have the checksums of the earlier build. Then run it once more with `RM=<RepeatMasker table>`: `records_summary.json` lists `skipped_guard` (families that get no record) with `te_share` and `threshold`.
 
+## Faster scans
+
+`detect.sbatch` scans each contig with `--workers` processes (`WORKERS`, default the job's CPUs), keeps the reference word tables in a cache folder (`REFCACHE`, default `refcache/` in the work folder; one folder can serve several work folders) and can search the read index with `--counter fast` (`COUNTER=fast`). None of these changes a call: the scan pieces, the places tables and every output table are the same. They are not part of the identity of a saved piece, so pieces made with other settings are reused. Ask for the CPUs you give `WORKERS`: `sbatch --cpus-per-task=8 --mem=<GB>`. Workers share the read index and the reference tables; the cgroup peak in `library_free_summary.json` (`speed`) shows the memory the job really used.
+
+**Both modes on one scan.** The scan does not read the library calls, so a run with a library and a run without one need it once. Run the library-mode job first with `WORK=<folder>`. Then run the no-library job with `NOLIB=1 REGROUP=1 WORK=<folder>` and the same index path text (the path is part of the identity of a piece). `REGROUP=1` makes the second job stop with an error instead of scanning again if a piece does not match, for example a different index path, reference or detection switches.
+
 ## Runs without a library
 
 `DS=<sample> bash $EVITEA_CODE/tools/slurm/no_library.sh`, run from `$EVITEA_OUT` on a login node (it only submits). It requires BLAST+ in the image or `BLAST_BIN` in `site.sh`. Jobs:
