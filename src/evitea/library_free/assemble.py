@@ -10,7 +10,8 @@ check scope   none           a call with reference-path fraction e >= T_E is dro
               unconfirmed    every library-free call the library layer does not make (no EviTEA call within 500 bp) must pass the
                              one-site check, and e <= REFERENCE_PATH_CEILING. e stays in the output as the allele-share column.
 Calls are judged in this order: DROPPED_V2 (reference-path filter: e above REFERENCE_PATH_CEILING, or e >= T_E with scope none),
-DROPPED_RULE_C (family-identity filter), NEAR_EVITEA, DROPPED_CHECK, DROPPED_RESIDENT_COPY, DROPPED_SINGLE_COPY, ADDED.
+DROPPED_RULE_C (family-identity filter), NEAR_EVITEA, DROPPED_CHECK, DROPPED_RESIDENT_COPY, DROPPED_SINGLE_COPY, DROPPED_HOM_REGION,
+ADDED.
 
 Haplotype scan. Its family calls are judged on their own grouping. They join the first pass only where the first pass has no family call
 (of any status) within 500 bp (MERGE_D), and only if they show reads of both alleles (T_E <= e <= REFERENCE_PATH_CEILING) and pass the
@@ -19,10 +20,15 @@ The family-identity filter for them is decided on trusted members: the places of
 call or that pass the check with T_E <= e <= REFERENCE_PATH_CEILING. These places are grouped again among themselves. The family rule
 and the family-identity filter are applied to those clusters. A call that the family-identity filter dropped in its own grouping is
 kept when this second decision keeps it. Status of such a call: NOT_HET (no allele-share evidence: left to the first pass),
-DROPPED_V2, NEAR_FIRST_PASS, DROPPED_CHECK, DROPPED_RULE_C, NEAR_EVITEA, DROPPED_RESIDENT_COPY, DROPPED_SINGLE_COPY, ADDED.
+DROPPED_V2, NEAR_FIRST_PASS, DROPPED_CHECK, DROPPED_RULE_C, NEAR_EVITEA, DROPPED_RESIDENT_COPY, DROPPED_SINGLE_COPY,
+DROPPED_HOM_REGION, ADDED.
 
 Single-copy contigs (``single_copy.py``): on a contig the sample carries in one copy, a call that would be added is
 DROPPED_SINGLE_COPY when it is a haplotype-scan call or a first-pass call with e above HOM_MAX.
+
+Local heterozygous guard (``het_guard.py``): after the single-copy rule, a call that would be added with e above HOM_MAX is
+DROPPED_HOM_REGION when fewer than a quarter of the 10 confirmed places nearest to it are heterozygous-looking. The confirmed places
+are taken before the single-copy rule and the guard act, so neither drop changes them.
 """
 
 from __future__ import annotations
@@ -241,11 +247,11 @@ def _trusted_identity_filter(second: _Pass, trusted: list[int], priority: bool, 
 
 
 def assemble(first, second, index: CL.CallIndex, opts: Options, *, identity_filter: bool, reference=None, copies=None, genome_bp: int = 0,
-             aligner: Callable | None = None, single_copy=None):
+             aligner: Callable | None = None, single_copy=None, het_guard=None):
     """(rows, summary). ``first`` / ``second`` = (places rows, segments dict) of each pass (``second`` None without a haplotype
     scan); ``reference`` = dict contig -> sequence (needed for the check); ``copies`` = ``resident.CopyIndex`` (None: no
     resident-copy test); ``genome_bp`` = bases of the reference (the TE share's denominator); ``single_copy`` =
-    ``single_copy.Decision`` (None: no single-copy rule)."""
+    ``single_copy.Decision`` (None: no single-copy rule); ``het_guard`` = ``het_guard.Guard`` (None: no local heterozygous guard)."""
     scope = opts.check_scope
     if second is not None and scope == "none":
         raise InputContractError("the haplotype scan joins calls through the one-site check; use --check-scope path-dropped or "
@@ -326,6 +332,13 @@ def assemble(first, second, index: CL.CallIndex, opts: Options, *, identity_filt
                     st[i] = "DROPPED_RESIDENT_COPY"
     elif opts.resident_guard != "off":
         summary["resident_guard"] = "off: no repeat annotation"
+    # confirmed places of the local heterozygous guard: after the resident-copy test, before either of the two drops below
+    guard_items = None
+    if het_guard is not None:
+        from . import het_guard as HG
+
+        guard_items = [(F.places[i]["chrom"], int(F.places[i]["bL"]), F.e[i] > HG.HOM_MAX) for i in F.calls
+                       if HG.confirmed(F.scan, status[i], F.places[i], F.e[i])]
     # single-copy contigs, on the calls that would be added
     if single_copy is not None:
         from . import single_copy as SC
@@ -341,6 +354,9 @@ def assemble(first, second, index: CL.CallIndex, opts: Options, *, identity_filt
             info.update(SC.report(((pa.scan, pa.places[i]["cluster"], pa.places[i]["chrom"], st[i], pa.e[i])
                                    for pa, st in passes for i in pa.calls), flagged))
         summary["single_copy"] = info
+    # local heterozygous guard, on the calls that would still be added
+    if het_guard is not None:
+        summary["het_guard"] = HG.apply(het_guard, guard_items, [(pa, st) for pa, st in ((F, status), (H, hstatus)) if pa is not None])
     rows = []
     for pa, st in ((F, status), (H, hstatus)):
         if pa is None:

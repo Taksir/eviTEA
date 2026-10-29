@@ -386,6 +386,13 @@ def build_parser() -> argparse.ArgumentParser:
                     "heterozygous genotype (reference-path fraction above 0.15). auto: contigs at no more than 0.625 of the "
                     "genome depth whose library-confirmed calls (at least 10) are at most 25%% heterozygous; all: every contig; "
                     "none: off; or comma-separated contig names (default auto)")
+    lf.add_argument("--het-guard", choices=("on", "off"), default="on",
+                    help="local heterozygous guard: a call that would be added with the reference-path fraction above 0.15 is dropped "
+                    "when fewer than a quarter of the 10 confirmed library-free places nearest to it on the contig (the call "
+                    "itself counts) are heterozygous-looking; a contig with fewer than 5 confirmed places uses the share of the "
+                    "sample, a sample with fewer than 10 has no guard (default on). Turn it off for a screen for new insertions "
+                    "in an inbred line: a recent private insertion there is heterozygous, and the guard drops it among homozygous "
+                    "neighbours")
     lf.add_argument("--te-assets", type=Path,
                     help="prepared TE assets of the library run (the TE record to family map): calls.combined.tsv and "
                     "calls.combined.vcf then leave out the library calls inside a reference copy of their own family "
@@ -1126,6 +1133,7 @@ def _library_free(args: argparse.Namespace) -> None:
         resident_filter=resident_filter,
         adapter_test=args.adapter_test == "on",
         single_copy=single_copy,
+        het_guard=args.het_guard,
     )
 
 

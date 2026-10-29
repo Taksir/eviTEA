@@ -21,6 +21,8 @@ U11 the repeat cutoff from window counts, and the command line of the cross-spec
 U12 single-copy contigs: the default (auto) measures the contig depth once (copy_profile.json in the work directory, reused) and
     flags nothing without library calls; none gives the same call tables; naming the contig changes only added calls (haplotype-scan
     calls and first-pass calls with e above HOM_MAX) to DROPPED_SINGLE_COPY, and the merge view takes the main view's contigs.
+U13 local heterozygous guard: on by default and recorded in the summary of both views (the merge view from the main view's places);
+    the sample has fewer than 10 confirmed places, so the guard is idle and --het-guard on and off give the call tables of the default run.
 """
 import hashlib
 import json
@@ -148,6 +150,22 @@ def main():
     ms = json.loads((u_list / "merge_view" / "library_free_summary.json").read_text())["assembly"].get("single_copy", {}) \
         if (u_list / "merge_view").is_dir() else {"flagged": ["chrS"], "source": "main view"}
     check("U12 the merge view takes the main view's contigs", ms.get("flagged") == ["chrS"] and ms.get("source") == "main view", ms)
+
+    # U13
+    hg0 = summ["assembly"].get("het_guard", {})
+    check("U13 on by default, recorded in the summary (idle: fewer than 10 confirmed places)",
+          hg0.get("mode") == "on" and hg0.get("active") is False and hg0.get("confirmed", 99) < 10, hg0)
+    mh = json.loads((d0 / "merge_view" / "library_free_summary.json").read_text())["assembly"].get("het_guard", {}) \
+        if (d0 / "merge_view").is_dir() else {"source": "main view"}
+    check("U13 the merge view takes the main view's places", mh.get("source") == "main view", mh)
+    h_on, h_off = t / "h_on", t / "h_off"
+    hruns = {d: subprocess.run([sys.executable, "-B", str(drv_path), str(d), "7", base, "--het", "--het-guard", mode],
+                               env=dict(env, EVITEA_PIECES_READONLY="1"), capture_output=True, text=True)
+             for d, mode in ((h_on, "on"), (h_off, "off"))}
+    check("U13 on / off run from the saved pieces", all(x.returncode == 0 for x in hruns.values()), [x.stderr[-300:] for x in hruns.values()])
+    check("U13 on and off give the call tables of the default run on this sample", all(sha(u / n) == sha(d0 / n) for u in (h_on, h_off) for n in tables))
+    off = json.loads((h_off / "library_free_summary.json").read_text())["assembly"].get("het_guard")
+    check("U13 off is recorded", off == {"mode": "off"}, off)
 
     sys.path.insert(0, str(ROOT / "src"))
     from evitea import cli

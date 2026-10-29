@@ -9,7 +9,8 @@ reused with it on or off. The family-call layer reads the written places and
 segments tables, so a detection can be reused with ``--detection-dir`` (its
 grouping, and so its adapter test, stands as it was). The single-copy rule
 (``single_copy.py``) acts on the family calls; its contig depth profile is kept
-in the work directory with its identity. The source run directory is only read.
+in the work directory with its identity. The local heterozygous guard (``het_guard.py``) acts on the family calls too and
+needs nothing saved. The source run directory is only read.
 """
 
 from __future__ import annotations
@@ -383,13 +384,14 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
                      progress: Callable[[str], None] | None = None, options: Options | None = None,
                      repeat_annotation: Path | None = None, repeat_map: Path | None = None,
                      mito_contig: str | None = None, resident_filter=None, adapter_test: bool = True,
-                     single_copy="auto") -> dict:
+                     single_copy="auto", het_guard="on") -> dict:
     """``resident_filter`` (``resident_filter.OwnFamilyCopyFilter``): drop the library calls inside a reference copy of their own
     family from ``calls.combined.tsv`` and ``calls.combined.vcf`` only.  Detection and assembly read the unfiltered
     ``calls.native.tsv`` of ``run_dir``, so the family calls and the added calls do not depend on it; ``None``: no filter.
     ``adapter_test``: set aside the places whose segments hold a sequencing-adapter core before the grouping (``adapter.py``);
     not run with ``detection_dir``, whose grouping stands. ``single_copy``: ``--single-copy-contigs`` (text or
-    ``single_copy.Choice``); the merge view takes the main view's single-copy contigs."""
+    ``single_copy.Choice``); the merge view takes the main view's single-copy contigs. ``het_guard``: ``--het-guard`` (on or off, or a
+    ``het_guard.Guard``); the merge view takes the main view's confirmed places."""
 
     from ..breakpoints.runtime import read_fasta
     from ..pipeline import prepare_output_directory
@@ -439,6 +441,11 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     if repeat_map is not None and (repeat_annotation is not None or native_rows):
         say("library-free: --repeat-map not used: " + ("--repeat-annotation is given" if repeat_annotation is not None
                                                       else f"the library layer made {len(native_rows)} calls"))
+    from . import het_guard as HG
+
+    guard = het_guard if isinstance(het_guard, HG.Guard) else HG.Guard.parse(het_guard)
+    if opts.is_previous:
+        guard = None
     decision = None
     if not opts.is_previous:
         decision = _single_copy(choice, genome, reference_fasta, msbwt_index, contigs, work, say) if rule_on else SC.Decision(choice)
@@ -456,11 +463,13 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     summary = None
     for out_dir, first_tables, view_opts, view_info in views:
         result = _assemble_and_write(out_dir, first_tables, tables.get("second"), view_opts, view_info, single_copy=decision,
-                                     **common)
+                                     het_guard=guard, **common)
         if summary is None:
             summary = result
             if decision is not None:
                 decision = SC.Decision.from_view(choice, result["assembly"]["single_copy"].get("flagged", ()), "main view")
+            if guard is not None:
+                guard = guard.for_merge_view()
         else:
             summary["merge_view"] = {"output": str(out_dir), "family_calls": result["family_calls"],
                                      "family_call_statuses": result["family_call_statuses"]}
@@ -479,7 +488,7 @@ def _merge_view_info(info: dict) -> dict:
 
 def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options, info: dict, *, native, native_rows, sample_id,
                         reference, genome, copies, genome_bp, rule_c, run_dir, command_line, source_identity, repeat_map,
-                        repeat_annotation, say, started, resident_filter=None, single_copy=None) -> dict:
+                        repeat_annotation, say, started, resident_filter=None, single_copy=None, het_guard=None) -> dict:
     """Family calls of one set of rules from the detection tables, and the files of ``library-free`` in ``output``."""
     from . import assemble as AS
     from . import calling as CL
@@ -497,7 +506,7 @@ def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options
     c_started = time.time()
     index = CL.CallIndex.from_native(native_rows)
     rows, assembly = AS.assemble(first, second, index, opts, identity_filter=rule_c, reference=genome, copies=copies, genome_bp=genome_bp,
-                                 single_copy=single_copy)
+                                 single_copy=single_copy, het_guard=het_guard)
     c_seconds = round(time.time() - c_started, 1)
     extended = not opts.is_previous
     added = AS.added_calls_tsv_bytes(rows)

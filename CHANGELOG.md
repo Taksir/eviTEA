@@ -36,4 +36,10 @@
   `auto` flags a contig at no more than 0.625 of the genome depth (sampled words that occur once in the reference, counted in
   the msBWT; `copy_profile.json` in the work directory) whose library-confirmed calls (at least 10) are at most 25%
   heterozygous. The family records count these calls as kept. Saved scan pieces are reused with any choice.
+- Library-free layer: local heterozygous guard (`--het-guard on|off`, default on). After the single-copy rule, a call that would
+  be added with e above 0.15 is not added (status `DROPPED_HOM_REGION`) when fewer than 25% of the 10 confirmed places nearest to
+  it on the contig (the call itself counts) are heterozygous-looking. A contig with fewer than 5 confirmed places uses the share
+  of the sample; a sample with fewer than 10 has no guard. The merge view takes the main view's confirmed places. Use
+  `--het-guard off` for a screen for new insertions in an inbred line, where a recent private insertion is heterozygous. The
+  family records count these calls as kept. Saved scan pieces are reused with it on or off. `evitea run` takes the same switch.
 - Released under GPL-3.0-or-later.

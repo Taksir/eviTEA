@@ -78,6 +78,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                         help="with a library: keep the calls inside a reference copy of their own TE family (default: `call` and "
                         "the library-free layer leave them out of the final call tables and list them in "
                         "resident_copy_dropped.tsv); no effect with --no-library")
+    parser.add_argument("--het-guard", choices=("on", "off"), default="on",
+                        help="given to library-free as --het-guard (local heterozygous guard, default on; off for a screen for "
+                        "new insertions in an inbred line)")
     parser.add_argument("--threads", type=int, default=0)
     parser.add_argument("--workers", type=int)
     for name in ("--read-length", "--fragment-q95", "--fragment-q99", "--primary-contigs"):
@@ -105,6 +108,10 @@ def _common_steps(args: argparse.Namespace, out: Path, sample_id: str) -> list[t
     ]
 
 
+def _het_guard(args: argparse.Namespace) -> list[str]:
+    return ["--het-guard", "off"] if args.het_guard == "off" else []
+
+
 def _keep_resident(args: argparse.Namespace) -> list[str]:
     return ["--keep-resident-copies"] if args.keep_resident_copies else []
 
@@ -128,7 +135,7 @@ def library_steps(args: argparse.Namespace, out: Path, sample_id: str) -> list[t
         steps.append(("library_free", [
             "library-free", "--run-dir", str(out / "call"), "--sample-assets", str(out / "sample"), "--reference-assets",
             str(out / "reference"), "--output", str(out / "library_free"), "--work-dir", str(out / "work" / "library_free"),
-            *(_keep_resident(args) or ["--te-assets", str(out / "te")]), *_contigs(args)]))
+            *(_keep_resident(args) or ["--te-assets", str(out / "te")]), *_contigs(args), *_het_guard(args)]))
     return steps
 
 
@@ -150,7 +157,7 @@ def no_library_steps(args: argparse.Namespace, out: Path, sample_id: str) -> lis
         ("library_free", ["library-free", "--run-dir", str(out / "nolib_stub"), "--sample-assets", str(out / "sample"),
                           "--reference-assets", str(out / "reference"), "--output", str(out / "library_free"),
                           "--work-dir", str(out / "work" / "library_free"), *_contigs(args), FAMILY_IDENTITY_FILTER,
-                          "--repeat-map", str(repeat_map)]),
+                          "--repeat-map", str(repeat_map), *_het_guard(args)]),
         ("records", ["build-family-records", "--family-calls", str(out / "library_free" / "library_free_family_calls.tsv"),
                      "--segments", str(out / "library_free" / "library_free_segments.fa"), "@second-segments", str(second),
                      "--reference-assets", str(out / "reference"), "--output", str(records / "lib"), "--flag-rule", "kept",

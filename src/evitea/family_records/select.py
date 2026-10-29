@@ -3,8 +3,8 @@
 A family is flagged when it has at least FAMILY_MIN calls away from the library layer's calls and more away than near. The calls
 counted depend on the flag rule:
 
-kept            away = calls that the filters kept or the resident-copy test or the single-copy rule dropped last (ADDED,
-                DROPPED_RESIDENT_COPY, DROPPED_SINGLE_COPY);
+kept            away = calls that the filters kept or the resident-copy test, the single-copy rule or the local heterozygous guard
+                dropped last (ADDED, DROPPED_RESIDENT_COPY, DROPPED_SINGLE_COPY, DROPPED_HOM_REGION);
                 near = calls near a library call (NEAR_EVITEA). A haplotype-scan call near a first-pass call (NEAR_FIRST_PASS) is
                 neither: the first-pass call may itself belong to a family the library lacks.
 before-filters  away = calls that are not near a library call and that the family-identity filter does not drop, regardless of the
@@ -28,7 +28,7 @@ GUARD_FLOOR = 0.5
 FLAG_RULES = ("kept", "before-filters", "both")
 FlagRule = str
 
-AWAY_KEPT = ("ADDED", "DROPPED_RESIDENT_COPY", "DROPPED_SINGLE_COPY")
+AWAY_KEPT = ("ADDED", "DROPPED_RESIDENT_COPY", "DROPPED_SINGLE_COPY", "DROPPED_HOM_REGION")
 NEAR_STATUS = ("NEAR_EVITEA",)
 NOT_COUNTED = ("NOT_HET", "NEAR_FIRST_PASS")        # near a first-pass call, which may itself be a call of a family the library lacks
 
