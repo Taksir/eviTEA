@@ -2,10 +2,16 @@
 usage: rt_driver.py <out dir> <seed> <options json, merge or -> [--het] [--annotation file] [--repeat-map file] [--native none|px]
                     [--detection-dir dir] [--repeat-anchor windows,at_cutoff] [--profile-min letters] [--sample elements|cross]
                     [--single-copy auto|all|none|LIST] [--het-guard on|off]
-                    [--tsd-skip on|off]
+                    [--tsd-skip on|off] [--workers N] [--counter plain|fast] [--index fake|real] [--work-dir dir] [--index-dir dir] [--small]
+                    [--reference-cache dir]
 merge: Options.merge(). The cross-species repeat cutoff needs the anchor reference's window counts; the driver sets them to a share of
 1 (the cutoff stays REP_MAX) unless --repeat-anchor gives others, and --profile-min lowers the 1 Mb contig minimum of the profile.
---sample cross: the sample of synth_cross.py (one scenario per cross-species rule) instead of synth_elements.py."""
+--sample cross: the sample of synth_cross.py (one scenario per cross-species rule) instead of synth_elements.py.
+--workers / --counter / --reference-cache: the scan-speed arguments of run_library_free. --index real: the reads are written to a real msBWT
+(pymsbwt) instead of the exact count table of synth_elements.SubCounter, so the interval searches of the fast counter run on a real index.
+--small: the elements sample on a 36 kb reference with 6 sites (fast checks of the scan speed options).
+--work-dir: the work folder (default next to the output), to reuse saved scan pieces between runs. --index-dir: the index folder (its path
+text is part of a saved piece's identity, so runs that share pieces give the same one)."""
 import json
 import os
 import random
@@ -34,7 +40,8 @@ if sample_kind == "cross":
     import synth_cross as SX  # noqa: E402
     S = SX.build(seed=seed)
 else:
-    S = SE.build(seed=seed, ref_len=80_000, n_px=6, n_lx=3, n_uq=2, n_st=1)
+    S = (SE.build(seed=seed, ref_len=36_000, n_px=3, n_lx=2, n_uq=1, n_st=0) if "--small" in sys.argv
+         else SE.build(seed=seed, ref_len=80_000, n_px=6, n_lx=3, n_uq=2, n_st=1))
 ref = S["ref"]
 if het and sample_kind == "cross":
     raise SystemExit("--het is for the elements sample")
@@ -61,11 +68,22 @@ if native_mode == "px":      # library-confirmed calls at the P-element-like sit
         rows += f"N{k}\tchrS\t{s['pos']}\t{s['pos'] + 8}\tPX\tPX\n"
 (run_dir / "calls.native.tsv").write_text(head + rows)
 (run_dir / "run_summary.json").write_text(json.dumps({"sample_id": "S"}))
-C = SE.SubCounter(reads)
-M.load_msbwt = lambda path: types.SimpleNamespace(countOccurrencesOfSeq=C._occ)
 reference = types.SimpleNamespace(reference_fasta_path=fa)
-idx = work / "nobwt"
-idx.mkdir(exist_ok=True)
+index_dir = sys.argv[sys.argv.index("--index-dir") + 1] if "--index-dir" in sys.argv else None
+if "--index" in sys.argv and sys.argv[sys.argv.index("--index") + 1] == "real":
+    import logging
+    import multiprocessing
+    multiprocessing.set_start_method("fork", force=True)    # the index builder starts a pool; this script has no main guard
+    from MUSCython import MultiStringBWTCython as MB
+    idx = Path(index_dir) if index_dir else work / "idx"
+    if not (idx / "msbwt.npy").is_file():
+        idx.mkdir(parents=True, exist_ok=True)
+        MB.createMSBWTFromSeqs([w.upper() + "$" for w in reads], str(idx), 1, True, logging.getLogger("rt_driver"))
+else:
+    C = SE.SubCounter(reads)
+    M.load_msbwt = lambda path: types.SimpleNamespace(countOccurrencesOfSeq=C._occ)
+    idx = Path(index_dir) if index_dir else work / "nobwt"
+    idx.mkdir(parents=True, exist_ok=True)
 kw = {}
 if opt_json == "merge":
     from evitea.library_free.options import Options
@@ -93,8 +111,15 @@ if "--het-guard" in sys.argv:
 if "--tsd-skip" in sys.argv:
     from evitea.library_free.tsd_skip import Skip
     kw["tsd_skip"] = Skip(on=sys.argv[sys.argv.index("--tsd-skip") + 1] == "on")
+if "--workers" in sys.argv:
+    kw["workers"] = int(sys.argv[sys.argv.index("--workers") + 1])
+if "--counter" in sys.argv:
+    kw["counter"] = sys.argv[sys.argv.index("--counter") + 1]
+if "--reference-cache" in sys.argv:
+    kw["reference_cache"] = Path(sys.argv[sys.argv.index("--reference-cache") + 1])
+work_dir = Path(sys.argv[sys.argv.index("--work-dir") + 1]) if "--work-dir" in sys.argv else out.parent / (out.name + "_work")
 R.MIN_DEFAULT_CONTIG = 1
-R.run_library_free(run_dir=run_dir, reference=reference, msbwt_index=idx, output=out, work_dir=out.parent / (out.name + "_work"),
+R.run_library_free(run_dir=run_dir, reference=reference, msbwt_index=idx, output=out, work_dir=work_dir,
                    contigs=("chrS",), rule_c=True, detection_dir=Path(detection_dir) if detection_dir else None,
                    progress=lambda m: None, **kw)
 print("done")
