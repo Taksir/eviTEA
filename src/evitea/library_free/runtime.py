@@ -384,14 +384,15 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
                      progress: Callable[[str], None] | None = None, options: Options | None = None,
                      repeat_annotation: Path | None = None, repeat_map: Path | None = None,
                      mito_contig: str | None = None, resident_filter=None, adapter_test: bool = True,
-                     single_copy="auto", het_guard="on") -> dict:
+                     single_copy="auto", het_guard="on", tsd_skip=None) -> dict:
     """``resident_filter`` (``resident_filter.OwnFamilyCopyFilter``): drop the library calls inside a reference copy of their own
     family from ``calls.combined.tsv`` and ``calls.combined.vcf`` only.  Detection and assembly read the unfiltered
     ``calls.native.tsv`` of ``run_dir``, so the family calls and the added calls do not depend on it; ``None``: no filter.
     ``adapter_test``: set aside the places whose segments hold a sequencing-adapter core before the grouping (``adapter.py``);
     not run with ``detection_dir``, whose grouping stands. ``single_copy``: ``--single-copy-contigs`` (text or
     ``single_copy.Choice``); the merge view takes the main view's single-copy contigs. ``het_guard``: ``--het-guard`` (on or off, or a
-    ``het_guard.Guard``); the merge view takes the main view's confirmed places."""
+    ``het_guard.Guard``); the merge view takes the main view's confirmed places. ``tsd_skip``: ``tsd_skip.Skip`` of
+    ``--rule-c-tsd-skip`` (None: on, share 0.3, 5 trusted members); each view judges its own families."""
 
     from ..breakpoints.runtime import read_fasta
     from ..pipeline import prepare_output_directory
@@ -444,8 +445,12 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     from . import het_guard as HG
 
     guard = het_guard if isinstance(het_guard, HG.Guard) else HG.Guard.parse(het_guard)
+    from . import tsd_skip as TS
+
+    skip = tsd_skip if tsd_skip is not None else TS.Skip()
     if opts.is_previous:
         guard = None
+        skip = None
     decision = None
     if not opts.is_previous:
         decision = _single_copy(choice, genome, reference_fasta, msbwt_index, contigs, work, say) if rule_on else SC.Decision(choice)
@@ -463,7 +468,7 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     summary = None
     for out_dir, first_tables, view_opts, view_info in views:
         result = _assemble_and_write(out_dir, first_tables, tables.get("second"), view_opts, view_info, single_copy=decision,
-                                     het_guard=guard, **common)
+                                     het_guard=guard, tsd_skip=skip, **common)
         if summary is None:
             summary = result
             if decision is not None:
@@ -488,7 +493,7 @@ def _merge_view_info(info: dict) -> dict:
 
 def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options, info: dict, *, native, native_rows, sample_id,
                         reference, genome, copies, genome_bp, rule_c, run_dir, command_line, source_identity, repeat_map,
-                        repeat_annotation, say, started, resident_filter=None, single_copy=None, het_guard=None) -> dict:
+                        repeat_annotation, say, started, resident_filter=None, single_copy=None, het_guard=None, tsd_skip=None) -> dict:
     """Family calls of one set of rules from the detection tables, and the files of ``library-free`` in ``output``."""
     from . import assemble as AS
     from . import calling as CL
@@ -506,8 +511,13 @@ def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options
     c_started = time.time()
     index = CL.CallIndex.from_native(native_rows)
     rows, assembly = AS.assemble(first, second, index, opts, identity_filter=rule_c, reference=genome, copies=copies, genome_bp=genome_bp,
-                                 single_copy=single_copy, het_guard=het_guard)
+                                 single_copy=single_copy, het_guard=het_guard, tsd_skip=tsd_skip)
     c_seconds = round(time.time() - c_started, 1)
+    from . import tsd_skip as TS
+
+    judged = assembly.get("rule_c_tsd_skip", {})
+    for line in TS.lines(judged.get("families", ()), judged.get("minimum", TS.MIN_TRUSTED)):
+        say(("merge view: " if output.name == MERGE_VIEW else "") + line)
     extended = not opts.is_previous
     added = AS.added_calls_tsv_bytes(rows)
     write_bytes(output / FAMILY_CALLS, AS.family_calls_tsv_bytes(rows, extended=extended))

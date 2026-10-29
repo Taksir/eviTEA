@@ -36,6 +36,12 @@
   `auto` flags a contig at no more than 0.625 of the genome depth (sampled words that occur once in the reference, counted in
   the msBWT; `copy_profile.json` in the work directory) whose library-confirmed calls (at least 10) are at most 25%
   heterozygous. The family records count these calls as kept. Saved scan pieces are reused with any choice.
+- Library-free layer: the family-identity filter is on by default in every route (`--rule-c on|off`; a bare `--rule-c` still means
+  on), with a TSD skip (`--rule-c-tsd-skip on|off`, `--rule-c-tsd-share`, `--rule-c-tsd-min`; defaults on, 0.3, 5). A family that
+  the filter would drop is kept when at least 5 of its trusted members (near a library call, or passing the one-site check) have a
+  TSD of 2 to 20 bp at a share of 0.3 or more; it then goes on to the other statuses as if the filter were off. The filter
+  candidates are sent to the one-site check as well (the tolerance still leaves them out). The summary lists every judged family
+  with its TSD share. Saved scan pieces are reused with the skip on or off.
 - Library-free layer: local heterozygous guard (`--het-guard on|off`, default on). After the single-copy rule, a call that would
   be added with e above 0.15 is not added (status `DROPPED_HOM_REGION`) when fewer than 25% of the 10 confirmed places nearest to
   it on the contig (the call itself counts) are heterozygous-looking. A contig with fewer than 5 confirmed places uses the share

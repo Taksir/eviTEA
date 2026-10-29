@@ -23,6 +23,8 @@ U12 single-copy contigs: the default (auto) measures the contig depth once (copy
     calls and first-pass calls with e above HOM_MAX) to DROPPED_SINGLE_COPY, and the merge view takes the main view's contigs.
 U13 local heterozygous guard: on by default and recorded in the summary of both views (the merge view from the main view's places);
     the sample has fewer than 10 confirmed places, so the guard is idle and --het-guard on and off give the call tables of the default run.
+U14 TSD skip of the family-identity filter: on by default and recorded in the summary (settings and the judged families; the sample
+    has no family that the filter would drop, so none is listed); --tsd-skip off gives the call tables of the default run.
 """
 import hashlib
 import json
@@ -166,6 +168,17 @@ def main():
     check("U13 on and off give the call tables of the default run on this sample", all(sha(u / n) == sha(d0 / n) for u in (h_on, h_off) for n in tables))
     off = json.loads((h_off / "library_free_summary.json").read_text())["assembly"].get("het_guard")
     check("U13 off is recorded", off == {"mode": "off"}, off)
+
+    # U14
+    ts0 = summ["assembly"].get("rule_c_tsd_skip", {})
+    check("U14 on by default, recorded in the summary", ts0.get("on") is True and ts0.get("share") == 0.3 and ts0.get("minimum") == 5
+          and "families" in ts0, {k: v for k, v in ts0.items() if k != "families"})
+    t_off = t / "t_off"
+    tr = subprocess.run([sys.executable, "-B", str(drv_path), str(t_off), "7", base, "--het", "--tsd-skip", "off"],
+                        env=dict(env, EVITEA_PIECES_READONLY="1"), capture_output=True, text=True)
+    check("U14 off runs from the saved pieces", tr.returncode == 0, tr.stderr[-300:])
+    check("U14 off gives the call tables of the default run on this sample", all(sha(t_off / n) == sha(d0 / n) for n in tables))
+    check("U14 off is recorded", json.loads((t_off / "library_free_summary.json").read_text())["assembly"]["rule_c_tsd_skip"].get("note") == "off")
 
     sys.path.insert(0, str(ROOT / "src"))
     from evitea import cli

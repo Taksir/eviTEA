@@ -370,9 +370,19 @@ def build_parser() -> argparse.ArgumentParser:
     lf.add_argument("--work-dir", type=Path)
     lf.add_argument("--contigs", help="comma-separated contigs to scan, in this order (default: the primary chromosomes and the "
                     "contigs >= 1 Mb, reference order)")
-    lf.add_argument("--rule-c", action="store_true",
+    lf.add_argument("--rule-c", nargs="?", choices=("on", "off"), const="on", default="on",
                     help="the family-identity filter: also drop family calls whose members have a median pairwise "
-                    "identity of <= 98.31%%")
+                    "identity of <= 98.31%% (default on; a bare --rule-c means on)")
+    lf.add_argument("--rule-c-tsd-skip", choices=("on", "off"), default="on",
+                    help="TSD skip of the family-identity filter: a family that the filter would drop is kept when at least "
+                    "--rule-c-tsd-min of its trusted members (calls near a library call, or passing the one-site check) have "
+                    "a TSD of 2 to 20 bp at a share of at least --rule-c-tsd-share (default on)")
+    lf.add_argument("--rule-c-tsd-share", type=float, default=0.3, metavar="SHARE",
+                    help="share of the trusted members of a family with a TSD at which the TSD skip keeps the family "
+                    "(default 0.3: families the filter should drop sit at 0.11 to 0.16, real families at 0.39 or more on the "
+                    "training runs)")
+    lf.add_argument("--rule-c-tsd-min", type=int, default=5, metavar="N",
+                    help="trusted members a family needs for the TSD skip to judge it (default 5)")
     lf.add_argument("--mito-contig",
                     help="the reference's mitochondrial contig; the segment filter drops inserted segments that match it (default: "
                     "first of chrM, MT, M, chrMT found; none: this test is off)")
@@ -1104,10 +1114,12 @@ def _library_free(args: argparse.Namespace) -> None:
     started = time.time()
     from .library_free.options import from_args as _lf_options
     from .library_free.single_copy import Choice as _single_copy
+    from .library_free.tsd_skip import Skip as _tsd_skip
 
     try:
         options = _lf_options(args)
         single_copy = _single_copy.parse(args.single_copy_contigs)
+        tsd_skip = _tsd_skip(on=args.rule_c_tsd_skip == "on", share=args.rule_c_tsd_share, minimum=args.rule_c_tsd_min)
     except ValueError as exc:
         raise InputContractError(str(exc)) from exc
 
@@ -1121,7 +1133,7 @@ def _library_free(args: argparse.Namespace) -> None:
         output=_resolved_cli_path(args.output),
         work_dir=_resolved_cli_path(args.work_dir),
         contigs=tuple(c for c in (args.contigs or "").split(",") if c) or None,
-        rule_c=args.rule_c,
+        rule_c=args.rule_c == "on",
         detection_dir=_resolved_cli_path(args.detection_dir),
         command_line=args.command_line,
         source_identity=_source_identity(),
@@ -1134,6 +1146,7 @@ def _library_free(args: argparse.Namespace) -> None:
         adapter_test=args.adapter_test == "on",
         single_copy=single_copy,
         het_guard=args.het_guard,
+        tsd_skip=tsd_skip,
     )
 
 

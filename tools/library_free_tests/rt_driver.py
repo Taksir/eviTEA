@@ -2,6 +2,7 @@
 usage: rt_driver.py <out dir> <seed> <options json, merge or -> [--het] [--annotation file] [--repeat-map file] [--native none|px]
                     [--detection-dir dir] [--repeat-anchor windows,at_cutoff] [--profile-min letters] [--sample elements|cross]
                     [--single-copy auto|all|none|LIST] [--het-guard on|off]
+                    [--tsd-skip on|off]
 merge: Options.merge(). The cross-species repeat cutoff needs the anchor reference's window counts; the driver sets them to a share of
 1 (the cutoff stays REP_MAX) unless --repeat-anchor gives others, and --profile-min lowers the 1 Mb contig minimum of the profile.
 --sample cross: the sample of synth_cross.py (one scenario per cross-species rule) instead of synth_elements.py."""
@@ -89,6 +90,9 @@ if "--single-copy" in sys.argv:
     kw["single_copy"] = sys.argv[sys.argv.index("--single-copy") + 1]
 if "--het-guard" in sys.argv:
     kw["het_guard"] = sys.argv[sys.argv.index("--het-guard") + 1]
+if "--tsd-skip" in sys.argv:
+    from evitea.library_free.tsd_skip import Skip
+    kw["tsd_skip"] = Skip(on=sys.argv[sys.argv.index("--tsd-skip") + 1] == "on")
 R.MIN_DEFAULT_CONTIG = 1
 R.run_library_free(run_dir=run_dir, reference=reference, msbwt_index=idx, output=out, work_dir=out.parent / (out.name + "_work"),
                    contigs=("chrS",), rule_c=True, detection_dir=Path(detection_dir) if detection_dir else None,
