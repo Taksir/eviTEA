@@ -117,9 +117,11 @@ if "--counter" in sys.argv:
     kw["counter"] = sys.argv[sys.argv.index("--counter") + 1]
 if "--reference-cache" in sys.argv:
     kw["reference_cache"] = Path(sys.argv[sys.argv.index("--reference-cache") + 1])
-work_dir = Path(sys.argv[sys.argv.index("--work-dir") + 1]) if "--work-dir" in sys.argv else out.parent / (out.name + "_work")
+if "--work-dir" in sys.argv:    # test_runtime.py rewrites the work_dir line below as text: keep it as it is and override here
+    _run_library_free, _work_dir = R.run_library_free, Path(sys.argv[sys.argv.index("--work-dir") + 1])
+    R.run_library_free = lambda **k: _run_library_free(**{**k, "work_dir": _work_dir})
 R.MIN_DEFAULT_CONTIG = 1
-R.run_library_free(run_dir=run_dir, reference=reference, msbwt_index=idx, output=out, work_dir=work_dir,
+R.run_library_free(run_dir=run_dir, reference=reference, msbwt_index=idx, output=out, work_dir=out.parent / (out.name + "_work"),
                    contigs=("chrS",), rule_c=True, detection_dir=Path(detection_dir) if detection_dir else None,
                    progress=lambda m: None, **kw)
 print("done")
