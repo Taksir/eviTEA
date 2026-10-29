@@ -535,6 +535,25 @@ def run_checks():
     mutated = TMP / "w2c_mutated"
     import shutil
     shutil.copytree(TMP / "w2c", mutated)
+    # the command line and the git identity of the code differ between the final build and this one: noted, not a difference
+    shutil.copytree(TMP / "w2c", TMP / "w2c_cli")
+    for rel in ("library_free_summary.json", "merge_view/library_free_summary.json"):
+        f = TMP / "w2c_cli" / rel
+        doc = json.loads(f.read_text())
+        doc["command_line"] = ["evitea", "library-free", "--workers", "8", "--counter", "fast"]
+        doc["source_identity"] = {"package_version": "x", "git_commit": "25d9b99" + "0" * 33, "git_dirty": False}
+        f.write_text(json.dumps(doc))
+    got = CS.compare_outputs(TMP / "w2c", TMP / "w2c_cli")
+    notes = [g for g in got if g[1] == "NOTE"]
+    check("W3 compare_scan: a different command_line and source_identity are NOTEs (4 lines), everything else EQUAL",
+          len(notes) == 4 and all(g[1] in ("EQUAL", "NOTE") for g in got) and any("source_identity" in g[0] for g in notes), got[-6:])
+    proc = subprocess.run([sys.executable, str(ROOT / "tools" / "compare_scan.py"), "outputs", str(TMP / "w2c"), str(TMP / "w2c_cli")],
+                          capture_output=True, text=True)
+    check("W3 compare_scan: the command line exits 0 and prints the NOTE lines", proc.returncode == 0 and proc.stdout.count("NOTE ") == 4, proc.stdout[-300:])
+    summ = TMP / "w2c_cli" / "library_free_summary.json"
+    ok = subprocess.run([sys.executable, str(ROOT / "tools" / "compare_scan.py"), "commit", str(summ), "25d9b99"], capture_output=True, text=True)
+    bad = subprocess.run([sys.executable, str(ROOT / "tools" / "compare_scan.py"), "commit", str(summ), "30c0ac3"], capture_output=True, text=True)
+    check("W3 compare_scan commit: the right commit passes, another fails", ok.returncode == 0 and bad.returncode == 1 and "WRONG" in bad.stdout, (ok.stdout, bad.stdout))
     target = mutated / "calls.combined.tsv"
     target.write_text(target.read_text() + "x\n")
     got = CS.compare_outputs(TMP / "w2c", mutated)

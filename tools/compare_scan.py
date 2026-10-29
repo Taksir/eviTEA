@@ -2,6 +2,7 @@
 
     python tools/compare_scan.py pieces  WORK_A WORK_B  [--contigs c1,c2,...]
     python tools/compare_scan.py outputs OUT_A  OUT_B
+    python tools/compare_scan.py commit  SUMMARY.json  COMMIT_PREFIX
 
 ``pieces``: for each contig, the scan piece in ``WORK/pieces/<contig>.pkl`` of both folders (or the folder itself if it holds
 ``<contig>.pkl``), loaded and compared by value: every place and field, the info block, dict key order, list order; NaN equals NaN.
@@ -9,7 +10,12 @@ The identity recorded with a piece must also be equal. Two pieces with equal con
 appears twice once and points to it afterwards), so the file hash is not compared.
 
 ``outputs``: every file under both folders (both views), compared by sha256; ``library_free_summary.json`` is compared after the
-timings, the memory use, the ``speed`` entry and the paths of the run folders are taken out.
+timings, the memory use, the ``speed`` entry, the paths of the run folders, the ``command_line`` and the ``source_identity`` (the git commit
+and dirty flag of the code that ran) are taken out. The last two are printed as NOTE lines when they differ, so that what was left out is
+visible; a NOTE is not a difference.
+
+``commit``: reads ``source_identity`` of a run summary and exits 0 only if its git commit starts with COMMIT_PREFIX and the checkout was not
+dirty. The hash of the detection code is the same for the final build and the fast-scan build, so this is the check of which code ran.
 
 Exit 0 when everything is equal, 1 otherwise. Prints EQUAL or DIFFERENT per item, then the first difference of each different item.
 """
@@ -23,7 +29,8 @@ import sys
 from pathlib import Path
 
 # the timings, the memory use, the speed entry and the path of the run folder differ between two runs of one result
-DROP = {"seconds", "rule_c_seconds", "peak_rss_gb", "speed", "scan_seconds", "source_run", "output"}
+DROP = {"seconds", "rule_c_seconds", "peak_rss_gb", "speed", "scan_seconds", "source_run", "output", "command_line", "source_identity"}
+NOTED = ("command_line", "source_identity")
 
 
 def first_difference(a, b, path="piece"):
@@ -106,13 +113,27 @@ def compare_outputs(out_a: Path, out_b: Path) -> list[tuple[str, str, str | None
         elif Path(rel).name == "library_free_summary.json":
             found = first_difference(_scrub(json.loads(fa[rel].read_text())), _scrub(json.loads(fb[rel].read_text())), "summary")
             results.append((rel + " (without timings and speed)", "EQUAL" if found is None else "DIFFERENT", found))
+            a_doc, b_doc = json.loads(fa[rel].read_text()), json.loads(fb[rel].read_text())
+            for key in NOTED:
+                if a_doc.get(key) != b_doc.get(key):
+                    results.append((f"{rel}: {key} (expected to differ, left out of the comparison)", "NOTE", f"A: {a_doc.get(key)!r} | B: {b_doc.get(key)!r}"))
         else:
             ha, hb = (hashlib.sha256(fa[rel].read_bytes()).hexdigest(), hashlib.sha256(fb[rel].read_bytes()).hexdigest())
             results.append((rel, "EQUAL" if ha == hb else "DIFFERENT", None if ha == hb else f"sha256 {ha[:12]} vs {hb[:12]}"))
     return results
 
 
+def check_commit(summary: Path, prefix: str) -> int:
+    identity = json.loads(summary.read_text()).get("source_identity", {})
+    commit, dirty = identity.get("git_commit"), identity.get("git_dirty")
+    ok = bool(commit) and commit.startswith(prefix) and dirty is False
+    print(f"{'OK' if ok else 'WRONG'} git_commit {commit} (wanted {prefix}...), git_dirty {dirty}")
+    return 0 if ok else 1
+
+
 def main(argv: list[str]) -> int:
+    if len(argv) == 3 and argv[0] == "commit":
+        return check_commit(Path(argv[1]), argv[2])
     if len(argv) < 3 or argv[0] not in ("pieces", "outputs"):
         print(__doc__)
         return 2
@@ -121,11 +142,15 @@ def main(argv: list[str]) -> int:
         contigs = [c for c in argv[argv.index("--contigs") + 1].split(",") if c]
     a, b = Path(argv[1]), Path(argv[2])
     results = compare_pieces(a, b, contigs) if argv[0] == "pieces" else compare_outputs(a, b)
+    notes = [r for r in results if r[1] == "NOTE"]
+    results = [r for r in results if r[1] != "NOTE"]
     for label, state, detail in results:
         print(f"{state:9s} {label}")
     bad = [(label, detail) for label, state, detail in results if state != "EQUAL"]
     for label, detail in bad:
         print(f"  first difference, {label}: {detail}")
+    for label, _, detail in notes:
+        print(f"NOTE      {label}\n            {detail}")
     print(f"{len(results) - len(bad)} of {len(results)} equal")
     return 1 if bad or not results else 0
 
