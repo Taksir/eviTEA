@@ -5,6 +5,8 @@
 - `evitea call` runs the full pipeline on one sample: the repeat-aware caller followed by four evidence-extension layers
   (bilateral, asymmetric and full-memory anchors, internal 21-mer).
 - `prepare-reference`, `prepare-te` (including `--build-languages`), `prepare-sample` and `validate` commands.
+- `evitea genotype`: `genotypes.tsv` with a hom / het genotype per call of a library-free output (`docs/GENOTYPE_OUTPUT.md`). It only adds files;
+  no call changes.
 - Library-free layer (`library-free`): the upper bound of the local-depth window is a switch (`--depth-cap`; default none).
   The lower bound of 10 reads stays. `--depth-cap 100` caps the window at 100.
 - Library-free layer: anchored extension, walk-out, first-pass priority, a second scan for heterozygous sites (`--het-scan`),
