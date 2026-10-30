@@ -18,6 +18,7 @@ Jobs refuse to run on a login node.
 |---|---|
 | `tests.sbatch` | the public tests of `tools/library_free_tests`, in the container (2 CPUs, 8 GB, 4 h); the repeat-map build checks require BLAST+ (`BLAST_BIN` in `site.sh`) and are skipped without it |
 | `detect.sbatch` | one `evitea library-free` run (2 CPUs, 16 GB, up to 12 h); variables are listed at the top of the script |
+| `genotype.sbatch` | `evitea genotype` on a finished library-free output (2 CPUs, 16 GB, up to 2 h); `DS`, `TAG` and `LFDIR` are set before `sbatch`; it reads the call files and writes `genotypes.tsv` under `$EVITEA_OUT/genotype/` |
 | `records.sbatch` | `build-family-records` then `prepare-te` for one sample (8 CPUs, 96 GB, 3 h) |
 | `repeat_map.sbatch` | `build-repeat-map`: the repeat map of the reference for runs without a library (8 CPUs, 8 GB, 3 h) |
 | `record_pass.sbatch` | the library layer once more on the family records (the sample's own `evitea call` command line, three options changed by `call_args.py`), then `add-record-calls` (8 CPUs, 96 GB, 12 h) |
