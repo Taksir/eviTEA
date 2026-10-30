@@ -440,6 +440,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     _add_lf_options(lf)
 
+    gt = commands.add_parser(
+        "genotype",
+        help="hom / het genotype of every call of a library-free output (genotypes.tsv); the call files are only read",
+    )
+    gt.add_argument("--library-free-dir", type=Path, required=True,
+                    help="completed `evitea library-free` output (calls.combined.tsv, calls.library_free.tsv, library_free_family_calls.tsv)")
+    gt_sample = gt.add_mutually_exclusive_group()
+    gt_sample.add_argument("--msbwt-index", type=Path)
+    gt_sample.add_argument("--sample-assets", type=Path)
+    gt.add_argument("--reference-assets", type=Path,
+                    help="prepared reference of the run; needed with the msBWT index for the library calls (Step B)")
+    gt.add_argument("--output", type=Path, help="folder for genotypes.tsv and genotype_summary.json (default: the library-free folder)")
+    gt.add_argument("--counter", choices=("plain", "fast"), default="fast")
+
     from .family_records import run as _fr
 
     fr_build = commands.add_parser(
@@ -1177,6 +1191,38 @@ def _library_free(args: argparse.Namespace) -> None:
     )
 
 
+def _genotype(args: argparse.Namespace) -> None:
+    """Write genotypes.tsv for a finished library-free output: Step A from the recorded walk fractions, Step B from the msBWT."""
+
+    from .genotype import run_genotype
+
+    msbwt_index = _resolved_cli_path(args.msbwt_index)
+    if msbwt_index is None and args.sample_assets is not None:
+        sample = load_prepared_sample(_resolved_cli_path(args.sample_assets))
+        msbwt_index = sample.root / str(sample.backend_profile.get("index_directory", "index"))
+    reference_fasta = None
+    if args.reference_assets is not None:
+        reference_fasta = Path(load_prepared_reference(_resolved_cli_path(args.reference_assets)).reference_fasta_path)
+    if (msbwt_index is None) != (reference_fasta is None):
+        raise InputContractError("the library calls need both --msbwt-index (or --sample-assets) and --reference-assets")
+    started = time.time()
+    library_free_dir = _resolved_cli_path(args.library_free_dir)
+
+    def progress(message: str) -> None:
+        print(f"[evitea {time.time() - started:9.1f}s] {message}", file=sys.stderr, flush=True)
+
+    run_genotype(
+        library_free_dir=library_free_dir,
+        output=_resolved_cli_path(args.output) or library_free_dir,
+        reference_fasta=reference_fasta,
+        msbwt_index=msbwt_index,
+        progress=progress,
+        command_line=args.command_line,
+        source_identity=_source_identity(),
+        counter=args.counter,
+    )
+
+
 def _tier_resident_paths(args: argparse.Namespace) -> tuple[Path, Path]:
     """Return (repeat annotation, TE family map) paths of the prepared assets."""
 
@@ -1435,6 +1481,8 @@ def main(
             _refine_breakpoints(args)
         elif args.command == "library-free":
             _library_free(args)
+        elif args.command == "genotype":
+            _genotype(args)
         elif args.command == "build-family-records":
             _build_family_records(args)
         elif args.command == "build-repeat-map":
