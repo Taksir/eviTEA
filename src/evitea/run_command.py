@@ -81,20 +81,30 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--het-guard", choices=("on", "off"), default="on",
                         help="given to library-free as --het-guard (local heterozygous guard, default on; off for a screen for "
                         "new insertions in an inbred line)")
+    parser.add_argument("--extension-stop-min", type=int, default=3, metavar="N",
+                        help="given to library-free as --extension-stop-min (default 3)")
+    parser.add_argument("--extension-stop-min-depth-cut", type=float, default=None, metavar="DCUT",
+                        help="given to library-free as --extension-stop-min-depth-cut (default: none)")
     parser.add_argument("--threads", type=int, default=0)
     parser.add_argument("--workers", type=int)
     for name in ("--read-length", "--fragment-q95", "--fragment-q99", "--primary-contigs"):
         parser.add_argument(name, help=f"given to call as {name}")
+    parser.add_argument("--weak-site-pass", action="store_true", help="given to call as --weak-site-pass (off by default)")
+    for name in ("--weak-site-depth-cut", "--host-cluster-support", "--candidate-min-pairs", "--candidate-floor-depth-cut"):
+        parser.add_argument(name, help=f"given to call as {name} (default: not given)")
 
 
 def _call_options(args: argparse.Namespace) -> list[str]:
     out = ["--threads", str(args.threads)]
     if args.workers is not None:
         out += ["--workers", str(args.workers)]
-    for name in ("read_length", "fragment_q95", "fragment_q99", "primary_contigs"):
+    for name in ("read_length", "fragment_q95", "fragment_q99", "primary_contigs", "weak_site_depth_cut",
+                 "host_cluster_support", "candidate_min_pairs", "candidate_floor_depth_cut"):
         value = getattr(args, name)
         if value is not None:
             out += ["--" + name.replace("_", "-"), str(value)]
+    if args.weak_site_pass:
+        out.append("--weak-site-pass")
     return out
 
 
@@ -110,6 +120,15 @@ def _common_steps(args: argparse.Namespace, out: Path, sample_id: str) -> list[t
 
 def _het_guard(args: argparse.Namespace) -> list[str]:
     return ["--het-guard", "off"] if args.het_guard == "off" else []
+
+
+def _extension_floor(args: argparse.Namespace) -> list[str]:
+    out: list[str] = []
+    if args.extension_stop_min != 3:
+        out += ["--extension-stop-min", str(args.extension_stop_min)]
+    if args.extension_stop_min_depth_cut is not None:
+        out += ["--extension-stop-min-depth-cut", str(args.extension_stop_min_depth_cut)]
+    return out
 
 
 def _lf_workers(args: argparse.Namespace) -> list[str]:
@@ -141,7 +160,7 @@ def library_steps(args: argparse.Namespace, out: Path, sample_id: str) -> list[t
             "library-free", "--run-dir", str(out / "call"), "--sample-assets", str(out / "sample"), "--reference-assets",
             str(out / "reference"), "--output", str(out / "library_free"), "--work-dir", str(out / "work" / "library_free"),
             *(_keep_resident(args) or ["--te-assets", str(out / "te")]), *_contigs(args), *_lf_workers(args),
-            *_het_guard(args)]))
+            *_het_guard(args), *_extension_floor(args)]))
     return steps
 
 
@@ -163,7 +182,8 @@ def no_library_steps(args: argparse.Namespace, out: Path, sample_id: str) -> lis
         ("library_free", ["library-free", "--run-dir", str(out / "nolib_stub"), "--sample-assets", str(out / "sample"),
                           "--reference-assets", str(out / "reference"), "--output", str(out / "library_free"),
                           "--work-dir", str(out / "work" / "library_free"), *_contigs(args), FAMILY_IDENTITY_FILTER,
-                          "--repeat-map", str(repeat_map), *_lf_workers(args), *_het_guard(args)]),
+                          "--repeat-map", str(repeat_map), *_lf_workers(args), *_het_guard(args),
+                          *_extension_floor(args)]),
         ("records", ["build-family-records", "--family-calls", str(out / "library_free" / "library_free_family_calls.tsv"),
                      "--segments", str(out / "library_free" / "library_free_segments.fa"), "@second-segments", str(second),
                      "--reference-assets", str(out / "reference"), "--output", str(records / "lib"), "--flag-rule", "kept",

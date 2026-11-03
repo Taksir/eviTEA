@@ -20,6 +20,7 @@ from .assets.te import load_prepared_te_assets, prepare_te_assets, verify_te_ass
 from .backends.exact_query import load_prepared_sample, verify_prepared_sample
 from .backends.msbwt import build_prepared_msbwt_sample
 from .config import (
+    DepthFloorConfig,
     EviTEAConfig,
     InputConfig,
     OutputConfig,
@@ -318,6 +319,26 @@ def build_parser() -> argparse.ArgumentParser:
         "occurrences in the sample); keep an extra pair only when its TE-side read has no alignment within q99 of the "
         "host-side read (off by default)",
     )
+    call.add_argument(
+        "--weak-site-pass",
+        action="store_true",
+        default=None,
+        help="after the library-layer calls, call each evidence site that has no call within 500 bp and has at least one pooled "
+        "read (split, pair and junction-group reads) on each side, or at least two split reads on one side; these calls "
+        "are tier 4 and go through the same own-family copy filter and breakpoint refinement as the others. Runs only when "
+        "the sample's single-copy depth is at or under --weak-site-depth-cut (required with it). Off by default",
+    )
+    call.add_argument("--weak-site-depth-cut", type=float, metavar="DCUT",
+                      help="single-copy depth (the library-free layer's estimate) at or under which --weak-site-pass runs")
+    call.add_argument("--host-cluster-support", type=int, metavar="N",
+                      help="host-mapped mates needed in a 500 bp cluster for a candidate pair (default 2); with "
+                      "--candidate-floor-depth-cut it applies only at low depth")
+    call.add_argument("--candidate-min-pairs", type=int, metavar="N",
+                      help="candidate pairs needed for a candidate place (default 2); with --candidate-floor-depth-cut it "
+                      "applies only at low depth. A value under 2 can raise the run time a lot")
+    call.add_argument("--candidate-floor-depth-cut", type=float, metavar="DCUT",
+                      help="apply --host-cluster-support and --candidate-min-pairs only when the single-copy depth is at or "
+                      "under DCUT, else 2 and 2 (default: no cut, they apply at every depth)")
     _add_breakpoint_extras(call)
     _add_depth_cap(call)
     _add_keep_resident_copies(call)
@@ -427,6 +448,14 @@ def build_parser() -> argparse.ArgumentParser:
                     "sample, a sample with fewer than 10 has no guard (default on). Turn it off for a screen for new insertions "
                     "in an inbred line: a recent private insertion there is heterozygous, and the guard drops it among homozygous "
                     "neighbours")
+    lf.add_argument("--extension-stop-min", type=int, default=3, metavar="N",
+                    help="reads that must still carry the next letter for the extension of a library-free segment to go on "
+                    "(the count floor of the 10%% stop rule; default 3, the value of every earlier run). A smaller N lets a "
+                    "low-depth sample extend past a position that holds fewer reads; with --extension-stop-min-depth-cut it is "
+                    "used only at low depth")
+    lf.add_argument("--extension-stop-min-depth-cut", type=float, default=None, metavar="DCUT",
+                    help="use --extension-stop-min only when the single-copy depth of the sample is at most DCUT, else 3 "
+                    "(default: no cut, N applies at every depth). The floor used and the depth go into library_free_summary.json")
     lf.add_argument("--te-assets", type=Path,
                     help="prepared TE assets of the library run (the TE record to family map): calls.combined.tsv and "
                     "calls.combined.vcf then leave out the library calls inside a reference copy of their own family "
@@ -891,6 +920,11 @@ def _call_config(args: argparse.Namespace) -> EviTEAConfig:
                 else base.refinement.call_annotations
             ),
         ),
+        depth_floors=DepthFloorConfig(**{
+            name: (getattr(args, name) if getattr(args, name, None) is not None else getattr(base.depth_floors, name))
+            for name in ("weak_site_pass", "weak_site_depth_cut", "host_cluster_support", "candidate_min_pairs",
+                         "candidate_floor_depth_cut")
+        }),
     )
 
 
@@ -1170,6 +1204,8 @@ def _library_free(args: argparse.Namespace) -> None:
         adapter_test=args.adapter_test == "on",
         single_copy=single_copy,
         het_guard=args.het_guard,
+        extension_stop_min=args.extension_stop_min,
+        extension_stop_min_depth_cut=args.extension_stop_min_depth_cut,
         tsd_skip=tsd_skip,
         workers=args.workers,
         counter=args.counter,

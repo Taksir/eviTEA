@@ -1,11 +1,12 @@
 #!/bin/bash
 # All public tests. Requires a python with mappy, parasail and numpy as $PYTHON.
 # PREVIOUS_SRC (the src folder of the previous version) enables the byte-for-byte comparisons; they are skipped without it.
+# FREEZE_SRC (the src folder of the freeze, 296e725) enables the same comparison of test_depth_floors.
 cd "$(dirname "$0")/../.." || exit 1
 PYTHON=${PYTHON:-python3}
 export PYTHONPATH=src
 fail=0
-for t in test_depth_window test_depth_tool test_records test_assemble test_runtime test_repeat_map test_slurm_tools test_fastscan; do
+for t in test_depth_window test_depth_tool test_records test_assemble test_runtime test_repeat_map test_slurm_tools test_fastscan test_depth_floors; do
   echo "== $t"
   $PYTHON -B tools/library_free_tests/$t.py 2>&1 | grep -v "^PASS" | tail -5 || true
   [ "${PIPESTATUS[0]}" = 0 ] || fail=1
