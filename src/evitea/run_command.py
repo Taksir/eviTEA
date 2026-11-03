@@ -100,10 +100,10 @@ def _call_options(args: argparse.Namespace) -> list[str]:
         out += ["--workers", str(args.workers)]
     for name in ("read_length", "fragment_q95", "fragment_q99", "primary_contigs", "weak_site_depth_cut",
                  "host_cluster_support", "candidate_min_pairs", "candidate_floor_depth_cut"):
-        value = getattr(args, name)
+        value = getattr(args, name, None)      # a namespace built without the opt-in floors (older callers) has none of them
         if value is not None:
             out += ["--" + name.replace("_", "-"), str(value)]
-    if args.weak_site_pass:
+    if getattr(args, "weak_site_pass", False):
         out.append("--weak-site-pass")
     return out
 
@@ -124,10 +124,12 @@ def _het_guard(args: argparse.Namespace) -> list[str]:
 
 def _extension_floor(args: argparse.Namespace) -> list[str]:
     out: list[str] = []
-    if args.extension_stop_min != 3:
-        out += ["--extension-stop-min", str(args.extension_stop_min)]
-    if args.extension_stop_min_depth_cut is not None:
-        out += ["--extension-stop-min-depth-cut", str(args.extension_stop_min_depth_cut)]
+    stop_min = getattr(args, "extension_stop_min", 3)
+    depth_cut = getattr(args, "extension_stop_min_depth_cut", None)
+    if stop_min != 3:
+        out += ["--extension-stop-min", str(stop_min)]
+    if depth_cut is not None:
+        out += ["--extension-stop-min-depth-cut", str(depth_cut)]
     return out
 
 
