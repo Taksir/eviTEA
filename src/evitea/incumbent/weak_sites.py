@@ -14,8 +14,10 @@ Evidence is grouped as the desk replay of 3 Nov 2026 grouped it (``e1/replay_flo
 * junction-group reads (``JunctionGroupsResult.ledger``): the strict left and right ids of each locus;
 * items whose starts lie within ``SITE_GAP`` (100) bases of the running end of the site join one site.
 
-Per side the distinct fragment ids of the split, pair and strict items are pooled.  A site with a call of the layer within
-``NEAR_BP`` (500) bases becomes no call.  The family of a new call is the family with the most supporting ids at the site
+Per side the distinct fragment ids of the split, pair and strict items are pooled.  The pass runs after the four extension layers:
+a site with any row of the final table (library-layer rows and the rows the extension layers added) within ``NEAR_BP`` (500) bases
+becomes no call, and the new rows are appended at the end of the final table, so none enters an extension layer's base table (a
+``WEAK_`` row there would absorb a stronger anchor-pair call of its family, or stand beside a call of another family).  The family of a new call is the family with the most supporting ids at the site
 (ties: the family name that sorts first); its coordinates are the span of that family's items; ``left_support`` and
 ``right_support`` are the pooled counts per side and ``fragment_pair_ids`` the pooled ids, so the support of a call is the
 count the rule used.  The event id is ``WEAK_<n>``.  Nothing here reads a reference annotation: the new rows go through the
@@ -52,7 +54,7 @@ _COUNTED = ("split", "pair", "strict")
 class WeakSiteResult:
     calls: tuple[IncumbentCall, ...]
     sites: int              # evidence sites
-    uncovered: int          # sites with no call of the layer within NEAR_BP
+    uncovered: int          # sites with no row of the final table within NEAR_BP
 
 
 def _items(split: SplitJunctionResult, mates: MateRescueResult, groups: JunctionGroupsResult):
@@ -130,13 +132,14 @@ def weak_site_calls(
     split: SplitJunctionResult,
     mates: MateRescueResult,
     groups: JunctionGroupsResult,
-    existing_calls: Iterable[IncumbentCall],
+    existing: Iterable[tuple[str, int, int]],
 ) -> WeakSiteResult:
-    """Calls for the evidence sites that pass the rule and have no call of the layer within ``NEAR_BP``."""
+    """Calls for the evidence sites that pass the rule and have no row within ``NEAR_BP``; ``existing`` is (chrom, start, end) of
+    every row of the table the calls join (the library layer and the extension layers)."""
 
     by_chrom: dict[str, list[tuple[int, int]]] = defaultdict(list)
-    for call in existing_calls:
-        by_chrom[call.chrom].append((call.start, call.end))
+    for chrom, start, end in existing:
+        by_chrom[chrom].append((start, end))
     sites = evidence_sites(split, mates, groups)
     calls: list[IncumbentCall] = []
     uncovered = 0

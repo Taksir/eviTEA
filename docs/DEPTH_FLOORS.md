@@ -24,7 +24,7 @@ so it never reuses the default's pieces; it cannot be combined with `--detection
 
 | Switch | Default | Effect |
 |---|---|---|
-| `--weak-site-pass` | off | After the library-layer calls exist, call each evidence site with no call within 500 bp that has at least one pooled read on each side, or at least two split reads on one side. |
+| `--weak-site-pass` | off | After the four extension layers, call each evidence site with no row of the final table within 500 bp that has at least one pooled read on each side, or at least two split reads on one side. |
 | `--weak-site-depth-cut DCUT` | required with the pass | The pass runs only when D is at or under DCUT. |
 
 Evidence is grouped as in the desk replay of 3 Nov 2026 (`incumbent/weak_sites.py`): split events (one-sided left or right), the
@@ -32,8 +32,8 @@ left and right pair ids of the mate-rescue loci and the strict ids of the juncti
 per side the distinct fragment ids are pooled. The family of the new call is the family with the most supporting ids at the site;
 its coordinates are the span of that family's items. The calls are named `WEAK_<n>`, have `evidence_type`
 `weak_site_pooled_floor`, call origin `INCUMBENT_WEAK_SITE`, and tier 4 (`LOW_SUPPORT`) at any support. They go through the same
-own-family copy filter and breakpoint refinement as every library call, and the extension layers read them as base calls.
-D, DCUT, the sites seen and the rows added are in `run_summary.json` (`engine_counts.depth_floors.weak_site_pass`).
+own-family copy filter and breakpoint refinement as every library call. The pass runs after the extension layers, the 500 bp cover is every row of the final table (library-layer and extension rows), and the rows are appended at the end (layer `weak_site` in `layer_rows`), so no extension layer reads a `WEAK_` row: a weak row cannot absorb an anchor-pair call of its family or stand beside a call of another family.
+D, DCUT, the sites seen, the rows of the final table before the pass and the rows added are in `run_summary.json` (`engine_counts.depth_floors.weak_site_pass`).
 
 ## 3. Candidate place minimum (`call`, `run`)
 

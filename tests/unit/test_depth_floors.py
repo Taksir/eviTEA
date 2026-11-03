@@ -82,14 +82,14 @@ def test_one_side_only_needs_two_split_reads():
     assert len(pooled.calls) == 1
 
 
-def test_a_call_within_500_bp_blocks_the_site():
-    existing = [IncumbentCall("s", "X", IncumbentCallClass.MATE_RESCUE, "chr1", 1400, 1401, "roo", None, None, None, 2, 2, "m", 4.0, (1, 2, 3, 4))]
+def test_a_row_within_500_bp_blocks_the_site():
     pair = _pair("chr1", "roo", 900, 910, left=[1], right=[2])
-    assert _run(pairs=[pair], existing=existing).calls == ()
-    far = IncumbentCall("s", "X", IncumbentCallClass.MATE_RESCUE, "chr1", 1412, 1413, "roo", None, None, None, 2, 2, "m", 4.0, (1, 2, 3, 4))
-    assert len(_run(pairs=[pair], existing=[far]).calls) == 1                     # site ends 911; a call from 1411 on is within 500 bp, 1412 is not
-    other = IncumbentCall("s", "X", IncumbentCallClass.MATE_RESCUE, "chr2", 900, 901, "roo", None, None, None, 2, 2, "m", 4.0, (1, 2, 3, 4))
-    assert len(_run(pairs=[pair], existing=[other]).calls) == 1                   # another contig does not count
+    assert _run(pairs=[pair], existing=[("chr1", 1400, 1401)]).calls == ()
+    assert _run(pairs=[pair], existing=[("chr1", 1411, 1412)]).calls == ()      # site ends 911: a row from 1411 on is within 500 bp
+    assert len(_run(pairs=[pair], existing=[("chr1", 1412, 1413)]).calls) == 1
+    assert _run(pairs=[pair], existing=[("chr1", 300, 400)]).calls == ()        # 400 >= 900 - 500
+    assert len(_run(pairs=[pair], existing=[("chr1", 300, 399)]).calls) == 1
+    assert len(_run(pairs=[pair], existing=[("chr2", 900, 901)]).calls) == 1    # another contig does not count
 
 
 def test_site_grouping_gap_is_100_bp():
@@ -218,17 +218,18 @@ def test_acquisition_threads_the_candidate_minimums(monkeypatch):
 
 
 def test_run_engine_with_the_floors_on(tmp_path, monkeypatch):
-    """Floors resolved from the depth, candidate minimums reach the library layer, the weak-site rows join the layer's calls and
-    the extension layers' base table, and the record lands in the engine counts. With the floors off the existing engine test
-    (test_default_engine) shows an unchanged call."""
+    """Floors resolved from the depth; candidate minimums reach the library layer; the weak-site pass runs after the extension layers,
+    covers against every row of the final table, and appends its rows at the end without entering any layer's base table."""
 
     import evitea.engine as engine_module
     from evitea.incumbent.acquisition import CandidateAcquisition
     from evitea.incumbent.engine import IncumbentResult
     from evitea.sample_geometry import FragmentSizes
-    from test_default_engine import _fake_extension, _inputs as engine_inputs
+    from evitea.shadow_layers import ShadowCallset
+    from test_default_engine import _inputs as engine_inputs
 
     seen = {}
+    extension_rows = []     # rows the fake extension layer adds to the library-layer table
     pair = _pair("chr1", "roo", 1000, 1010, left=[1], right=[2])
     split, mates, groups = _results(pairs=[pair])
 
@@ -239,7 +240,10 @@ def test_run_engine_with_the_floors_on(tmp_path, monkeypatch):
 
     def extension(anchor_inputs, internal_codebook, sample, incumbent_bytes, labels, work, progress=None):
         seen["base"] = incumbent_bytes
-        return _fake_extension(incumbent_bytes, labels)
+        base = ShadowCallset.from_bytes(incumbent_bytes)
+        layer = SimpleNamespace(layer="INTERNAL21", callset=base.append(extension_rows), unresolved=())
+        return SimpleNamespace(layers=(layer,), anchor_pe=SimpleNamespace(counts={}), full_memory=SimpleNamespace(counts={}),
+                               internal21=SimpleNamespace(counts={}), labels=labels)
 
     monkeypatch.setattr(engine_module, "MsbwtSample", lambda path: ("msbwt", path))
     monkeypatch.setattr(engine_module, "run_incumbent_caller", incumbent)
@@ -252,24 +256,41 @@ def test_run_engine_with_the_floors_on(tmp_path, monkeypatch):
     inputs = EngineInputs(**{**{f: getattr(base, f) for f in base.__slots__}, "depth_floors": floors})
     result = engine_module.run_engine(inputs, tmp_path / "work")
     assert (seen["inputs"].host_cluster_support, seen["inputs"].candidate_min_pairs) == (1, 1)
-    assert b"WEAK_000001" in seen["base"] and b"weak_site_pooled_floor" in seen["base"]
+    assert b"WEAK_" not in seen["base"]                                  # no extension layer reads a WEAK_ row
+    assert b"WEAK_000001" in result.final.data and b"weak_site_pooled_floor" in result.final.data
+    assert result.final.data.startswith(result.extension.layers[-1].callset.data)      # appended at the end
     record = result.counts["depth_floors"]
     assert record["single_copy_depth"] == 6.0
     assert record["weak_site_pass"] == {"depth_cut": 10, "ran": True, "sites": 1, "uncovered_sites": 1, "rows_added": 1,
-                                        "calls_before": 0}
+                                        "rows_before": 0}
     assert record["candidate_floor"] == {
         "host_cluster_support_requested": 1, "candidate_min_pairs_requested": 1, "depth_cut": 8,
         "host_cluster_support_used": 1, "candidate_min_pairs_used": 1, "candidate_pairs": 0, "candidate_places": 0,
         "working_candidate_pairs": 7, "wall_seconds": 1.5}
-    assert result.layer_rows["incumbent"] == 1
+    assert result.layer_rows["incumbent"] == 0 and result.layer_rows["internal21"] == 0 and result.layer_rows["weak_site"] == 1
+    assert set(result.layer_sha256) == {"incumbent", "internal21", "weak_site"}
+
+    # a row the extension layers added within 500 bp covers the site, whatever its family: no WEAK_ row
+    extension_rows[:] = [{"event_id": "X1", "chr": "chr1", "start": "1300", "end": "1301", "family": "gypsy",
+                          "families": "['gypsy']", "total_support": "6", "evidence_type": "v3_anchor_pe_bilateral"}]
+    result = engine_module.run_engine(inputs, tmp_path / "work1b")
+    assert b"WEAK_" not in result.final.data and "weak_site" not in result.layer_rows
+    assert result.final is result.extension.layers[-1].callset
+    assert result.counts["depth_floors"]["weak_site_pass"]["rows_added"] == 0
+    assert result.counts["depth_floors"]["weak_site_pass"]["rows_before"] == 1
+    extension_rows[:] = [{"event_id": "X2", "chr": "chr1", "start": "5000", "end": "5001", "family": "gypsy",
+                          "families": "['gypsy']", "total_support": "6", "evidence_type": "v3_anchor_pe_bilateral"}]
+    result = engine_module.run_engine(inputs, tmp_path / "work1c")
+    assert result.layer_rows == {"incumbent": 0, "internal21": 1, "weak_site": 2}       # a far row does not cover it
 
     # depth above both cuts: the minimums fall back to 2 and the pass does not run
+    extension_rows.clear()
     monkeypatch.setattr(DF, "sample_depth", lambda *a, **k: 12.0)
     seen.clear()
     result = engine_module.run_engine(inputs, tmp_path / "work2")
     assert (seen["inputs"].host_cluster_support, seen["inputs"].candidate_min_pairs) == (2, 2)
-    assert b"WEAK_" not in seen["base"]
-    assert result.counts["depth_floors"]["weak_site_pass"] == {"depth_cut": 10, "ran": False, "rows_added": 0, "calls_before": 0}
+    assert b"WEAK_" not in result.final.data
+    assert result.counts["depth_floors"]["weak_site_pass"] == {"depth_cut": 10, "ran": False, "rows_added": 0, "rows_before": 0}
 
 
 def test_run_command_passes_the_floors_only_when_given(tmp_path):

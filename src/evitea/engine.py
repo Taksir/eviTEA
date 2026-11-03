@@ -34,7 +34,7 @@ import hashlib
 import json
 import shutil
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 
@@ -55,6 +55,7 @@ from .sample_geometry import (
     validate_read_length,
 )
 from .incumbent import IncumbentInputs, IncumbentResult, MsbwtSample, run_incumbent_caller
+from .incumbent.events import legacy_rows
 from .incumbent.weak_sites import weak_site_calls
 from .shadow_layers import ShadowCallset, ShadowLabels, UnresolvedShadowEvent
 
@@ -222,6 +223,8 @@ class EngineResult:
     fragment: FragmentSizes | None = None
     # what the opt-in depth-aware floors did (None when none is on)
     depth_floors: dict[str, object] | None = None
+    # the final table with the weak-site rows appended (None unless the pass added a row)
+    weak_final: ShadowCallset | None = None
 
     @property
     def incumbent_bytes(self) -> bytes:
@@ -229,7 +232,7 @@ class EngineResult:
 
     @property
     def final(self) -> ShadowCallset:
-        return self.extension.layers[-1].callset
+        return self.weak_final if self.weak_final is not None else self.extension.layers[-1].callset
 
     @property
     def unresolved(self) -> tuple[UnresolvedShadowEvent, ...]:
@@ -240,6 +243,8 @@ class EngineResult:
         rows = {"incumbent": ShadowCallset.from_bytes(self.incumbent_bytes).row_count}
         for layer in self.extension.layers:
             rows[layer.layer.lower()] = layer.callset.row_count
+        if self.weak_final is not None:
+            rows["weak_site"] = self.weak_final.row_count
         return rows
 
     @property
@@ -249,6 +254,8 @@ class EngineResult:
         hashes = {"incumbent": hashlib.sha256(self.incumbent_bytes).hexdigest()}
         for layer in self.extension.layers:
             hashes[layer.layer.lower()] = hashlib.sha256(layer.callset.data).hexdigest()
+        if self.weak_final is not None:
+            hashes["weak_site"] = hashlib.sha256(self.weak_final.data).hexdigest()
         return hashes
 
     @property
@@ -361,17 +368,6 @@ def run_engine(
                 working_candidate_pairs=acquisition.counts.get("working_candidate_pairs"),
                 wall_seconds=acquisition.counts.get("candidate_step_seconds"),
             )
-        if floors.weak_site_pass:
-            weak = weak_site_calls(inputs.sample_id, incumbent.split_junction, incumbent.mate_rescue,
-                                   incumbent.junction_groups, incumbent.calls)
-            floor_record["weak_site_pass"].update(sites=weak.sites, uncovered_sites=weak.uncovered,
-                                                  rows_added=len(weak.calls),
-                                                  calls_before=len(incumbent.calls))
-            incumbent = replace(incumbent, calls=(*incumbent.calls, *weak.calls))
-            say(f"weak-site pass: {weak.sites} evidence sites, {weak.uncovered} with no call within 500 bp, "
-                f"{len(weak.calls)} calls added")
-        elif inputs.depth_floors.weak_site_pass:
-            floor_record["weak_site_pass"].update(rows_added=0, calls_before=len(incumbent.calls))
     say(f"library layer calls: {len(incumbent.calls)}; extension layers")
     extension = run_extension(
         AnchorPEInputs(
@@ -395,7 +391,22 @@ def run_engine(
         work / "extension",
         progress=progress,
     )
-    result = EngineResult(inputs.sample_id, profile, incumbent, extension, fragment, floor_record)
+    weak_final = None
+    if floors is not None and floors.weak_site_pass:
+        # After the four extension layers: the 500 bp cover is every row of the final table (library layer and extension rows), and
+        # the WEAK_ rows are appended at the end, so none of them enters an extension layer's base table.
+        final = extension.layers[-1].callset
+        weak = weak_site_calls(inputs.sample_id, incumbent.split_junction, incumbent.mate_rescue, incumbent.junction_groups,
+                               [(row["chr"], int(row["start"]), int(row["end"])) for row in final.rows])
+        floor_record["weak_site_pass"].update(sites=weak.sites, uncovered_sites=weak.uncovered, rows_added=len(weak.calls),
+                                              rows_before=final.row_count)
+        if weak.calls:
+            weak_final = final.append(legacy_rows(weak.calls))
+        say(f"weak-site pass: {weak.sites} evidence sites, {weak.uncovered} with no row of the final table within 500 bp, "
+            f"{len(weak.calls)} calls added")
+    elif inputs.depth_floors.weak_site_pass:
+        floor_record["weak_site_pass"].update(rows_added=0, rows_before=extension.layers[-1].callset.row_count)
+    result = EngineResult(inputs.sample_id, profile, incumbent, extension, fragment, floor_record, weak_final)
     say(f"layers: {result.layer_rows}")
     say(f"layer sha256: {result.layer_sha256}")
     return result
