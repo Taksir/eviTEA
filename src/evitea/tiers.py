@@ -13,7 +13,8 @@ Tiers (1 = most confident; the first rule that applies decides):
   call (its family has no name to compare), else tier 3 ``LIBRARY_FREE``;
 * tier 5 ``RESIDENT``: the call interval overlaps a reference copy of the
   call's own family;
-* tier 4 ``LOW_SUPPORT``: total support below ``MIN_SUPPORT`` (4) fragments;
+* tier 4 ``LOW_SUPPORT``: total support below ``MIN_SUPPORT`` (4) fragments, and every call of the opt-in weak-site pass
+  (``--weak-site-pass``) at any support;
 * tier 2 ``REPEAT_RESCUE``: calls retained by the repeat-aware step (credit for recurrent edits);
 * tier 1 ``DIRECT``: every other call (exact junction on one or both sides,
   read pairs on both sides, anchor-pair extension) with support of 4 or more
@@ -75,6 +76,7 @@ EVIDENCE_CLASS = {
     "v3_full_memory_anchor_pe_shadow": "ANCHOR_PAIR_EXTENSION",
     "v3_internal21_strict_a_anchor_pe_shadow": "ANCHOR_PAIR_EXTENSION",
     "msbwt_r9e_repeat_aware_crossvalidated_te_divergence": "REPEAT_AWARE_RESCUE",
+    "weak_site_pooled_floor": "WEAK_SITE",
 }
 LIBRARY_FREE_CLASS = "LIBRARY_FREE"
 
@@ -101,7 +103,7 @@ def assign_tier(source: str, evidence_type: str | None, total_support: int | Non
         raise InputContractError(f"total support must be a non-negative integer, got {total_support!r}")
     if inside_own_family:
         return 5
-    if total_support < MIN_SUPPORT:
+    if total_support < MIN_SUPPORT or klass == "WEAK_SITE":    # a weak-site call (opt-in) is tier 4 at any support
         return 4
     return 2 if klass == "REPEAT_AWARE_RESCUE" else 1
 

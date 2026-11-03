@@ -52,6 +52,7 @@ CALL_ORIGINS: Mapping[str, str] = MappingProxyType(
         "one_sided_right": "INCUMBENT_SPLIT_JUNCTION",
         "two_sided_mate_cluster_rescue": "INCUMBENT_MATE_RESCUE",
         "msbwt_r9e_repeat_aware_crossvalidated_te_divergence": "INCUMBENT_REPEAT_AWARE",
+        "weak_site_pooled_floor": "INCUMBENT_WEAK_SITE",
         "v3_anchor_pe_bilateral": "EXTENSION_ANCHOR_PE_BILATERAL",
         "v3_anchor_pe_asymmetric_shadow": "EXTENSION_ANCHOR_PE_ASYMMETRIC",
         "v3_full_memory_anchor_pe_shadow": "EXTENSION_FULL_MEMORY",

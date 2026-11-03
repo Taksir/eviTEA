@@ -35,7 +35,9 @@ from ..errors import ResumeStateError
 from .acquisition import CandidateAcquisition, acquire_candidate_loci
 from .anchor_census import load_te_family_map, parse_te_consensus
 from .events import IncumbentCall, legacy_tsv_bytes
+from .candidates import CANDIDATE_MIN_PAIRS
 from .external import run_bowtie2_build
+from .host_mate_gate import HOST_CLUSTER_SUPPORT
 from .junction_groups import JunctionGroupsResult, run_junction_groups
 from .mate_rescue import (
     FRAGMENT_Q95,
@@ -93,6 +95,10 @@ class IncumbentInputs:
     # 95th and 99th percentiles of the sample's fragment size (bp); see ``sample_geometry``.
     fragment_q95: float = FRAGMENT_Q95
     fragment_q99: int = Q99
+    # Smallest numbers of the candidate step (``host_mate_gate.HOST_CLUSTER_SUPPORT``, ``candidates.CANDIDATE_MIN_PAIRS``):
+    # host-mapped mates in a cluster, and pairs in a candidate place. The defaults are the research rule.
+    host_cluster_support: int = HOST_CLUSTER_SUPPORT
+    candidate_min_pairs: int = CANDIDATE_MIN_PAIRS
 
     def __post_init__(self) -> None:
         from .recall_repair import RESCUE_READ_NAME_PROFILES
@@ -102,6 +108,10 @@ class IncumbentInputs:
         value = self.max_rescue_interval_mass
         if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
             raise ValueError("max_rescue_interval_mass must be a positive integer")
+        for name in ("host_cluster_support", "candidate_min_pairs"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ValueError(f"{name} must be a positive integer")
 
 
 @dataclass(slots=True)
@@ -151,6 +161,10 @@ def _fingerprint(inputs: IncumbentInputs) -> dict[str, object]:
         identity["fragment_q95"] = inputs.fragment_q95
     if inputs.fragment_q99 != Q99:
         identity["fragment_q99"] = inputs.fragment_q99
+    if inputs.host_cluster_support != HOST_CLUSTER_SUPPORT:
+        identity["host_cluster_support"] = inputs.host_cluster_support
+    if inputs.candidate_min_pairs != CANDIDATE_MIN_PAIRS:
+        identity["candidate_min_pairs"] = inputs.candidate_min_pairs
     return identity
 
 
@@ -229,6 +243,8 @@ def run_incumbent_caller(
         max_rescue_interval_mass=inputs.max_rescue_interval_mass,
         read_length=inputs.read_length,
         fragment_q99=inputs.fragment_q99,
+        host_cluster_support=inputs.host_cluster_support,
+        candidate_min_pairs=inputs.candidate_min_pairs,
     ))
     loci = acquisition.loci
     families = {locus.family for locus in loci}

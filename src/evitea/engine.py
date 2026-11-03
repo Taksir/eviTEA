@@ -34,12 +34,15 @@ import hashlib
 import json
 import shutil
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import MappingProxyType
 
 from .anchor_pe.alignments import PRODUCTION_HOST_READ_NAMES
 from .anchor_pe.engine import AnchorPEInputs
+from .config import DepthFloorConfig
+from .contracts import stable_to_primitive
+from .depth_floors import resolve_floors
 from .errors import InputContractError
 from .extension_engine import ExtensionRun, run_extension
 from .contigs import DEVELOPMENT_PRIMARY_CONTIGS
@@ -52,6 +55,7 @@ from .sample_geometry import (
     validate_read_length,
 )
 from .incumbent import IncumbentInputs, IncumbentResult, MsbwtSample, run_incumbent_caller
+from .incumbent.weak_sites import weak_site_calls
 from .shadow_layers import ShadowCallset, ShadowLabels, UnresolvedShadowEvent
 
 __all__ = [
@@ -143,6 +147,8 @@ class EngineInputs:
     # contigs of the full-memory proposals (``evitea.contigs``) and where the list came from
     primary_contigs: tuple[str, ...] = DEVELOPMENT_PRIMARY_CONTIGS
     primary_contigs_source: str = "default"
+    # opt-in depth-aware floors (``depth_floors``); the default is off and changes nothing
+    depth_floors: DepthFloorConfig = DepthFloorConfig()
 
     def __post_init__(self) -> None:
         validate_read_length(self.read_length)
@@ -197,6 +203,7 @@ class EngineInputs:
             **({"fragment_q99": self.fragment_q99} if self.fragment_q99 is not None else {}),
             **({"primary_contigs": list(self.primary_contigs)}
                if tuple(self.primary_contigs) != DEVELOPMENT_PRIMARY_CONTIGS else {}),
+            **({"depth_floors": stable_to_primitive(self.depth_floors)} if not self.depth_floors.is_default else {}),
         }
 
     def run_parameters(self) -> dict[str, object]:
@@ -213,6 +220,8 @@ class EngineResult:
     incumbent: IncumbentResult
     extension: ExtensionRun
     fragment: FragmentSizes | None = None
+    # what the opt-in depth-aware floors did (None when none is on)
+    depth_floors: dict[str, object] | None = None
 
     @property
     def incumbent_bytes(self) -> bytes:
@@ -243,13 +252,16 @@ class EngineResult:
         return hashes
 
     @property
-    def counts(self) -> dict[str, dict[str, int]]:
-        return {
+    def counts(self) -> dict[str, dict[str, object]]:
+        out: dict[str, dict[str, object]] = {
             "incumbent": dict(self.incumbent.counts),
             "anchor_pe": dict(self.extension.anchor_pe.counts),
             "full_memory": dict(self.extension.full_memory.counts),
             "internal21": dict(self.extension.internal21.counts),
         }
+        if self.depth_floors is not None:
+            out["depth_floors"] = dict(self.depth_floors)
+        return out
 
 
 def default_bowtie2_build(bowtie2: Path) -> Path | None:
@@ -310,6 +322,9 @@ def run_engine(
     fragment = _fragment_sizes(inputs, sample, work, say)
     say(f"read length {inputs.read_length} bp ({inputs.read_length_source}); fragment size 95th / 99th percentile "
         f"{fragment.q95:g} / {fragment.q99} bp ({fragment.source}, {fragment.pairs} pairs)")
+    floors = None
+    if not inputs.depth_floors.is_default:
+        floors = resolve_floors(inputs.depth_floors, inputs.reference_fasta, inputs.msbwt_index, work, say)
     say(f"library layer: sample {inputs.sample_id}, profile {profile.name}")
     incumbent = run_incumbent_caller(
         IncumbentInputs(
@@ -329,11 +344,34 @@ def run_engine(
             read_length=inputs.read_length,
             fragment_q95=fragment.q95,
             fragment_q99=fragment.q99,
+            **({} if floors is None else {"host_cluster_support": floors.host_cluster_support,
+                                          "candidate_min_pairs": floors.candidate_min_pairs}),
         ),
         sample,
         work / "incumbent",
         progress=progress,
     )
+    floor_record = None
+    if floors is not None:
+        floor_record = floors.record(inputs.depth_floors)
+        if "candidate_floor" in floor_record:
+            acquisition = incumbent.acquisition
+            floor_record["candidate_floor"].update(
+                candidate_pairs=len(acquisition.candidates), candidate_places=len(acquisition.loci),
+                working_candidate_pairs=acquisition.counts.get("working_candidate_pairs"),
+                wall_seconds=acquisition.counts.get("candidate_step_seconds"),
+            )
+        if floors.weak_site_pass:
+            weak = weak_site_calls(inputs.sample_id, incumbent.split_junction, incumbent.mate_rescue,
+                                   incumbent.junction_groups, incumbent.calls)
+            floor_record["weak_site_pass"].update(sites=weak.sites, uncovered_sites=weak.uncovered,
+                                                  rows_added=len(weak.calls),
+                                                  calls_before=len(incumbent.calls))
+            incumbent = replace(incumbent, calls=(*incumbent.calls, *weak.calls))
+            say(f"weak-site pass: {weak.sites} evidence sites, {weak.uncovered} with no call within 500 bp, "
+                f"{len(weak.calls)} calls added")
+        elif inputs.depth_floors.weak_site_pass:
+            floor_record["weak_site_pass"].update(rows_added=0, calls_before=len(incumbent.calls))
     say(f"library layer calls: {len(incumbent.calls)}; extension layers")
     extension = run_extension(
         AnchorPEInputs(
@@ -357,7 +395,7 @@ def run_engine(
         work / "extension",
         progress=progress,
     )
-    result = EngineResult(inputs.sample_id, profile, incumbent, extension, fragment)
+    result = EngineResult(inputs.sample_id, profile, incumbent, extension, fragment, floor_record)
     say(f"layers: {result.layer_rows}")
     say(f"layer sha256: {result.layer_sha256}")
     return result

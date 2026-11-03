@@ -176,6 +176,47 @@ class RefinementConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class DepthFloorConfig:
+    """Opt-in depth-aware read floors of the library layer; all off by default (the default leaves every output unchanged).
+
+    ``weak_site_pass`` (with ``weak_site_depth_cut``): a pass over the saved evidence that calls an uncovered site with pooled reads
+    on each side, or split reads on one side, when the sample's single-copy depth is at or under the cut.
+    ``host_cluster_support`` / ``candidate_min_pairs`` (default 2, 2): the candidate step's smallest numbers; with
+    ``candidate_floor_depth_cut`` they apply only at or under the cut, else 2.
+    """
+
+    weak_site_pass: bool = False
+    weak_site_depth_cut: float | None = None
+    host_cluster_support: int = 2
+    candidate_min_pairs: int = 2
+    candidate_floor_depth_cut: float | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.weak_site_pass, bool):
+            raise InputContractError("depth_floors.weak_site_pass must be a boolean")
+        for name in ("weak_site_depth_cut", "candidate_floor_depth_cut"):
+            value = getattr(self, name)
+            if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float)) or not value > 0):
+                raise InputContractError(f"depth_floors.{name} must be a positive number")
+        for name in ("host_cluster_support", "candidate_min_pairs"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise InputContractError(f"depth_floors.{name} must be a whole number of at least 1")
+        if self.weak_site_pass and self.weak_site_depth_cut is None:
+            raise InputContractError("--weak-site-pass needs --weak-site-depth-cut")
+        if self.weak_site_depth_cut is not None and not self.weak_site_pass:
+            raise InputContractError("--weak-site-depth-cut needs --weak-site-pass")
+
+    @property
+    def is_default(self) -> bool:
+        return self == DepthFloorConfig()
+
+    @property
+    def needs_depth(self) -> bool:
+        return self.weak_site_pass or self.candidate_floor_depth_cut is not None
+
+
+@dataclass(frozen=True, slots=True)
 class EviTEAConfig:
     inputs: InputConfig = InputConfig()
     assets: PreparedAssetConfig = PreparedAssetConfig()
@@ -183,9 +224,13 @@ class EviTEAConfig:
     output: OutputConfig = OutputConfig()
     science: ScienceProfile = ScienceProfile()
     refinement: RefinementConfig = RefinementConfig()
+    depth_floors: DepthFloorConfig = DepthFloorConfig()
 
     def normalized(self) -> dict[str, Any]:
-        return stable_to_primitive(self)
+        out = stable_to_primitive(self)
+        if self.depth_floors.is_default:    # recorded only when an option is on, so default manifests keep their bytes
+            del out["depth_floors"]
+        return out
 
 
 _SECTION_KEYS = {
@@ -221,6 +266,8 @@ _SECTION_KEYS = {
     ),
     "output": frozenset({"directory", "log_level"}),
     "refinement": frozenset({"breakpoints", "complete_routing", "pin_one_sided", "call_annotations"}),
+    "depth_floors": frozenset({"weak_site_pass", "weak_site_depth_cut", "host_cluster_support", "candidate_min_pairs",
+                               "candidate_floor_depth_cut"}),
 }
 
 
@@ -284,6 +331,7 @@ def load_config(path: str | Path) -> EviTEAConfig:
     runtime = document.get("runtime", {})
     output = document.get("output", {})
     refinement = document.get("refinement", {})
+    depth_floors = document.get("depth_floors", {})
     base = config_path.parent
     return EviTEAConfig(
         inputs=InputConfig(
@@ -328,6 +376,13 @@ def load_config(path: str | Path) -> EviTEAConfig:
             pin_one_sided=refinement.get("pin_one_sided", False),
             call_annotations=refinement.get("call_annotations", False),
         ),
+        depth_floors=DepthFloorConfig(
+            weak_site_pass=depth_floors.get("weak_site_pass", False),
+            weak_site_depth_cut=depth_floors.get("weak_site_depth_cut"),
+            host_cluster_support=depth_floors.get("host_cluster_support", 2),
+            candidate_min_pairs=depth_floors.get("candidate_min_pairs", 2),
+            candidate_floor_depth_cut=depth_floors.get("candidate_floor_depth_cut"),
+        ),
     )
 
 
@@ -339,6 +394,7 @@ def merge_config(
     runtime: RuntimeConfig | None = None,
     output: OutputConfig | None = None,
     refinement: RefinementConfig | None = None,
+    depth_floors: DepthFloorConfig | None = None,
 ) -> EviTEAConfig:
     """Apply the explicit overrides; the scientific parameters are never overridden."""
 
@@ -349,4 +405,5 @@ def merge_config(
         output=output or base.output,
         science=base.science,
         refinement=refinement or base.refinement,
+        depth_floors=depth_floors or base.depth_floors,
     )

@@ -24,6 +24,7 @@ class IncumbentCallClass(StrEnum):
     SPLIT_JUNCTION = "SPLIT_JUNCTION"
     MATE_RESCUE = "MATE_RESCUE"
     REPEAT_AWARE_RESCUE = "REPEAT_AWARE_RESCUE"
+    WEAK_SITE = "WEAK_SITE"    # opt-in weak-site pass (``incumbent.weak_sites``); never made by default
 
 
 @dataclass(frozen=True, slots=True)

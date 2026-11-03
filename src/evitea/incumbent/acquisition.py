@@ -8,6 +8,7 @@ its family map and the host Bowtie2 index; nothing else is read.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,6 +18,7 @@ import numpy as np
 from ..constants import Q99
 from .anchor_census import build_anchor_catalogue, census_anchor_intervals
 from .candidates import (
+    CANDIDATE_MIN_PAIRS,
     CandidateLocus,
     CandidatePair,
     HostMateRecord,
@@ -26,6 +28,7 @@ from .candidates import (
 )
 from .coverage_panel import READ_WINDOW, hard_gap_h1_loci, optimize_rescue_panel, short_exact_census
 from .host_mate_gate import (
+    HOST_CLUSTER_SUPPORT,
     PRIMARY_HOST_OPTIONS,
     HostMapping,
     one_mate_host_requests,
@@ -77,7 +80,11 @@ def acquire_candidate_loci(
     max_rescue_interval_mass: int = MAX_RESCUE_INTERVAL_MASS,
     read_length: int = READ_WINDOW,
     fragment_q99: int = Q99,
+    host_cluster_support: int = HOST_CLUSTER_SUPPORT,
+    candidate_min_pairs: int = CANDIDATE_MIN_PAIRS,
 ) -> CandidateAcquisition:
+    started = time.time()
+
     def say(message: str) -> None:
         if progress is not None:
             progress(message)
@@ -133,7 +140,7 @@ def acquire_candidate_loci(
         name="host_mates", options=PRIMARY_HOST_OPTIONS, threads=threads,
     )
     primary = parse_primary_host_sam(sam, requests)
-    host_pairs = supported_host_cluster_pairs(primary)
+    host_pairs = supported_host_cluster_pairs(primary, support=host_cluster_support)
     working = working_candidate_pairs(host_pairs, panel_pairs)
     families = resident_pair_families(host_pairs, pair_panel)
     counts["one_mate_pairs"] = len(requests)
@@ -174,7 +181,13 @@ def acquire_candidate_loci(
             for row in panel_pairs
         },
     )
-    loci = cluster_candidate_loci(candidates)
+    loci = cluster_candidate_loci(candidates, min_pairs=candidate_min_pairs)
     counts.update({key: int(value) for key, value in meta.items()})
     counts["candidate_loci"] = len(loci)
+    if host_cluster_support != HOST_CLUSTER_SUPPORT or candidate_min_pairs != CANDIDATE_MIN_PAIRS:
+        # recorded only off the defaults, so default counts (and their checkpoints) stay as they were
+        counts["candidate_pairs"] = len(candidates)
+        counts["candidate_step_seconds"] = round(time.time() - started, 1)
+        say(f"candidate step: host-cluster support {host_cluster_support}, minimum pairs per place {candidate_min_pairs}: "
+            f"{len(candidates)} candidate pairs, {len(loci)} places, {counts['candidate_step_seconds']} s")
     return CandidateAcquisition(loci, candidates, counts)

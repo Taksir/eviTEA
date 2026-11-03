@@ -594,6 +594,7 @@ def engine_inputs(config: EviTEAConfig, assets: PreparedAssets) -> "EngineInputs
         fragment_q99=config.runtime.fragment_q99,
         primary_contigs=primary[0],
         primary_contigs_source=primary[1],
+        depth_floors=config.depth_floors,
     )
 
 
