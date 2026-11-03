@@ -3,7 +3,7 @@ usage: rt_driver.py <out dir> <seed> <options json, merge or -> [--het] [--annot
                     [--detection-dir dir] [--repeat-anchor windows,at_cutoff] [--profile-min letters] [--sample elements|cross]
                     [--single-copy auto|all|none|LIST] [--het-guard on|off]
                     [--tsd-skip on|off] [--workers N] [--counter plain|fast] [--index fake|real] [--work-dir dir] [--index-dir dir] [--small]
-                    [--reference-cache dir]
+                    [--reference-cache dir] [--extension-stop-min N] [--extension-stop-min-depth-cut DCUT]
 merge: Options.merge(). The cross-species repeat cutoff needs the anchor reference's window counts; the driver sets them to a share of
 1 (the cutoff stays REP_MAX) unless --repeat-anchor gives others, and --profile-min lowers the 1 Mb contig minimum of the profile.
 --sample cross: the sample of synth_cross.py (one scenario per cross-species rule) instead of synth_elements.py.
@@ -111,6 +111,10 @@ if "--het-guard" in sys.argv:
 if "--tsd-skip" in sys.argv:
     from evitea.library_free.tsd_skip import Skip
     kw["tsd_skip"] = Skip(on=sys.argv[sys.argv.index("--tsd-skip") + 1] == "on")
+if "--extension-stop-min" in sys.argv:
+    kw["extension_stop_min"] = int(sys.argv[sys.argv.index("--extension-stop-min") + 1])
+if "--extension-stop-min-depth-cut" in sys.argv:
+    kw["extension_stop_min_depth_cut"] = float(sys.argv[sys.argv.index("--extension-stop-min-depth-cut") + 1])
 if "--workers" in sys.argv:
     kw["workers"] = int(sys.argv[sys.argv.index("--workers") + 1])
 if "--counter" in sys.argv:

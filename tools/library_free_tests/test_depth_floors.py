@@ -1,0 +1,172 @@
+"""Opt-in depth-aware floors of the library-free layer (--extension-stop-min, --extension-stop-min-depth-cut).
+Run: python -B tools/library_free_tests/test_depth_floors.py   (venv python)
+
+V1  default switches write the freeze's files byte for byte (FREEZE_SRC = the src folder of the freeze, 296e725; skipped without it):
+    every output file is equal (compare_scan.py outputs mode: the summary after the timings and the source identity), and the
+    current code reuses the freeze's saved scan pieces with EVITEA_PIECES_READONLY=1 (a changed piece identity would refuse the run).
+V2  --extension-stop-min 3 without a cut is the default (no extension_floor entry, files equal to the default run).
+V3  a floor other than 3 is recorded in the summary (requested, used, no depth) and enters the identity of the saved pieces: the run
+    does not reuse default pieces (EVITEA_PIECES_READONLY=1 refuses it).
+V4  the depth cut: the floor is N at or under the cut and 3 above it; the single-copy depth used is written to the summary; above the
+    cut the files equal the default run's.
+V5  --detection-dir with a floor switch is refused.
+V6  in-process: the floor is set for the scan and restored after, also after an error; bad values are refused; the depth cut picks the
+    floor from the depth of the layer's own single-copy profile and refuses a sample whose depth could not be measured.
+"""
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import types
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent.parent
+FREEZE = os.environ.get("FREEZE_SRC")
+FAIL, NCHK = [], [0]
+
+
+def check(name, ok, detail=""):
+    NCHK[0] += 1
+    print(("PASS " if ok else "FAIL ") + name + (" | " + str(detail) if detail else ""), flush=True)
+    if not ok:
+        FAIL.append(name)
+
+
+def run(out, src, *extra, env_extra=None):
+    env = dict(os.environ, PYTHONPATH=str(src))
+    env.update(env_extra or {})
+    return subprocess.run([sys.executable, "-B", str(HERE / "rt_driver.py"), str(out), "7", "-", "--small", *extra], env=env,
+                          capture_output=True, text=True)
+
+
+def same_outputs(a, b):
+    r = subprocess.run([sys.executable, str(ROOT / "tools" / "compare_scan.py"), "outputs", str(a), str(b)], capture_output=True, text=True)
+    return r.returncode == 0, r.stdout[-400:]
+
+
+def same_tables(a, b):
+    """Every file but the summary (which names the floor) equal byte for byte."""
+    names = sorted(x.name for x in Path(a).iterdir() if x.is_file() and x.name != "library_free_summary.json")
+    return names == sorted(x.name for x in Path(b).iterdir() if x.is_file() and x.name != "library_free_summary.json") and all(
+        hashlib.sha256((Path(a) / n).read_bytes()).digest() == hashlib.sha256((Path(b) / n).read_bytes()).digest() for n in names), names
+
+
+def summary(d):
+    return json.loads((Path(d) / "library_free_summary.json").read_text())
+
+
+def main():
+    t = Path(tempfile.mkdtemp(prefix="df_"))
+    src = ROOT / "src"
+    base = t / "base"
+    r = run(base, src)
+    check("base run finishes", r.returncode == 0, r.stderr[-300:])
+    check("base summary has no extension_floor", "extension_floor" not in summary(base)["detection"], list(summary(base)["detection"]))
+
+    if FREEZE:
+        fz = t / "fz"
+        shared = ["--index-dir", str(t / "idx"), "--work-dir", str(t / "fz_work")]    # the index path is part of a piece's identity
+        a = run(fz, FREEZE, *shared)
+        check("V1 freeze run finishes", a.returncode == 0, a.stderr[-300:])
+        ok, text = same_outputs(fz, base)
+        check("V1 default switches: every output equals the freeze's", ok, text)
+        reuse = t / "reuse"
+        b = run(reuse, src, *shared, env_extra={"EVITEA_PIECES_READONLY": "1"})
+        check("V1 current code reuses the freeze's saved pieces (identity unchanged)", b.returncode == 0, b.stderr[-300:])
+        ok, text = same_outputs(fz, reuse)
+        check("V1 and gives the freeze's files", ok, text)
+    else:
+        print("V1 skipped: FREEZE_SRC is not set")
+
+    v2 = t / "v2"
+    r = run(v2, src, "--extension-stop-min", "3")
+    ok, text = same_outputs(base, v2)
+    check("V2 explicit 3 is the default", r.returncode == 0 and ok and "extension_floor" not in summary(v2)["detection"], text)
+
+    v3 = t / "v3"
+    r = run(v3, src, "--extension-stop-min", "2")
+    check("V3 floor 2 finishes", r.returncode == 0, r.stderr[-300:])
+    rec = summary(v3)["detection"].get("extension_floor")
+    check("V3 summary records the floor", rec == {"requested": 2, "depth_cut": None, "single_copy_depth": None, "used": 2, "default": 3}, rec)
+    r = run(t / "v3b", src, "--extension-stop-min", "2", "--work-dir", str(t / "base_work"), env_extra={"EVITEA_PIECES_READONLY": "1"})
+    check("V3 the floor is part of the piece identity (default pieces are not reused read-only)", r.returncode != 0, r.stderr[-200:])
+
+    hi, lo = t / "hi", t / "lo"
+    r1 = run(hi, src, "--extension-stop-min", "2", "--extension-stop-min-depth-cut", "1000000")
+    r2 = run(lo, src, "--extension-stop-min", "2", "--extension-stop-min-depth-cut", "0.001")
+    check("V4 both cut runs finish", r1.returncode == 0 and r2.returncode == 0, (r1.stderr[-200:], r2.stderr[-200:]))
+    ra, rb = summary(hi)["detection"]["extension_floor"], summary(lo)["detection"]["extension_floor"]
+    check("V4 depth at or under the cut: floor N", ra["used"] == 2 and ra["single_copy_depth"] and ra["depth_cut"] == 1000000.0, ra)
+    check("V4 depth above the cut: floor 3, depth written", rb["used"] == 3 and rb["single_copy_depth"] == ra["single_copy_depth"]
+          and rb["requested"] == 2, rb)
+    ok, text = same_tables(base, lo)
+    check("V4 above the cut the tables equal the default run's", ok, text)
+    ok, text = same_tables(v3, hi)
+    check("V4 at or under the cut the tables equal the run with the floor and no cut", ok, text)
+
+    r = run(t / "v5", src, "--extension-stop-min", "2", "--detection-dir", str(base))
+    check("V5 --detection-dir with a floor switch is refused", r.returncode != 0 and "--detection-dir" in r.stderr, r.stderr[-200:])
+
+    sys.path.insert(0, str(ROOT / "src"))
+    from evitea.errors import InputContractError
+    from evitea.library_free import _p4_lib as P
+    from evitea.library_free import runtime as R
+
+    check("V6 default STOP_MIN is 3", P.STOP_MIN == 3 == R.STOP_MIN_DEFAULT)
+    with R._stop_min(1):
+        inside = P.STOP_MIN
+    check("V6 floor set inside and restored after", inside == 1 and P.STOP_MIN == 3, (inside, P.STOP_MIN))
+    try:
+        with R._stop_min(1):
+            raise RuntimeError("x")
+    except RuntimeError:
+        pass
+    check("V6 restored after an error", P.STOP_MIN == 3)
+    say = lambda m: None
+    check("V6 default: no record, no depth measured", R._extension_floor(3, None, {}, Path("x"), Path("y"), None, t, say) == (3, None))
+    check("V6 floor without cut: no depth measured",
+          R._extension_floor(2, None, {}, Path("x"), Path("y"), None, t, say) ==
+          (2, {"requested": 2, "depth_cut": None, "single_copy_depth": None, "used": 2, "default": 3}))
+    for bad in ((0, None), (True, None), (2.5, None), (2, 0), (2, -1.0)):
+        try:
+            R._extension_floor(bad[0], bad[1], {}, Path("x"), Path("y"), None, t, say)
+            check(f"V6 refused {bad}", False)
+        except InputContractError:
+            check(f"V6 refused {bad}", True)
+    from evitea.library_free import single_copy as SC
+    real = R._single_copy
+    try:
+        for depth, cut, want in ((10.0, 10.0, 2), (10.5, 10.0, 3), (4.0, 10.0, 2)):
+            R._single_copy = lambda *a, **k: SC.Decision(SC.Choice("auto"), profile={"genome_depth": depth})
+            got = R._extension_floor(2, cut, {}, Path("x"), Path("y"), None, t, say)
+            check(f"V6 depth {depth} cut {cut}: floor {want}", got[0] == want and got[1]["single_copy_depth"] == depth, got)
+        R._single_copy = lambda *a, **k: SC.Decision(SC.Choice("auto"), reason="no msBWT index")
+        try:
+            R._extension_floor(2, 10.0, {}, Path("x"), Path("y"), None, t, say)
+            check("V6 unmeasurable depth is refused", False)
+        except InputContractError as exc:
+            check("V6 unmeasurable depth is refused", "no msBWT index" in str(exc), exc)
+    finally:
+        R._single_copy = real
+    # the extension itself: a path read by 2 reads goes on with the floor 2 and stops with 3 (n_alt 10 keeps the 10% term at 1)
+    K = P.K
+    path = "ACGTTGCAAGGCTTACCGATCGGATTCAGCTAAGCTTGGAC" * 3
+
+    class Path2:
+        def cnt(self, w):
+            return 2 if any(path[i:i + K] == w for i in range(len(path) - K + 1)) else 0
+
+    ctx = path[:K - 1]
+    long, why3 = P.extend(Path2(), ctx[:-3], ctx[-3:], 10)
+    with R._stop_min(2):
+        longer, why2 = P.extend(Path2(), ctx[:-3], ctx[-3:], 10)
+    check("V7 floor 3 stops on a 2-read path, floor 2 goes on", len(longer) > len(long) and why3 == "support", (len(long), len(longer), why3, why2))
+    print(f"{NCHK[0]} checks, {len(FAIL)} failed")
+    return 1 if FAIL else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

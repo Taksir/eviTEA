@@ -15,6 +15,7 @@ needs nothing saved. The source run directory is only read.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -46,6 +47,7 @@ ADDED = "calls.library_free.tsv"
 COMBINED = "calls.combined.tsv"
 SUMMARY = "library_free_summary.json"
 PIECES_READONLY_ENV = "EVITEA_PIECES_READONLY"
+STOP_MIN_DEFAULT = 3   # _p4_lib.STOP_MIN: the extension goes on while the best letter has at least this many reads
 PIECE_SCHEMA = "evitea.library_free.piece.v2"
 CODE_FILES = ("_p4_lib.py", "detector.py", "place.py", "scan.py", "walks.py", "extension.py", "priority.py", "options.py", "cross.py")
 MERGE_VIEW = "merge_view"
@@ -168,9 +170,53 @@ def _children_peak_rss_gb() -> float | None:
     return round(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1024 / 1024, 3)
 
 
+@contextlib.contextmanager
+def _stop_min(value: int):
+    """Set the extension floor (``_p4_lib.STOP_MIN``, read by ``_p4_lib.extend`` and ``extension.Extender``) for the scan inside the
+    block, workers included (they are forked inside it), and restore it after. At the default nothing is set."""
+
+    from . import _p4_lib as P
+
+    previous = P.STOP_MIN
+    P.STOP_MIN = value
+    try:
+        yield
+    finally:
+        P.STOP_MIN = previous
+
+
+def _extension_floor(stop_min: int, depth_cut: float | None, genome: dict, reference_fasta: Path, msbwt_index: Path,
+                     contigs: Sequence[str] | None, work: Path, progress: Callable[[str], None]):
+    """(floor used, record for the summary or None). The record is made only when a switch is given. With a depth cut the
+    sample's single-copy depth is the layer's own (``_single_copy`` with the auto choice: the same contigs, the same profile
+    file in the work directory that the single-copy rule reads later)."""
+
+    if isinstance(stop_min, bool) or not isinstance(stop_min, int) or stop_min < 1:
+        raise InputContractError("--extension-stop-min must be a whole number of at least 1")
+    if depth_cut is not None and not (isinstance(depth_cut, (int, float)) and depth_cut > 0):
+        raise InputContractError("--extension-stop-min-depth-cut must be a positive number")
+    if stop_min == STOP_MIN_DEFAULT and depth_cut is None:
+        return STOP_MIN_DEFAULT, None
+    depth = None
+    used = stop_min
+    if depth_cut is not None:
+        from . import single_copy as SC
+
+        decision = _single_copy(SC.Choice("auto"), genome, reference_fasta, msbwt_index, contigs, work, progress)
+        depth = None if decision.profile is None else decision.profile.get("genome_depth")
+        if depth is None:
+            raise InputContractError("--extension-stop-min-depth-cut needs the sample's single-copy depth, which could not be "
+                                     "measured (" + (decision.reason or "no single-copy words counted") + ")")
+        used = stop_min if depth <= depth_cut else STOP_MIN_DEFAULT
+    progress(f"library-free: extension floor {used} (requested {stop_min}, depth cut {depth_cut}, single-copy depth {depth})")
+    return used, {"requested": stop_min, "depth_cut": depth_cut, "single_copy_depth": depth, "used": used,
+                  "default": STOP_MIN_DEFAULT}
+
+
 def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: Sequence[str] | None, work: Path,
             progress: Callable[[str], None], opts: Options, mito_contig: str | None = None, adapter_test: bool = True,
-            workers: int = 1, counter: str = "fast", reference_cache: Path | None = None, speed: dict | None = None):
+            workers: int = 1, counter: str = "fast", reference_cache: Path | None = None, speed: dict | None = None,
+            extension_stop_min: int = STOP_MIN_DEFAULT):
     """Scan the contigs (resumable), then group each pass over all scanned contigs (after the adapter test, unless
     ``adapter_test`` is False or every rule switch is off). Return the tables of the first pass
     (places bytes, segments bytes), of the second scan (or None), with a cross-species rule on also of the merge's first pass
@@ -216,6 +262,8 @@ def _detect(*, reference_fasta: Path, genome: dict, msbwt_index: Path, contigs: 
         "detection": opts.detection_identity,
         "mito_contig": mito,
     }
+    if extension_stop_min != STOP_MIN_DEFAULT:    # recorded only off the default, so default pieces keep their identity
+        identity_base["extension_stop_min"] = extension_stop_min
     pieces_dir = work / "pieces"
     pieces_dir.mkdir(parents=True, exist_ok=True)
     rm = words = bwt = firewall = None
@@ -442,7 +490,8 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
                      repeat_annotation: Path | None = None, repeat_map: Path | None = None,
                      mito_contig: str | None = None, resident_filter=None, adapter_test: bool = True,
                      single_copy="auto", het_guard="on", tsd_skip=None, workers: int = 1, counter: str = "fast",
-                     reference_cache: Path | None = None) -> dict:
+                     reference_cache: Path | None = None, extension_stop_min: int = STOP_MIN_DEFAULT,
+                     extension_stop_min_depth_cut: float | None = None) -> dict:
     """``resident_filter`` (``resident_filter.OwnFamilyCopyFilter``): drop the library calls inside a reference copy of their own
     family from ``calls.combined.tsv`` and ``calls.combined.vcf`` only.  Detection and assembly read the unfiltered
     ``calls.native.tsv`` of ``run_dir``, so the family calls and the added calls do not depend on it; ``None``: no filter.
@@ -452,7 +501,11 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     ``het_guard.Guard``); the merge view takes the main view's confirmed places. ``tsd_skip``: ``tsd_skip.Skip`` of
     ``--rule-c-tsd-skip`` (None: on, share 0.3, 5 trusted members); each view judges its own families. ``workers`` (0 = all CPUs),
     ``counter`` (``fast`` | ``plain``; default fast) and ``reference_cache`` (a folder shared by work directories; default
-    ``<work>/refcache``) make the scan faster and change no call; the summary's ``speed`` entry records them."""
+    ``<work>/refcache``) make the scan faster and change no call; the summary's ``speed`` entry records them.
+    ``extension_stop_min`` (default 3, the research rule) is the least read count the extension of the inserted DNA goes on with;
+    ``extension_stop_min_depth_cut`` (default none): the floor is ``extension_stop_min`` only when the sample's single-copy depth
+    (``single_copy.measure``'s genome depth) is at or under the cut, otherwise 3. A floor other than 3 changes the places, so it
+    is part of the identity of a saved scan piece and needs a scan (not ``detection_dir``); at the default nothing changes."""
 
     from ..breakpoints.runtime import read_fasta
     from ..pipeline import prepare_output_directory
@@ -472,6 +525,9 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     genome = None
     speed: dict | None = None
     if detection_dir is not None:
+        if extension_stop_min != STOP_MIN_DEFAULT or extension_stop_min_depth_cut is not None:
+            raise InputContractError("--extension-stop-min and --extension-stop-min-depth-cut change the scan: they cannot be "
+                                     "given with --detection-dir, whose tables are an earlier scan's")
         detection_dir = Path(detection_dir)
         tables = {"first": ((detection_dir / PLACES).read_bytes(), (detection_dir / SEGMENTS).read_bytes())}
         if (detection_dir / SECOND_PLACES).is_file():
@@ -486,9 +542,15 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
             raise InputContractError("library-free detection needs an msBWT index")
         genome = read_fasta(reference_fasta)
         speed = {}
-        tables, info = _detect(reference_fasta=reference_fasta, genome=genome, msbwt_index=Path(msbwt_index), contigs=contigs,
-                               work=work, progress=say, opts=opts, mito_contig=mito_contig, adapter_test=adapter_test,
-                               workers=workers, counter=counter, reference_cache=reference_cache, speed=speed)
+        floor, floor_info = _extension_floor(extension_stop_min, extension_stop_min_depth_cut, genome, reference_fasta,
+                                             Path(msbwt_index), contigs, work, say)
+        with _stop_min(floor):
+            tables, info = _detect(reference_fasta=reference_fasta, genome=genome, msbwt_index=Path(msbwt_index), contigs=contigs,
+                                   work=work, progress=say, opts=opts, mito_contig=mito_contig, adapter_test=adapter_test,
+                                   workers=workers, counter=counter, reference_cache=reference_cache, speed=speed,
+                                   extension_stop_min=floor)
+        if floor_info is not None:
+            info = {**info, "extension_floor": floor_info}
     if ("second" in tables) != (opts.het_scan != "off") and detection_dir is not None:
         raise InputContractError(
             "the detection directory " + ("holds" if "second" in tables else "has no") + " second-scan tables but --het-scan is "
