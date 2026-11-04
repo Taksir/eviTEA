@@ -17,6 +17,10 @@ V8  the weak-site pass of the library-free step (--weak-site-pass, --weak-site-a
     with the pass reuses the saved pieces of the run without it (EVITEA_PIECES_READONLY=1) and changes only the combined files and the
     summary; a site no combined row covers becomes a WEAK_ row (source EVITEA, also in the VCF), a site near a library row or near an
     added library-free call does not; above the cut every file equals the run without the pass; a missing stage table stops the run.
+V9  the floor-1 add-on (--floor1-addon): at or under the cut a second step runs into floor1_addon/ with the extension floor at 1, and the
+    main combined table is the run without the add-on plus the rule's rows (F1_ ids, at the end), with calls.library_free.tsv, the VCF
+    and the summary (floor1_addon, current output hashes) to match; over the cut there is no second step and every file equals the run
+    without it; without the option nothing is written; the option without --weak-site-pass is refused.
 """
 import hashlib
 import json
@@ -211,6 +215,49 @@ def main():
     check("V8 above the cut every file equals the run without the pass", r.returncode == 0 and ok, r.stderr[-200:])
     check("V8 above the cut the summary says it did not run", summary(off)["weak_site_pass"]["ran"] is False and "rows_added" not in summary(off)["weak_site_pass"])
     check("V8 without the option the summary has no weak_site_pass entry", "weak_site_pass" not in summary(b8))
+    # V9: the floor-1 add-on (--floor1-addon): a second step with the extension floor at 1 when the allele depth is at or under the cut
+    from evitea.library_free import floor1_addon as F1
+
+    a9 = t / "a9"
+    r = run(a9, src, *shared, "--weak-site-allele-depth-cut", "1000000", "--weak-stage-dir", str(callwork), "--floor1-addon", small=False)
+    check("V9 the add-on run finishes", r.returncode == 0, r.stderr[-300:])
+    s9 = summary(a9)["floor1_addon"]
+    addon_dir = a9 / "floor1_addon"
+    f1_rows = F1.read_rows((addon_dir / "calls.combined.tsv").read_bytes())
+    main_rows = F1.read_rows((on / "calls.combined.tsv").read_bytes())          # the main step without the add-on (same weak pass)
+    want = F1.added_rows(main_rows, f1_rows)
+    check("V9 the add-on step wrote its own output folder with a summary at floor 1", (addon_dir / "library_free_summary.json").is_file()
+          and summary(addon_dir)["detection"]["extension_floor"]["used"] == 1 and "floor1_addon" not in summary(addon_dir)
+          and "weak_site_pass" not in summary(addon_dir), summary(addon_dir)["detection"].get("extension_floor"))
+    got = F1.read_rows((a9 / "calls.combined.tsv").read_bytes())
+    check("V9 the main combined table is the run without the add-on plus the add-on rows by the rule (F1_ ids, at the end)",
+          got[:len(main_rows)] == main_rows and got[len(main_rows):] == [{**w} for w in want]
+          and all(w["event_id"].startswith("F1_") for w in want), (len(main_rows), len(got), len(want)))
+    check("V9 the summary records the switch", s9["requested"] is True and s9["ran"] is True and s9["rows_added"] == len(want)
+          and s9["addon_library_free_rows"] == sum(1 for x in f1_rows if x["source"] == "LIBRARY_FREE") and s9["cut"] == 1000000.0
+          and s9["allele_depth"] == summary(a9)["weak_site_pass"]["allele_depth"] and s9["addon_output"] == str(addon_dir)
+          and s9["rule"] == F1.RULE, s9)
+    added_lf = F1.read_rows((a9 / "calls.library_free.tsv").read_bytes())
+    check("V9 calls.library_free.tsv has the same rows added, and the output hashes in the summary are current",
+          len(added_lf) == len(F1.read_rows((on / "calls.library_free.tsv").read_bytes())) + len(want)
+          and all(summary(a9)["output_hashes"][n] == hashlib.sha256((a9 / n).read_bytes()).hexdigest()
+                  for n in ("calls.combined.tsv", "calls.library_free.tsv", "calls.combined.vcf")))
+    check("V9 the VCF has one record per call of the combined table",
+          sum(1 for x in (a9 / "calls.combined.vcf").read_text().splitlines() if not x.startswith("#")) == len(got))
+    same9 = all(hashlib.sha256((on / n).read_bytes()).digest() == hashlib.sha256((a9 / n).read_bytes()).digest()
+                for n in ("library_free_places.tsv", "library_free_segments.fa", "library_free_family_calls.tsv"))
+    check("V9 places, segments and family calls of the main step are unchanged", same9)
+    o9 = t / "o9"
+    r = run(o9, src, *shared, "--weak-site-allele-depth-cut", "0.001", "--weak-stage-dir", str(callwork), "--floor1-addon", small=False)
+    ok, names = same_tables(off, o9)
+    s9 = summary(o9)["floor1_addon"]
+    check("V9 allele depth over the cut: no second step, ran false, every file equals the run without the add-on",
+          r.returncode == 0 and ok and not (o9 / "floor1_addon").exists() and s9["ran"] is False and s9["rows_added"] == 0
+          and s9["addon_output"] is None and s9["allele_depth"] > s9["cut"], (r.stderr[-200:], s9))
+    check("V9 without the option the summary has no floor1_addon entry and no floor1_addon folder",
+          "floor1_addon" not in summary(on) and not (on / "floor1_addon").exists())
+    r = run(t / "o9b", src, *shared, "--floor1-addon", small=False)
+    check("V9 --floor1-addon without --weak-site-pass is refused", r.returncode != 0 and "--weak-site-pass" in r.stderr, r.stderr[-200:])
     (folder / "mate_rescue.pkl").unlink()
     r = run(t / "w8miss", src, *shared, "--weak-site-allele-depth-cut", "10", "--weak-stage-dir", str(callwork), env_extra=ro, small=False)
     check("V8 a missing stage table stops the run with a clear error", r.returncode != 0 and "mate_rescue" in r.stderr, r.stderr[-200:])

@@ -493,7 +493,7 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
                      single_copy="auto", het_guard="on", tsd_skip=None, workers: int = 1, counter: str = "fast",
                      reference_cache: Path | None = None, extension_stop_min: int = STOP_MIN_DEFAULT,
                      extension_stop_min_depth_cut: float | None = None, weak_site_pass: bool = False,
-                     weak_site_allele_depth_cut: float | None = None) -> dict:
+                     weak_site_allele_depth_cut: float | None = None, floor1_addon: bool = False) -> dict:
     """``resident_filter`` (``resident_filter.OwnFamilyCopyFilter``): drop the library calls inside a reference copy of their own
     family from ``calls.combined.tsv`` and ``calls.combined.vcf`` only.  Detection and assembly read the unfiltered
     ``calls.native.tsv`` of ``run_dir``, so the family calls and the added calls do not depend on it; ``None``: no filter.
@@ -510,13 +510,27 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     is part of the identity of a saved scan piece and needs a scan (not ``detection_dir``); at the default nothing changes.
     ``weak_site_pass`` (default off) with ``weak_site_allele_depth_cut``: the weak-site pass of ``weak_site.py``, run when the allele
     depth D x (1 - median e) is at or under the cut; it reads the scan's results and the library layer's saved stage tables, and is
-    not part of the identity of a saved piece."""
+    not part of the identity of a saved piece.
+    ``floor1_addon`` (default off; needs ``weak_site_pass``): when the weak-site pass's allele depth is at or under its cut, a second
+    step with the extension floor at 1 runs into ``<output>/floor1_addon/`` (work folder ``<work>/floor1_addon``, always a scan) and its
+    LIBRARY_FREE rows more than 500 bp from every main row are added to the main output (``floor1_addon.py``)."""
 
     from ..breakpoints.runtime import read_fasta
     from ..pipeline import prepare_output_directory
 
     if weak_site_allele_depth_cut is not None and not weak_site_pass:
         raise InputContractError("--weak-site-allele-depth-cut needs --weak-site-pass")
+    if floor1_addon and not weak_site_pass:
+        raise InputContractError("--floor1-addon needs --weak-site-pass (and --weak-site-allele-depth-cut): the add-on runs when the "
+                                 "weak-site pass's allele depth is at or under its cut")
+    if floor1_addon and msbwt_index is None:
+        raise InputContractError("--floor1-addon scans again (the add-on is a second library-free step) and needs an msBWT index")
+    addon_arguments = dict(
+        run_dir=run_dir, reference=reference, msbwt_index=msbwt_index, contigs=contigs, rule_c=rule_c, command_line=command_line,
+        source_identity=source_identity, options=options, repeat_annotation=repeat_annotation, repeat_map=repeat_map,
+        mito_contig=mito_contig, resident_filter=resident_filter, adapter_test=adapter_test, single_copy=single_copy,
+        het_guard=het_guard, tsd_skip=tsd_skip, workers=workers, counter=counter, reference_cache=reference_cache,
+    ) if floor1_addon else None
 
     opts = options if options is not None else Options.previous()
     say = progress or (lambda message: print(message, file=sys.stderr, flush=True))
@@ -616,7 +630,57 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
             summary["merge_view"] = {"output": str(out_dir), "family_calls": result["family_calls"],
                                      "family_call_statuses": result["family_call_statuses"]}
             write_run_summary(output / SUMMARY, summary)
+    if floor1_addon:      # opt-in: after the main step has written everything, merge view included
+        _floor1_addon(summary, output, work, addon_arguments, reference, sample_id, say)
     return summary
+
+
+def _floor1_addon(summary: dict, output: Path, work: Path, arguments: dict, reference, sample_id: str, say) -> None:
+    """The second library-free step with the extension floor at 1 and the rows it adds to the main output (``floor1_addon.py``)."""
+
+    from . import floor1_addon as F1
+
+    weak = summary.get("weak_site_pass") or {}
+    depth, cut = weak.get("allele_depth"), weak.get("cut")
+    record = {"requested": True, "ran": False, "allele_depth": depth, "cut": cut, "addon_output": None,
+              "addon_library_free_rows": None, "rows_added": 0, "rule": F1.RULE}
+    if depth is None or cut is None:
+        raise InputContractError("--floor1-addon needs the weak-site pass's allele depth and cut in the summary")
+    if depth > cut:
+        say(f"library-free: floor-1 add-on not run: allele depth {depth} is over the cut {cut}")
+        summary["floor1_addon"] = record
+        write_run_summary(output / SUMMARY, summary)
+        return
+    addon_output = output / "floor1_addon"
+    say(f"library-free: floor-1 add-on: allele depth {depth} is at or under the cut {cut}; second step with extension floor 1")
+    run_library_free(**arguments, output=addon_output, work_dir=work / "floor1_addon", detection_dir=None, progress=say,
+                     extension_stop_min=1, extension_stop_min_depth_cut=None, weak_site_pass=False, weak_site_allele_depth_cut=None,
+                     floor1_addon=False)
+    main_rows = F1.read_rows((output / COMBINED).read_bytes())
+    addon_rows = F1.read_rows((addon_output / COMBINED).read_bytes())
+    added = F1.added_rows(main_rows, addon_rows)
+    if added:
+        ids = [row["event_id"][len(F1.ID_PREFIX):] for row in added]
+        write_bytes(output / COMBINED, F1.append_tsv_rows((output / COMBINED).read_bytes(), F1.combined_lines(added)))
+        lf_lines, lf_head = F1.library_free_lines((addon_output / ADDED).read_bytes(), ids)
+        if len(lf_lines) != len(added) or lf_head != (output / ADDED).read_text(encoding="utf-8").splitlines()[0]:
+            raise InputContractError("the add-on's calls.library_free.tsv does not match its calls.combined.tsv")
+        write_bytes(output / ADDED, F1.append_tsv_rows((output / ADDED).read_bytes(), lf_lines))
+        vcf_path = output / V.COMBINED_VCF_OUTPUT
+        if vcf_path.is_file():
+            fasta = Path(reference.reference_fasta_path)
+            calls = V.library_free_vcf_calls(b"\n".join([lf_head.encode(), *[line.encode() for line in lf_lines]]) + b"\n")
+            contigs = getattr(reference, "contigs", None) or V.fasta_contigs(fasta)
+            new = V.calls_vcf_bytes(calls, contigs, sample_id=sample_id, bases=V.reference_bases(fasta, calls), reference_name=fasta.name)
+            write_bytes(vcf_path, F1.merge_vcf(vcf_path.read_bytes(), new))
+    record.update(ran=True, addon_output=str(addon_output), rows_added=len(added),
+                  addon_library_free_rows=sum(1 for row in addon_rows if row.get("source") == F1.SOURCE))
+    for name in (COMBINED, ADDED, V.COMBINED_VCF_OUTPUT):
+        if name in summary["output_hashes"]:
+            summary["output_hashes"][name] = _sha256(output / name)
+    summary["floor1_addon"] = record
+    write_run_summary(output / SUMMARY, summary)
+    say(f"library-free: floor-1 add-on: {len(added)} of {record['addon_library_free_rows']} LIBRARY_FREE rows added")
 
 
 def _weak_site_setup(cut, run_dir: Path, decision, genome, reference_fasta: Path, msbwt_index: Path | None,

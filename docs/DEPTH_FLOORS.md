@@ -120,3 +120,26 @@ the other way), plus the pairs and proposals each side test rejects (`side_test_
 geometry and not-missing-side, junction side unresolved and not missing side). `tools/mate_side_counts.py <work dir>` prints the
 `side_test_rejects_*` numbers of any finished run, so the two rules can be set side by side. `tools/mate_side_fixture.py` is a
 synthetic fixture (no bowtie2): run with the src folder of 18bae44 and the current one it gives the same hashes at the defaults.
+
+## 5. Floor-1 add-on: `--floor1-addon` (`library-free`, `run`; opt-in, default off)
+
+A run with the weak-site pass (section 2b) uses the extension floor of the main view (`--extension-stop-min`, section 1). With
+`--floor1-addon` the library-free step also runs the same scan at floor 1 in its own folder and adds the library-free rows of that run
+that lie away from every row of the main combined table.
+
+| Switch | Default | Effect |
+|---|---|---|
+| `--floor1-addon` | off | When the weak-site pass ran (allele depth at or under the cut), run a second library-free step at `--extension-stop-min 1`, no weak-site pass, no add-on, and append its far-away library-free rows. |
+
+- Needs `--weak-site-pass` (with `--weak-site-allele-depth-cut` under `run`) and an msBWT index; without them the run stops at the start with a
+  message. Under `run` it is refused with `--no-library`.
+- Not run when the allele depth is over the cut: `library_free_summary.json` records `floor1_addon.ran = false` and every output file is the file a run
+  without the option writes.
+- Rule (the desk rule of `scripts/union_desk.py`, setting U1): a library-free row of the floor-1 run is added when, on its chromosome, it is more
+  than 500 bp from every row of the main `calls.combined.tsv` (of either source). A gap of exactly 500 bp counts as near. Add-on rows are not
+  compared to each other. The added rows are named `F1_<event id>`, source `LIBRARY_FREE`, and come after the other rows in `calls.combined.tsv`,
+  `calls.library_free.tsv` and `calls.combined.vcf`. The VCF keeps its sort order and gains the `##ALT` lines of any new family.
+- The second step writes to `<output>/floor1_addon/` (kept) and works in `<work>/floor1_addon/`; its scan pieces are reused when the scan options match.
+  The code is in `library_free/floor1_addon.py`, outside the hashed detection files, so the detection hash is that of 18bae44.
+- `library_free_summary.json`, `floor1_addon`: `requested`, `ran`, `allele_depth`, `cut`, `addon_output`, `addon_library_free_rows`, `rows_added`, `rule`.
+  `output_hashes` are those of the final three files.

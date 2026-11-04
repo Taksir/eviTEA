@@ -95,6 +95,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--mate-side-rule", choices=("midpoint", "strand"), help="given to call as --mate-side-rule (default: not given)")
     parser.add_argument("--junction-side-rule", choices=("midpoint", "split"),
                         help="given to call as --junction-side-rule (default: not given)")
+    parser.add_argument("--floor1-addon", action="store_true",
+                        help="given to library-free as --floor1-addon (needs --weak-site-pass with --weak-site-allele-depth-cut; "
+                        "off by default)")
     parser.add_argument("--weak-site-allele-depth-cut", type=float, metavar="DA",
                         help="with --weak-site-pass: run the weak-site pass in the library-free step (given to library-free as "
                         "--weak-site-pass --weak-site-allele-depth-cut; needs --library-free; not with --no-library or "
@@ -119,6 +122,12 @@ def _weak_site_library_free(args: argparse.Namespace, *, library: bool) -> list[
     """``--weak-site-pass --weak-site-allele-depth-cut DA`` for the library-free step; refused where it cannot run."""
 
     cut = getattr(args, "weak_site_allele_depth_cut", None)
+    if getattr(args, "floor1_addon", False):
+        if cut is None or not getattr(args, "weak_site_pass", False):
+            raise InputContractError("--floor1-addon needs --weak-site-pass and --weak-site-allele-depth-cut (the add-on runs when "
+                                     "the allele depth is at or under the cut)")
+        if not library:
+            raise InputContractError("--floor1-addon does not work with --no-library: it has no weak-site pass, so no allele depth")
     if cut is None:
         return []
     if not getattr(args, "weak_site_pass", False):
@@ -130,7 +139,7 @@ def _weak_site_library_free(args: argparse.Namespace, *, library: bool) -> list[
         raise InputContractError("--weak-site-allele-depth-cut belongs to the library-free step: give --library-free")
     if getattr(args, "weak_site_depth_cut", None) is not None:
         raise InputContractError("give --weak-site-allele-depth-cut (library-free step) or --weak-site-depth-cut (call step), not both")
-    return ["--weak-site-pass", "--weak-site-allele-depth-cut", str(cut)]
+    return ["--weak-site-pass", "--weak-site-allele-depth-cut", str(cut), *(["--floor1-addon"] if getattr(args, "floor1_addon", False) else [])]
 
 
 def _common_steps(args: argparse.Namespace, out: Path, sample_id: str) -> list[tuple[str, list[str]]]:

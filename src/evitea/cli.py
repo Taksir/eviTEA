@@ -471,6 +471,11 @@ def build_parser() -> argparse.ArgumentParser:
                     "own-family copy filter, are tier 4 and are not refined. Needs the work directory of the call run. Off by default")
     lf.add_argument("--weak-site-allele-depth-cut", type=float, metavar="DA",
                     help="the allele depth at or under which --weak-site-pass runs (required with it)")
+    lf.add_argument("--floor1-addon", action="store_true",
+                    help="needs --weak-site-pass: when the weak-site pass's allele depth is at or under its cut, run a second "
+                    "library-free step with the extension floor at 1 (into <output>/floor1_addon/, a scan of its own) and add its "
+                    "LIBRARY_FREE rows that lie more than 500 bp from every row of the main calls.combined.tsv to the main "
+                    "calls.combined.tsv / calls.library_free.tsv / calls.combined.vcf (ids F1_...). Off by default")
     lf.add_argument("--te-assets", type=Path,
                     help="prepared TE assets of the library run (the TE record to family map): calls.combined.tsv and "
                     "calls.combined.vcf then leave out the library calls inside a reference copy of their own family "
@@ -1223,6 +1228,7 @@ def _library_free(args: argparse.Namespace) -> None:
         extension_stop_min_depth_cut=args.extension_stop_min_depth_cut,
         weak_site_pass=args.weak_site_pass,
         weak_site_allele_depth_cut=args.weak_site_allele_depth_cut,
+        floor1_addon=args.floor1_addon,
         tsd_skip=tsd_skip,
         workers=args.workers,
         counter=args.counter,

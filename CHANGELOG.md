@@ -32,6 +32,8 @@
   with `--weak-site-depth-cut`, and `--host-cluster-support`, `--candidate-min-pairs` and `--candidate-floor-depth-cut`.
   `library-free` and `run` also take `--weak-site-pass` with `--weak-site-allele-depth-cut` (the pass in the library-free step, switched by
   the allele depth D x (1 - median e); `docs/DEPTH_FLOORS.md`).
+  `library-free` and `run` take `--floor1-addon` (needs the pass): when the pass ran, a second library-free step at extension floor 1 adds its library-free
+  rows more than 500 bp from every main row, as `F1_` rows (`docs/DEPTH_FLOORS.md` section 5).
 - Own-family copy filter, on by default for every run with a TE library: `call` (`calls.tsv`, `calls.bed`, `calls.vcf`) and
   `library-free` (`calls.combined.tsv`, `calls.combined.vcf`) leave out the library calls that touch a reference copy of their own
   family, read from the BED6 repeat annotation, and list them in `resident_copy_dropped.tsv`. `calls.native.tsv` stays the full

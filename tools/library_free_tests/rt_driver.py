@@ -119,6 +119,8 @@ if "--extension-stop-min-depth-cut" in sys.argv:
 if "--weak-site-allele-depth-cut" in sys.argv:
     kw["weak_site_pass"] = True
     kw["weak_site_allele_depth_cut"] = float(sys.argv[sys.argv.index("--weak-site-allele-depth-cut") + 1])
+if "--floor1-addon" in sys.argv:
+    kw["floor1_addon"] = True
 if "--weak-stage-dir" in sys.argv:    # the run folder's manifest names the call work directory that holds the library layer's stage tables
     (run_dir / "run_manifest.json").write_text(json.dumps({"values": {"normalized_config": {"runtime": {
         "work_dir": sys.argv[sys.argv.index("--weak-stage-dir") + 1]}}}}))
