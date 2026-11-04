@@ -92,6 +92,10 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--weak-site-pass", action="store_true", help="given to call as --weak-site-pass (off by default)")
     for name in ("--weak-site-depth-cut", "--host-cluster-support", "--candidate-min-pairs", "--candidate-floor-depth-cut"):
         parser.add_argument(name, help=f"given to call as {name} (default: not given)")
+    parser.add_argument("--weak-site-allele-depth-cut", type=float, metavar="DA",
+                        help="with --weak-site-pass: run the weak-site pass in the library-free step (given to library-free as "
+                        "--weak-site-pass --weak-site-allele-depth-cut; needs --library-free; not with --no-library or "
+                        "--weak-site-depth-cut) instead of in the call step")
 
 
 def _call_options(args: argparse.Namespace) -> list[str]:
@@ -103,9 +107,27 @@ def _call_options(args: argparse.Namespace) -> list[str]:
         value = getattr(args, name, None)      # a namespace built without the opt-in floors (older callers) has none of them
         if value is not None:
             out += ["--" + name.replace("_", "-"), str(value)]
-    if getattr(args, "weak_site_pass", False):
-        out.append("--weak-site-pass")
+    if getattr(args, "weak_site_pass", False) and getattr(args, "weak_site_allele_depth_cut", None) is None:
+        out.append("--weak-site-pass")      # with the allele-depth cut the pass belongs to the library-free step
     return out
+
+
+def _weak_site_library_free(args: argparse.Namespace, *, library: bool) -> list[str]:
+    """``--weak-site-pass --weak-site-allele-depth-cut DA`` for the library-free step; refused where it cannot run."""
+
+    cut = getattr(args, "weak_site_allele_depth_cut", None)
+    if cut is None:
+        return []
+    if not getattr(args, "weak_site_pass", False):
+        raise InputContractError("--weak-site-allele-depth-cut needs --weak-site-pass")
+    if not library:
+        raise InputContractError("--weak-site-allele-depth-cut does not work with --no-library: the pass needs the library layer's "
+                                 "saved stage tables")
+    if not getattr(args, "library_free", False):
+        raise InputContractError("--weak-site-allele-depth-cut belongs to the library-free step: give --library-free")
+    if getattr(args, "weak_site_depth_cut", None) is not None:
+        raise InputContractError("give --weak-site-allele-depth-cut (library-free step) or --weak-site-depth-cut (call step), not both")
+    return ["--weak-site-pass", "--weak-site-allele-depth-cut", str(cut)]
 
 
 def _common_steps(args: argparse.Namespace, out: Path, sample_id: str) -> list[tuple[str, list[str]]]:
@@ -162,11 +184,14 @@ def library_steps(args: argparse.Namespace, out: Path, sample_id: str) -> list[t
             "library-free", "--run-dir", str(out / "call"), "--sample-assets", str(out / "sample"), "--reference-assets",
             str(out / "reference"), "--output", str(out / "library_free"), "--work-dir", str(out / "work" / "library_free"),
             *(_keep_resident(args) or ["--te-assets", str(out / "te")]), *_contigs(args), *_lf_workers(args),
-            *_het_guard(args), *_extension_floor(args)]))
+            *_het_guard(args), *_extension_floor(args), *_weak_site_library_free(args, library=True)]))
+    else:
+        _weak_site_library_free(args, library=True)      # refuses --weak-site-allele-depth-cut without --library-free
     return steps
 
 
 def no_library_steps(args: argparse.Namespace, out: Path, sample_id: str) -> list[tuple[str, list[str]]]:
+    _weak_site_library_free(args, library=False)
     reference, sample = _common_steps(args, out, sample_id)
     repeat_map = out / "repeat_map" / "repeat_map.bed"
     records = out / "records"

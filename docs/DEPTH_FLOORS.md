@@ -35,6 +35,37 @@ its coordinates are the span of that family's items. The calls are named `WEAK_<
 own-family copy filter and breakpoint refinement as every library call. The pass runs after the extension layers, the 500 bp cover is every row of the final table (library-layer and extension rows), and the rows are appended at the end (layer `weak_site` in `layer_rows`), so no extension layer reads a `WEAK_` row: a weak row cannot absorb an anchor-pair call of its family or stand beside a call of another family.
 D, DCUT, the sites seen, the rows of the final table before the pass and the rows added are in `run_summary.json` (`engine_counts.depth_floors.weak_site_pass`).
 
+## 2b. Weak-site pass in the library-free step, switched by the allele depth (`library-free`, `run`)
+
+A second route to the same pass, off by default, separate from section 2 (give one of the two, not both). The sample depth D counts
+every read, but a heterozygous or pooled sample carries the inserted allele in a share of them, so the pass is switched by the allele
+depth `Da = D x a`.
+
+| Switch | Default | Effect |
+|---|---|---|
+| `--weak-site-pass` | off | Run the pass of section 2 after the library-free calls and statuses are final, before `calls.combined.tsv` and `calls.combined.vcf` are written. |
+| `--weak-site-allele-depth-cut DA` | required with the pass | The pass runs only when `Da` is at or under DA. |
+
+- D is `genome_depth` of `library_free/single_copy.py` (as in section 1). `a = 1 - median(e)` over the confirmed places of the main view,
+  the places of the local heterozygous guard (`het_guard.confirmed`: first pass, status ADDED or NEAR_EVITEA, both junctions placed,
+  TSD 2 to 20, a measured e), taken at the guard's point (before the single-copy rule); `a = 1` when there are fewer than 10.
+- Evidence: the library layer's saved stage tables `split_junction`, `mate_rescue`, `junction_groups` from the work directory of the
+  `call` run, named in the run folder's `run_manifest.json` (`normalized_config.runtime.work_dir`, else `<run>/.evitea-work`), under
+  `engine/work/incumbent/checkpoints/`. A missing table stops the run with a message. `run --no-library` and
+  `--weak-site-allele-depth-cut` together are refused; `run` needs `--library-free` for it, and `--weak-site-pass` with the allele cut
+  goes to the library-free step, not to `call`.
+- Grouping, rule, family, coordinates and `WEAK_<n>` names are those of section 2 (`incumbent/weak_sites.py`). The 500 bp cover is every
+  row the combined table will hold: the library rows (after the own-family copy filter) and the added library-free calls.
+- The new rows go through the same own-family copy filter (not with `--keep-resident-copies`); the rows it drops are listed in
+  `resident_copy_dropped.tsv`. The kept rows are written to `calls.combined.tsv` and `calls.combined.vcf` as library rows (source
+  EVITEA, after the other library rows), with `evidence_type` `weak_site_pooled_floor` and tier 4 in `call-tiers`.
+  **Breakpoint refinement is not run on them: they keep the span of their evidence.**
+- Main view only; `merge_view/` is unchanged. The pass reads the scan's results and the stage tables only and is not part of the
+  identity of a saved scan piece: a run with the pass reuses the pieces of an earlier run with the same scan options
+  (`EVITEA_PIECES_READONLY=1` works).
+- `library_free_summary.json`, `weak_site_pass`: `single_copy_depth`, `confirmed_places`, `median_e`, `a`, `allele_depth`, `cut`, `ran`,
+  and, when it ran, `sites`, `uncovered_sites`, `passing_rule`, `dropped_by_copy_filter`, `rows_added`, `cover_rows`.
+
 ## 3. Candidate place minimum (`call`, `run`)
 
 | Switch | Default | Effect |

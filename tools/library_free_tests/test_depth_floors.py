@@ -12,6 +12,11 @@ V4  the depth cut: the floor is N at or under the cut and 3 above it; the single
 V5  --detection-dir with a floor switch is refused.
 V6  in-process: the floor is set for the scan and restored after, also after an error; bad values are refused; the depth cut picks the
     floor from the depth of the layer's own single-copy profile and refuses a sample whose depth could not be measured.
+V7  the extension itself: on a path read by 2 reads, floor 3 stops and floor 2 goes on.
+V8  the weak-site pass of the library-free step (--weak-site-pass, --weak-site-allele-depth-cut), on constructed stage tables: a run
+    with the pass reuses the saved pieces of the run without it (EVITEA_PIECES_READONLY=1) and changes only the combined files and the
+    summary; a site no combined row covers becomes a WEAK_ row (source EVITEA, also in the VCF), a site near a library row or near an
+    added library-free call does not; above the cut every file equals the run without the pass; a missing stage table stops the run.
 """
 import hashlib
 import json
@@ -35,10 +40,10 @@ def check(name, ok, detail=""):
         FAIL.append(name)
 
 
-def run(out, src, *extra, env_extra=None):
+def run(out, src, *extra, env_extra=None, small=True):
     env = dict(os.environ, PYTHONPATH=str(src))
     env.update(env_extra or {})
-    return subprocess.run([sys.executable, "-B", str(HERE / "rt_driver.py"), str(out), "7", "-", "--small", *extra], env=env,
+    return subprocess.run([sys.executable, "-B", str(HERE / "rt_driver.py"), str(out), "7", "-", *(["--small"] if small else []), *extra], env=env,
                           capture_output=True, text=True)
 
 
@@ -151,6 +156,65 @@ def main():
             check("V6 unmeasurable depth is refused", "no msBWT index" in str(exc), exc)
     finally:
         R._single_copy = real
+    # V8: the weak-site pass of the library-free step, on constructed stage tables (elements sample with library calls at 6 sites)
+    import hashlib
+    import pickle
+    sys.path.insert(0, str(ROOT / "src"))
+    from evitea.incumbent.mate_rescue import MateRescueLocus, MateRescueResult
+    from evitea.incumbent.split_junction import SplitJunctionResult
+
+    def locus(pos, ids):
+        return MateRescueLocus("L", "chrS", "PX", float(pos), float(pos + 8), float(pos + 4), tuple(ids[:1]), tuple(ids[1:2]), False)
+
+    callwork = t / "callwork"
+    folder = callwork / "engine" / "work" / "incumbent" / "checkpoints"
+    folder.mkdir(parents=True)
+    tables = (SplitJunctionResult((), (), (), {}),
+              MateRescueResult((), (locus(35000, [1, 2]), locus(10300, [3, 4]), locus(6400, [5, 6])), (), {}),
+              types.SimpleNamespace(ledger=()))
+    for stage, table in zip(("split_junction", "mate_rescue", "junction_groups"), tables):
+        payload = pickle.dumps(table)
+        (folder / f"{stage}.pkl").write_bytes(payload)
+        (folder / f"{stage}.complete.json").write_text(json.dumps({"fingerprint": {}, "sha256": hashlib.sha256(payload).hexdigest()}))
+    shared = ["--native", "px", "--index-dir", str(t / "idx8"), "--work-dir", str(t / "w8_work")]
+    b8 = t / "b8"
+    r = run(b8, src, *shared, small=False)
+    check("V8 run without the pass finishes", r.returncode == 0, r.stderr[-300:])
+    rows = (b8 / "calls.combined.tsv").read_text().splitlines()
+    check("V8 the run has library rows and added library-free calls", sum("\tEVITEA" in x for x in rows) == 6 and
+          sum("LIBRARY_FREE" in x for x in rows) == 2, rows)
+    ro = {"EVITEA_PIECES_READONLY": "1"}
+    on = t / "w8"
+    r = run(on, src, *shared, "--weak-site-allele-depth-cut", "1000000", "--weak-stage-dir", str(callwork), env_extra=ro, small=False)
+    check("V8 the pass reuses the saved pieces (identity unchanged) and finishes", r.returncode == 0, r.stderr[-300:])
+    new = (on / "calls.combined.tsv").read_text().splitlines()
+    added = [x for x in new if x not in rows]
+    check("V8 exactly one new row: the site no row covers, source EVITEA", len(added) == 1 and added[0].startswith("WEAK_000001\tchrS\t35000\t")
+          and added[0].endswith("\tPX\tEVITEA"), added)
+    check("V8 library rows first, then the weak row, then the library-free calls",
+          [x.split("\t")[5] for x in new[1:]] == ["EVITEA"] * 7 + ["LIBRARY_FREE"] * 2, [x.split("\t")[5] for x in new[1:]])
+    same = all(hashlib.sha256((b8 / n).read_bytes()).digest() == hashlib.sha256((on / n).read_bytes()).digest()
+               for n in ("library_free_places.tsv", "library_free_segments.fa", "library_free_family_calls.tsv", "calls.library_free.tsv"))
+    check("V8 places, segments, family calls and added calls are unchanged", same)
+    vcf = (on / "calls.combined.vcf").read_text()
+    check("V8 the VCF has the weak row as a library call (the synthetic native table has no evidence_type column)",
+          "WEAK_000001" in vcf and "SOURCE=library" in vcf.split("WEAK_000001")[1].split("\n")[0]
+          and "WEAK_000001" not in (b8 / "calls.combined.vcf").read_text())
+    info = summary(on)["weak_site_pass"]
+    check("V8 the summary records depth, e, a, Da, cut and the counts",
+          info["ran"] and info["cut"] == 1000000.0 and info["single_copy_depth"] > 0 and info["a"] == 1.0 and info["allele_depth"] == info["single_copy_depth"]
+          and info["confirmed_places"] < 10 and (info["sites"], info["uncovered_sites"], info["passing_rule"], info["dropped_by_copy_filter"],
+                                                 info["rows_added"], info["cover_rows"]) == (3, 1, 1, 0, 1, 8), info)
+    off = t / "w8off"
+    r = run(off, src, *shared, "--weak-site-allele-depth-cut", "0.001", "--weak-stage-dir", str(callwork), env_extra=ro, small=False)
+    ok, names = same_tables(b8, off)
+    check("V8 above the cut every file equals the run without the pass", r.returncode == 0 and ok, r.stderr[-200:])
+    check("V8 above the cut the summary says it did not run", summary(off)["weak_site_pass"]["ran"] is False and "rows_added" not in summary(off)["weak_site_pass"])
+    check("V8 without the option the summary has no weak_site_pass entry", "weak_site_pass" not in summary(b8))
+    (folder / "mate_rescue.pkl").unlink()
+    r = run(t / "w8miss", src, *shared, "--weak-site-allele-depth-cut", "10", "--weak-stage-dir", str(callwork), env_extra=ro, small=False)
+    check("V8 a missing stage table stops the run with a clear error", r.returncode != 0 and "mate_rescue" in r.stderr, r.stderr[-200:])
+
     # the extension itself: a path read by 2 reads goes on with the floor 2 and stops with 3 (n_alt 10 keeps the 10% term at 1)
     K = P.K
     path = "ACGTTGCAAGGCTTACCGATCGGATTCAGCTAAGCTTGGAC" * 3

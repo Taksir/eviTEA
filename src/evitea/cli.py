@@ -456,6 +456,14 @@ def build_parser() -> argparse.ArgumentParser:
     lf.add_argument("--extension-stop-min-depth-cut", type=float, default=None, metavar="DCUT",
                     help="use --extension-stop-min only when the single-copy depth of the sample is at most DCUT, else 3 "
                     "(default: no cut, N applies at every depth). The floor used and the depth go into library_free_summary.json")
+    lf.add_argument("--weak-site-pass", action="store_true",
+                    help="after the library-free calls are final, call each site that the library layer's saved evidence marks "
+                    "(pooled reads on both sides, or two split reads on one side) and that has no row of the combined table "
+                    "within 500 bp, when the allele depth Da = D x (1 - median e) is at or under --weak-site-allele-depth-cut "
+                    "(D: single-copy depth; e: the confirmed places of the het guard; a = 1 under 10 of them). The rows pass the "
+                    "own-family copy filter, are tier 4 and are not refined. Needs the work directory of the call run. Off by default")
+    lf.add_argument("--weak-site-allele-depth-cut", type=float, metavar="DA",
+                    help="the allele depth at or under which --weak-site-pass runs (required with it)")
     lf.add_argument("--te-assets", type=Path,
                     help="prepared TE assets of the library run (the TE record to family map): calls.combined.tsv and "
                     "calls.combined.vcf then leave out the library calls inside a reference copy of their own family "
@@ -1206,6 +1214,8 @@ def _library_free(args: argparse.Namespace) -> None:
         het_guard=args.het_guard,
         extension_stop_min=args.extension_stop_min,
         extension_stop_min_depth_cut=args.extension_stop_min_depth_cut,
+        weak_site_pass=args.weak_site_pass,
+        weak_site_allele_depth_cut=args.weak_site_allele_depth_cut,
         tsd_skip=tsd_skip,
         workers=args.workers,
         counter=args.counter,

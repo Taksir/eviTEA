@@ -491,7 +491,8 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
                      mito_contig: str | None = None, resident_filter=None, adapter_test: bool = True,
                      single_copy="auto", het_guard="on", tsd_skip=None, workers: int = 1, counter: str = "fast",
                      reference_cache: Path | None = None, extension_stop_min: int = STOP_MIN_DEFAULT,
-                     extension_stop_min_depth_cut: float | None = None) -> dict:
+                     extension_stop_min_depth_cut: float | None = None, weak_site_pass: bool = False,
+                     weak_site_allele_depth_cut: float | None = None) -> dict:
     """``resident_filter`` (``resident_filter.OwnFamilyCopyFilter``): drop the library calls inside a reference copy of their own
     family from ``calls.combined.tsv`` and ``calls.combined.vcf`` only.  Detection and assembly read the unfiltered
     ``calls.native.tsv`` of ``run_dir``, so the family calls and the added calls do not depend on it; ``None``: no filter.
@@ -505,10 +506,16 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     ``extension_stop_min`` (default 3, the research rule) is the least read count the extension of the inserted DNA goes on with;
     ``extension_stop_min_depth_cut`` (default none): the floor is ``extension_stop_min`` only when the sample's single-copy depth
     (``single_copy.measure``'s genome depth) is at or under the cut, otherwise 3. A floor other than 3 changes the places, so it
-    is part of the identity of a saved scan piece and needs a scan (not ``detection_dir``); at the default nothing changes."""
+    is part of the identity of a saved scan piece and needs a scan (not ``detection_dir``); at the default nothing changes.
+    ``weak_site_pass`` (default off) with ``weak_site_allele_depth_cut``: the weak-site pass of ``weak_site.py``, run when the allele
+    depth D x (1 - median e) is at or under the cut; it reads the scan's results and the library layer's saved stage tables, and is
+    not part of the identity of a saved piece."""
 
     from ..breakpoints.runtime import read_fasta
     from ..pipeline import prepare_output_directory
+
+    if weak_site_allele_depth_cut is not None and not weak_site_pass:
+        raise InputContractError("--weak-site-allele-depth-cut needs --weak-site-pass")
 
     opts = options if options is not None else Options.previous()
     say = progress or (lambda message: print(message, file=sys.stderr, flush=True))
@@ -579,6 +586,9 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     decision = None
     if not opts.is_previous:
         decision = _single_copy(choice, genome, reference_fasta, msbwt_index, contigs, work, say) if rule_on else SC.Decision(choice)
+    weak = None
+    if weak_site_pass:
+        weak = _weak_site_setup(weak_site_allele_depth_cut, run_dir, decision, genome, reference_fasta, msbwt_index, contigs, work, say)
     common = dict(native=native, native_rows=native_rows, sample_id=sample_id, reference=reference, genome=genome, copies=copies,
                   genome_bp=genome_bp, rule_c=rule_c, run_dir=run_dir, command_line=command_line, source_identity=source_identity,
                   repeat_map=repeat_map, repeat_annotation=repeat_annotation, say=say, started=started,
@@ -593,7 +603,8 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
     summary = None
     for out_dir, first_tables, view_opts, view_info in views:
         result = _assemble_and_write(out_dir, first_tables, tables.get("second"), view_opts, view_info, single_copy=decision,
-                                     het_guard=guard, tsd_skip=skip, speed=speed if summary is None else None, **common)
+                                     het_guard=guard, tsd_skip=skip, speed=speed if summary is None else None,
+                                     weak_site=weak if summary is None else None, **common)
         if summary is None:
             summary = result
             if decision is not None:
@@ -605,6 +616,28 @@ def run_library_free(*, run_dir: Path, reference, msbwt_index: Path | None, outp
                                      "family_call_statuses": result["family_call_statuses"]}
             write_run_summary(output / SUMMARY, summary)
     return summary
+
+
+def _weak_site_setup(cut, run_dir: Path, decision, genome, reference_fasta: Path, msbwt_index: Path | None,
+                     contigs: Sequence[str] | None, work: Path, progress):
+    """The ``weak_site.WeakSite`` of the main view: the cut, the single-copy depth and the library layer's saved stage tables."""
+
+    from . import single_copy as SC
+    from . import weak_site as WS
+
+    if isinstance(cut, bool) or not isinstance(cut, (int, float)) or not cut > 0:
+        raise InputContractError("--weak-site-pass needs --weak-site-allele-depth-cut, a positive number")
+    tables = WS.load_stage_tables(run_dir)
+    profile = decision.profile if decision is not None and decision.profile is not None else None
+    if profile is None:
+        from ..breakpoints.runtime import read_fasta
+
+        profile = _single_copy(SC.Choice("auto"), genome if genome is not None else read_fasta(reference_fasta), reference_fasta,
+                               msbwt_index, contigs, work, progress).profile
+    depth = None if profile is None else profile.get("genome_depth")
+    if depth is None:
+        raise InputContractError("--weak-site-pass needs the sample's single-copy depth, which could not be measured")
+    return WS.WeakSite(float(cut), float(depth), tables)
 
 
 def _merge_view_info(info: dict) -> dict:
@@ -619,7 +652,7 @@ def _merge_view_info(info: dict) -> dict:
 def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options, info: dict, *, native, native_rows, sample_id,
                         reference, genome, copies, genome_bp, rule_c, run_dir, command_line, source_identity, repeat_map,
                         repeat_annotation, say, started, resident_filter=None, single_copy=None, het_guard=None, tsd_skip=None,
-                        speed=None) -> dict:
+                        speed=None, weak_site=None) -> dict:
     """Family calls of one set of rules from the detection tables, and the files of ``library-free`` in ``output``."""
     from . import assemble as AS
     from . import calling as CL
@@ -637,7 +670,8 @@ def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options
     c_started = time.time()
     index = CL.CallIndex.from_native(native_rows)
     rows, assembly = AS.assemble(first, second, index, opts, identity_filter=rule_c, reference=genome, copies=copies, genome_bp=genome_bp,
-                                 single_copy=single_copy, het_guard=het_guard, tsd_skip=tsd_skip)
+                                 single_copy=single_copy, het_guard=het_guard, tsd_skip=tsd_skip,
+                                 confirmed_e=None if weak_site is None else weak_site.confirmed_e)
     c_seconds = round(time.time() - c_started, 1)
     from . import tsd_skip as TS
 
@@ -652,7 +686,16 @@ def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options
     if resident_filter is not None:  # final output only: `native` (the full table) is what the assembly above read
         resident = resident_filter(native)
         shown = resident.filtered
-        write_bytes(output / RESIDENT_DROPPED_OUTPUT, dropped_tsv_bytes(resident.dropped))
+    weak_info = None
+    weak_dropped = ()
+    if weak_site is not None:    # opt-in: after the calls and statuses are final, before the combined files are made
+        from . import weak_site as WS
+
+        shown, weak_dropped, weak_info = WS.apply(weak_site, shown, added, resident_filter, sample_id)
+        say("library-free: weak-site pass: allele depth {allele_depth} (D {single_copy_depth} x a {a}, cut {cut}): ".format(**weak_info)
+            + (f"{weak_info['rows_added']} calls added" if weak_info["ran"] else "not run"))
+    if resident is not None:
+        write_bytes(output / RESIDENT_DROPPED_OUTPUT, dropped_tsv_bytes((*resident.dropped, *weak_dropped)))
     write_bytes(output / COMBINED, combined_calls_tsv_bytes(shown, added))
     write_bytes(output / V.COMBINED_VCF_OUTPUT, combined_calls_vcf_bytes(shown, added, reference, sample_id))
     statuses = Tally(r.status for r in rows)
@@ -681,6 +724,8 @@ def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options
     }
     if speed:
         summary["speed"] = speed
+    if weak_info is not None:
+        summary["weak_site_pass"] = weak_info
     if resident is not None:
         summary[RESIDENT_SUMMARY_KEY] = resident_filter.summary(resident)
     if repeat_map is not None:

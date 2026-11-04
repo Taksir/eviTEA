@@ -4,6 +4,7 @@ usage: rt_driver.py <out dir> <seed> <options json, merge or -> [--het] [--annot
                     [--single-copy auto|all|none|LIST] [--het-guard on|off]
                     [--tsd-skip on|off] [--workers N] [--counter plain|fast] [--index fake|real] [--work-dir dir] [--index-dir dir] [--small]
                     [--reference-cache dir] [--extension-stop-min N] [--extension-stop-min-depth-cut DCUT]
+                    [--weak-site-allele-depth-cut DA] [--weak-stage-dir DIR]
 merge: Options.merge(). The cross-species repeat cutoff needs the anchor reference's window counts; the driver sets them to a share of
 1 (the cutoff stays REP_MAX) unless --repeat-anchor gives others, and --profile-min lowers the 1 Mb contig minimum of the profile.
 --sample cross: the sample of synth_cross.py (one scenario per cross-species rule) instead of synth_elements.py.
@@ -115,6 +116,12 @@ if "--extension-stop-min" in sys.argv:
     kw["extension_stop_min"] = int(sys.argv[sys.argv.index("--extension-stop-min") + 1])
 if "--extension-stop-min-depth-cut" in sys.argv:
     kw["extension_stop_min_depth_cut"] = float(sys.argv[sys.argv.index("--extension-stop-min-depth-cut") + 1])
+if "--weak-site-allele-depth-cut" in sys.argv:
+    kw["weak_site_pass"] = True
+    kw["weak_site_allele_depth_cut"] = float(sys.argv[sys.argv.index("--weak-site-allele-depth-cut") + 1])
+if "--weak-stage-dir" in sys.argv:    # the run folder's manifest names the call work directory that holds the library layer's stage tables
+    (run_dir / "run_manifest.json").write_text(json.dumps({"values": {"normalized_config": {"runtime": {
+        "work_dir": sys.argv[sys.argv.index("--weak-stage-dir") + 1]}}}}))
 if "--workers" in sys.argv:
     kw["workers"] = int(sys.argv[sys.argv.index("--workers") + 1])
 if "--counter" in sys.argv:
