@@ -352,7 +352,9 @@ def run_engine(
             fragment_q95=fragment.q95,
             fragment_q99=fragment.q99,
             **({} if floors is None else {"host_cluster_support": floors.host_cluster_support,
-                                          "candidate_min_pairs": floors.candidate_min_pairs}),
+                                          "candidate_min_pairs": floors.candidate_min_pairs,
+                                          "mate_side_rule": inputs.depth_floors.mate_side_rule,
+                                          "junction_side_rule": inputs.depth_floors.junction_side_rule}),
         ),
         sample,
         work / "incumbent",
@@ -361,6 +363,9 @@ def run_engine(
     floor_record = None
     if floors is not None:
         floor_record = floors.record(inputs.depth_floors)
+        if (inputs.depth_floors.mate_side_rule, inputs.depth_floors.junction_side_rule) != ("midpoint", "midpoint"):
+            floor_record["side_rules"] = {"mate_side_rule": inputs.depth_floors.mate_side_rule,
+                                          "junction_side_rule": inputs.depth_floors.junction_side_rule}
         if "candidate_floor" in floor_record:
             acquisition = incumbent.acquisition
             floor_record["candidate_floor"].update(

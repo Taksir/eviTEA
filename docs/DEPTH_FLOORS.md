@@ -81,3 +81,42 @@ The values used, the numbers of candidate pairs and places, and the wall time of
 
 `tests/unit/test_depth_floors.py` and `tools/library_free_tests/test_depth_floors.py` (with `FREEZE_SRC` set to the `src` folder of
 the freeze, it runs the freeze and the current code on the same sample and compares every output file).
+
+## 4. Side of a host mate: `--mate-side-rule`, `--junction-side-rule` (opt-in, both default to today's rule)
+
+Why. In the mate-anchored search (`incumbent/mate_rescue.py`, `mate_rescue_evidence`) a host mate is LEFT when it is a forward
+read left of the middle of the place's own host mates, RIGHT when it is a reverse read right of it. At a place whose pairs all
+come from one side, about half of the correct host mates lie past that middle and are dropped (`PAIR_GEOMETRY_INCONSISTENT`).
+At low depth that leaves fewer than 2 pairs on the side, and the missing-side search never starts. The same middle is the test in
+the two missing-side searches of the strict-pair step and in the junction groups.
+
+`call --mate-side-rule strand`: the main loop first collects the local host anchors of a place (view and midpoint), then takes one
+split point x for the place: only forward anchors, x = +infinity (all LEFT); only reverse anchors, x = -infinity (all RIGHT); both
+strands, the x that maximises #(forward midpoint < x) + #(reverse midpoint > x). The score is constant between two neighbouring
+distinct midpoints, so the gaps between them are the candidates; among the best ones the widest bounded gap wins and x is its
+middle, then the one closest to the place's middle, then the smaller x. The two outer gaps have no middle: they are taken only when no
+bounded gap reaches the best score (the smaller x first). Everything after the side is unchanged (TE-mate window, one side per
+pair, two pairs per side, ledger, calls).
+
+`call --junction-side-rule split`: the targeted missing-side tests (`mate_rescue.py` strict pairs, local and global; `junction_groups.py`
+host half) compare the host midpoint with a per-locus point in place of the middle of the candidate envelope. Both strands among the
+place's host anchors: the same x as `strand`. One strand: the present side's edge, the rightmost forward host midpoint (LEFT present)
+or the leftmost reverse one (RIGHT present). A place without a recorded point keeps the middle. The scope window stays centred on the
+middle.
+
+The two options are independent. Under `junction-side-rule split` alone the main loop still sorts the pairs by the middle; it only
+records the points (`LocusSplit` rows, taken out of the evidence list by `finalize_mate_rescue`, which then returns a
+`MateRescueSplitResult` with `splits`). At the defaults the search is called as before and returns the plain result, so every output
+and the checkpoint bytes are those of 18bae44.
+
+Checkpoints. The candidate and split-junction steps do not depend on the rules; the mate-anchored search and the steps after it do.
+With a rule on, those steps' checkpoints carry the rule in their identity (`StageStore.later`), so a work folder can keep the
+`candidate_acquisition` and `split_junction` checkpoints and recompute the rest; a later checkpoint made under another rule is
+refused. At the defaults every checkpoint has the one fingerprint it always had.
+
+Records. With a rule on, `run_manifest.json` holds `depth_floors.side_rules` and, in the incumbent counts, the pairs given a side
+that `midpoint` would have dropped (`mate_side_strand_rule_anchors_added_one_strand_loci`, `..._both_strand_loci`, and the pairs lost
+the other way), plus the pairs and proposals each side test rejects (`side_test_rejects_*`: main loop, local and global missing-side
+geometry and not-missing-side, junction side unresolved and not missing side). `tools/mate_side_counts.py <work dir>` prints the
+`side_test_rejects_*` numbers of any finished run, so the two rules can be set side by side. `tools/mate_side_fixture.py` is a
+synthetic fixture (no bowtie2): run with the src folder of 18bae44 and the current one it gives the same hashes at the defaults.

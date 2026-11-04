@@ -339,6 +339,13 @@ def build_parser() -> argparse.ArgumentParser:
     call.add_argument("--candidate-floor-depth-cut", type=float, metavar="DCUT",
                       help="apply --host-cluster-support and --candidate-min-pairs only when the single-copy depth is at or "
                       "under DCUT, else 2 and 2 (default: no cut, they apply at every depth)")
+    call.add_argument("--mate-side-rule", choices=("midpoint", "strand"), default=None,
+                      help="side of a host mate in the mate-anchored search: midpoint (default: against the middle of the place's "
+                      "host mates) | strand (against a split point from the strands of the place's host anchors: FWD only gives "
+                      "all LEFT, RC only all RIGHT, both strands the split that keeps the most consistent pairs)")
+    call.add_argument("--junction-side-rule", choices=("midpoint", "split"), default=None,
+                      help="side test of the missing-side searches (strict pairs, junction groups): midpoint (default) | split "
+                      "(against the per-locus point of the place's host anchors; at a one-strand place the present side's edge)")
     _add_breakpoint_extras(call)
     _add_depth_cap(call)
     _add_keep_resident_copies(call)
@@ -931,7 +938,7 @@ def _call_config(args: argparse.Namespace) -> EviTEAConfig:
         depth_floors=DepthFloorConfig(**{
             name: (getattr(args, name) if getattr(args, name, None) is not None else getattr(base.depth_floors, name))
             for name in ("weak_site_pass", "weak_site_depth_cut", "host_cluster_support", "candidate_min_pairs",
-                         "candidate_floor_depth_cut")
+                         "candidate_floor_depth_cut", "mate_side_rule", "junction_side_rule")
         }),
     )
 

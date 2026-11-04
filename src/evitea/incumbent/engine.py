@@ -99,9 +99,21 @@ class IncumbentInputs:
     # host-mapped mates in a cluster, and pairs in a candidate place. The defaults are the research rule.
     host_cluster_support: int = HOST_CLUSTER_SUPPORT
     candidate_min_pairs: int = CANDIDATE_MIN_PAIRS
+    # Side of a host mate in the mate-anchored search (``mate_rescue.MATE_SIDE_RULES``): ``midpoint`` (the research rule) or
+    # ``strand`` (split point from the strands of the place's host anchors).
+    mate_side_rule: str = "midpoint"
+    # Side test of the missing-side searches (strict pairs, junction groups; ``mate_rescue.JUNCTION_SIDE_RULES``): ``midpoint`` or
+    # ``split`` (the per-locus point of the mate-anchored search's host anchors).
+    junction_side_rule: str = "midpoint"
 
     def __post_init__(self) -> None:
         from .recall_repair import RESCUE_READ_NAME_PROFILES
+        from .mate_rescue import JUNCTION_SIDE_RULES, MATE_SIDE_RULES
+
+        if self.mate_side_rule not in MATE_SIDE_RULES:
+            raise ValueError(f"mate_side_rule must be one of {MATE_SIDE_RULES}")
+        if self.junction_side_rule not in JUNCTION_SIDE_RULES:
+            raise ValueError(f"junction_side_rule must be one of {JUNCTION_SIDE_RULES}")
 
         if self.rescue_read_names not in RESCUE_READ_NAME_PROFILES:
             raise ValueError(f"rescue_read_names must be one of {RESCUE_READ_NAME_PROFILES}")
@@ -175,17 +187,26 @@ class StageStore:
     current one. Files live in the run's private work directory.
     """
 
-    def __init__(self, root: Path, fingerprint: dict[str, object]):
+    def __init__(self, root: Path, fingerprint: dict[str, object], later: dict[str, object] | None = None,
+                 later_stages: Sequence[str] = ()):
         self.root = Path(root)
         self.fingerprint = fingerprint
+        # extra identity of the stages that read an option which the earlier stages do not (empty by default: every stage then has
+        # the one fingerprint); the earlier stages' checkpoints stay reusable when only that option changes
+        self.later = dict(later or {})
+        self.later_stages = frozenset(later_stages)
         self.root.mkdir(parents=True, exist_ok=True)
+
+    def fingerprint_of(self, stage: str) -> dict[str, object]:
+        return {**self.fingerprint, **self.later} if self.later and stage in self.later_stages else self.fingerprint
 
     def get(self, stage: str, compute):
         data = self.root / f"{stage}.pkl"
         marker = self.root / f"{stage}.complete.json"
+        fingerprint = self.fingerprint_of(stage)
         if data.is_file() and marker.is_file():
             recorded = json.loads(marker.read_text(encoding="utf-8"))
-            if recorded.get("fingerprint") != self.fingerprint:
+            if recorded.get("fingerprint") != fingerprint:
                 raise ResumeStateError(f"checkpoint {stage} was computed from different inputs")
             if hashlib.sha256(data.read_bytes()).hexdigest() != recorded.get("sha256"):
                 raise ResumeStateError(f"checkpoint {stage} is corrupt")
@@ -197,7 +218,7 @@ class StageStore:
         temporary.write_bytes(payload)
         os.replace(temporary, data)
         marker.write_text(
-            json.dumps({"fingerprint": self.fingerprint, "sha256": hashlib.sha256(payload).hexdigest()}, indent=2),
+            json.dumps({"fingerprint": fingerprint, "sha256": hashlib.sha256(payload).hexdigest()}, indent=2),
             encoding="utf-8",
         )
         return value
@@ -214,6 +235,32 @@ def _te_index_prefix(inputs: IncumbentInputs, work: Path) -> Path:
     return prefix
 
 
+SIDE_TEST_COUNTS = (
+    # (name in the manifest counts, count, where): the pairs each side test rejects
+    ("side_test_rejects_main_loop", "mate_rescue", "PAIR_GEOMETRY_INCONSISTENT"),
+    ("side_test_rejects_local_geometry", "strict_pairs", "PAIR_GEOMETRY_INCONSISTENT_LOCAL"),
+    ("side_test_rejects_local_not_missing_side", "strict_pairs", "LOCAL_HOST_NOT_MISSING_SIDE"),
+    ("side_test_rejects_global_geometry", "strict_pairs", "REJECT_GLOBAL_HOST_GEOMETRY_INCONSISTENT"),
+    ("side_test_rejects_global_not_missing_side", "strict_pairs", "REJECT_GLOBAL_HOST_NOT_MISSING_SIDE"),
+    ("side_test_rejects_junction_unresolved", "junction_groups", "REJECT_JUNCTION_SIDE_UNRESOLVED"),
+    ("side_test_rejects_junction_not_missing_side", "junction_groups", "REJECT_JUNCTION_NOT_MISSING_SIDE"),
+)
+
+
+def side_test_counts(mates, strict, groups) -> dict[str, int]:
+    """Pairs rejected by the side tests of the mate-anchored search (main loop), the two missing-side tests of the strict-pair
+    step and the side test of the junction groups; the same under either rule, so two runs can be compared."""
+
+    sources = {"mate_rescue": mates.counts, "strict_pairs": strict.counts, "junction_groups": groups.counts}
+    return {name: int(sources[where].get(key, 0)) for name, where, key in SIDE_TEST_COUNTS}
+
+
+def _mate_side_counts(mates, strict, groups) -> dict[str, int]:
+    out = {"mate_side_" + key.lower(): int(value) for key, value in sorted(mates.counts.items()) if key.startswith("STRAND_RULE_")}
+    out.update(side_test_counts(mates, strict, groups))
+    return out
+
+
 def run_incumbent_caller(
     inputs: IncumbentInputs,
     index,
@@ -227,7 +274,13 @@ def run_incumbent_caller(
 
     work = Path(work_directory)
     work.mkdir(parents=True, exist_ok=True)
-    store = StageStore(work / "checkpoints", _fingerprint(inputs))
+    # the mate-side rule is read from the mate-anchored search on; acquisition and split-junction do not depend on it
+    store = StageStore(
+        work / "checkpoints", _fingerprint(inputs),
+        {**({"mate_side_rule": inputs.mate_side_rule} if inputs.mate_side_rule != "midpoint" else {}),
+         **({"junction_side_rule": inputs.junction_side_rule} if inputs.junction_side_rule != "midpoint" else {})} or None,
+        ("mate_rescue", "host_seed_routing", "strict_pairs", "junction_groups"),
+    )
     te_records = parse_te_consensus(inputs.te_fasta)
     acquisition = store.get("candidate_acquisition", lambda: acquire_candidate_loci(
         te_records=te_records,
@@ -269,6 +322,11 @@ def run_incumbent_caller(
         "reads": locus_reads(), "reference": reference, "family_kmers": family_kmers, "te_index": te_index,
     }
 
+    def mate_state() -> dict:
+        # the option is passed only when it is not the default, so a default run calls the search as before
+        return {**state(), **({"side_rule": inputs.mate_side_rule} if inputs.mate_side_rule != "midpoint" else {}),
+                **({"record_split": True} if inputs.junction_side_rule != "midpoint" else {})}
+
     def run_split() -> SplitJunctionResult:
         say("split-junction reference competition")
         rows, counts = map_locus_batches(
@@ -282,7 +340,7 @@ def run_incumbent_caller(
         say("two-sided mate-anchored search")
         eligible, guarded = guard_candidate_loci(loci, split.calls)
         rows, counts = map_locus_batches(
-            "mate_rescue", eligible, state(), workers=inputs.workers, progress=batch_progress("mate-rescue"),
+            "mate_rescue", eligible, mate_state(), workers=inputs.workers, progress=batch_progress("mate-rescue"),
         )
         return finalize_mate_rescue(inputs.sample_id, eligible, guarded, rows, counts)
 
@@ -296,13 +354,17 @@ def run_incumbent_caller(
         targets=targets, reserved_pair_ids=reserved, reference=reference, locator=index,
     ))
     routed_reads = index.pair_reads(routing.pair_to_loci)
+    # the points of --junction-side-rule split (nothing at the default, so the later steps are called as before)
+    side_args: dict = {}
+    if inputs.junction_side_rule != "midpoint":
+        side_args = {"side_points": {key: row.junction_point for key, row in getattr(mates, "splits", {}).items()}}
 
     def run_strict() -> StrictPairResult:
         say("reference-discriminative strict pairs")
         return certify_strict_pairs(
             routing=routing, reads=routed_reads, reference=reference, family_kmers=family_kmers,
             te_index=te_index, bowtie2=inputs.bowtie2, host_index_prefix=inputs.host_index_prefix,
-            work_directory=work / "strict_pairs", fragment_q95=inputs.fragment_q95,
+            work_directory=work / "strict_pairs", fragment_q95=inputs.fragment_q95, **side_args,
         )
 
     strict = store.get("strict_pairs", run_strict)
@@ -313,7 +375,7 @@ def run_incumbent_caller(
             targets=targets, routing=routing, strict_winners=strict.winners, reserved_call_pair_ids=reserved,
             reads=routed_reads, reference=reference, family_kmers=family_kmers, locator=index,
             bowtie2=inputs.bowtie2, host_index_prefix=inputs.host_index_prefix,
-            work_directory=work / "junction_groups", pair_reader=index.pair_reads,
+            work_directory=work / "junction_groups", pair_reader=index.pair_reads, **side_args,
         )
 
     groups = store.get("junction_groups", run_groups)
@@ -357,4 +419,6 @@ def run_incumbent_caller(
         "repeat_aware_rescue_calls": len(rescued),
         "incumbent_calls": len(calls),
     })
+    if inputs.mate_side_rule != "midpoint" or inputs.junction_side_rule != "midpoint":    # only for an opt-in rule: default counts keep their bytes
+        counts.update(_mate_side_counts(mates, strict, groups))
     return IncumbentResult(calls, acquisition, split, mates, routing, strict, groups, rescued, counts)

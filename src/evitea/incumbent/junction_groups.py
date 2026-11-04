@@ -325,8 +325,10 @@ def screen_proposals(
     host_index_prefix: str | Path,
     work_directory: Path,
     counts: dict[str, int],
+    side_points: Mapping[str, float] | None = None,
 ) -> tuple[list[tuple[JunctionProposal, float, str]], dict[str, str]]:
-    """Screen by exact-unique host half and contiguous-reference competition."""
+    """Screen by exact-unique host half and contiguous-reference competition. ``side_points`` (``--junction-side-rule split``): locus
+    id to the point the host half is tested against in place of ``proposal.candidate_midpoint``."""
 
     work_directory.mkdir(parents=True, exist_ok=True)
     host_fasta = work_directory / "junction_host_halves.fa"
@@ -359,8 +361,8 @@ def screen_proposals(
             if not near:
                 status = "REJECT_HOST_EXACT_UNIQUE_OFF_NOMINATED_LOCUS"
             else:
-                side = ("LEFT" if host_midpoint < proposal.candidate_midpoint
-                        else "RIGHT" if host_midpoint > proposal.candidate_midpoint else None)
+                point = proposal.candidate_midpoint if side_points is None else side_points.get(proposal.locus_id, proposal.candidate_midpoint)
+                side = ("LEFT" if host_midpoint < point else "RIGHT" if host_midpoint > point else None)
                 if side is None:
                     status = "REJECT_JUNCTION_SIDE_UNRESOLVED"
                 elif side != proposal.missing_side:
@@ -476,6 +478,7 @@ def run_junction_groups(
     host_index_prefix: str | Path,
     work_directory: Path,
     pair_reader,
+    side_points: Mapping[str, float] | None = None,
 ) -> JunctionGroupsResult:
     """``pair_reader(pair_ids)`` fetches exact-hit pairs as ``{pair_id: (mate1, mate2)}``."""
 
@@ -488,7 +491,8 @@ def run_junction_groups(
                 routed[locus_id].append(pair_id)
     discovery = discover_proposals(targets, routed, reads, reference, family_kmers, counts)
     accepted, _ = screen_proposals(
-        discovery, bowtie2=bowtie2, host_index_prefix=host_index_prefix, work_directory=work_directory, counts=counts
+        discovery, bowtie2=bowtie2, host_index_prefix=host_index_prefix, work_directory=work_directory, counts=counts,
+        **({} if side_points is None else {"side_points": side_points}),
     )
     located = locate_accepted(accepted, locator)
     hit_union: set[int] = set()

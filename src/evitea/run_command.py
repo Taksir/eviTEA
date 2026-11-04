@@ -92,6 +92,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--weak-site-pass", action="store_true", help="given to call as --weak-site-pass (off by default)")
     for name in ("--weak-site-depth-cut", "--host-cluster-support", "--candidate-min-pairs", "--candidate-floor-depth-cut"):
         parser.add_argument(name, help=f"given to call as {name} (default: not given)")
+    parser.add_argument("--mate-side-rule", choices=("midpoint", "strand"), help="given to call as --mate-side-rule (default: not given)")
+    parser.add_argument("--junction-side-rule", choices=("midpoint", "split"),
+                        help="given to call as --junction-side-rule (default: not given)")
     parser.add_argument("--weak-site-allele-depth-cut", type=float, metavar="DA",
                         help="with --weak-site-pass: run the weak-site pass in the library-free step (given to library-free as "
                         "--weak-site-pass --weak-site-allele-depth-cut; needs --library-free; not with --no-library or "
@@ -103,7 +106,7 @@ def _call_options(args: argparse.Namespace) -> list[str]:
     if args.workers is not None:
         out += ["--workers", str(args.workers)]
     for name in ("read_length", "fragment_q95", "fragment_q99", "primary_contigs", "weak_site_depth_cut",
-                 "host_cluster_support", "candidate_min_pairs", "candidate_floor_depth_cut"):
+                 "host_cluster_support", "candidate_min_pairs", "candidate_floor_depth_cut", "mate_side_rule", "junction_side_rule"):
         value = getattr(args, name, None)      # a namespace built without the opt-in floors (older callers) has none of them
         if value is not None:
             out += ["--" + name.replace("_", "-"), str(value)]

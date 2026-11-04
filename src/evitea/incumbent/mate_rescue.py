@@ -130,6 +130,74 @@ def classify_side(host_view: str, host_midpoint: float, candidate_midpoint: floa
     return None
 
 
+MATE_SIDE_RULES = ("midpoint", "strand")
+JUNCTION_SIDE_RULES = ("midpoint", "split")
+_INF = float("inf")
+
+
+def strand_split_point(anchors: Sequence[tuple[str, float]], locus_midpoint: float) -> float:
+    """Split point x of a locus for ``--mate-side-rule strand``; ``anchors`` are the (view, midpoint) of its local host anchors.
+
+    Only FWD anchors: x = +inf (every one is LEFT). Only RC anchors: x = -inf (every one is RIGHT). Both: x maximises
+    #(FWD midpoint < x) + #(RC midpoint > x). The score is constant between two neighbouring distinct midpoints (and beyond the
+    outer ones), so those gaps are the candidates; among the gaps with the best score the widest bounded gap wins and x is its
+    middle; then the gap whose middle is closest to ``locus_midpoint``, then the smaller x. An outer gap has no middle: it is
+    taken (x = -inf or +inf) only when no bounded gap reaches the best score, the smaller x first. No anchor at all:
+    ``locus_midpoint``.
+    """
+
+    forward = [mid for view, mid in anchors if view == "FWD"]
+    reverse = [mid for view, mid in anchors if view == "RC"]
+    if not forward and not reverse:
+        return locus_midpoint
+    if not reverse:
+        return _INF
+    if not forward:
+        return -_INF
+    marks = sorted({*forward, *reverse})
+    gaps: list[tuple[float, float, float, float]] = []      # (score, width, x, representative point inside the gap)
+    edges = [-_INF, *marks, _INF]
+    for low, high in zip(edges, edges[1:]):
+        if low == -_INF:
+            x, inside, width = -_INF, high - 1.0, -1.0       # outer gaps rank after every bounded gap
+        elif high == _INF:
+            x, inside, width = _INF, low + 1.0, -1.0
+        else:
+            x = inside = (low + high) / 2.0
+            width = high - low
+        score = sum(1 for mid in forward if mid < inside) + sum(1 for mid in reverse if mid > inside)
+        gaps.append((score, width, x, inside))
+    best = max(row[0] for row in gaps)
+    chosen = min((row for row in gaps if row[0] == best),
+                 key=lambda row: (-row[1], abs(row[2] - locus_midpoint) if math.isfinite(row[2]) else _INF, row[2]))
+    return chosen[2]
+
+
+def junction_split_point(anchors: Sequence[tuple[str, float]], locus_midpoint: float) -> float:
+    """Point x of a locus for ``--junction-side-rule split``: the point the missing-side tests compare a host midpoint with.
+
+    Both strands among the host anchors: the split point of ``strand_split_point``. One strand: the present side's edge, the
+    rightmost FWD host midpoint (LEFT present) or the leftmost RC host midpoint (RIGHT present). No anchor: ``locus_midpoint``.
+    """
+
+    forward = [mid for view, mid in anchors if view == "FWD"]
+    reverse = [mid for view, mid in anchors if view == "RC"]
+    if forward and not reverse:
+        return max(forward)
+    if reverse and not forward:
+        return min(reverse)
+    return strand_split_point(anchors, locus_midpoint)
+
+
+@dataclass(frozen=True, slots=True)
+class LocusSplit:
+    """Per-locus points of the side rules (a row of the mate-anchored search's evidence list, only under an opt-in rule)."""
+
+    locus_id: str
+    strand_point: float         # ``strand_split_point``: what ``--mate-side-rule strand`` tests host mates against
+    junction_point: float       # ``junction_split_point``: what ``--junction-side-rule split`` tests them against
+
+
 def candidate_te_windows(read: str, family_kmers: set[str]) -> list[tuple[int, int, str, int, int, float]]:
     sequence = read.upper()
     if len(sequence) < TE_WINDOW_BP or not family_kmers:
@@ -357,6 +425,13 @@ class MateRescueResult:
     counts: Mapping[str, int]
 
 
+@dataclass(frozen=True, slots=True)
+class MateRescueSplitResult(MateRescueResult):
+    """The result of a run under an opt-in side rule: also the points of the loci (locus id to ``LocusSplit``)."""
+
+    splits: Mapping[str, LocusSplit] = field(default_factory=dict)
+
+
 def locus_redundant_with_calls(locus: CandidateLocus, calls: Sequence[IncumbentCall], guard_bp: int) -> bool:
     family = normalize_family(locus.family)
     for call in calls:
@@ -390,9 +465,20 @@ def mate_rescue_evidence(
     family_kmers: Mapping[str, set[str]],
     te_index: LocalTEIndex,
     progress: Callable[[int, int], None] | None = None,
+    side_rule: str = "midpoint",
+    record_split: bool = False,
 ) -> tuple[list[MateEvidence], dict[str, int]]:
-    """Return confirmed mate evidence of eligible ``loci`` in locus order (batchable)."""
+    """Return confirmed mate evidence of eligible ``loci`` in locus order (batchable).
 
+    ``side_rule`` ``midpoint`` (default): a host mate is LEFT/RIGHT against the middle of the place's own host mates
+    (``locus.midpoint``). ``strand``: against the split point of ``strand_split_point``, taken from the strands of the locus's host
+    anchors; the counts then also hold the pairs the rule gives a side that ``midpoint`` would drop (``STRAND_RULE_*``).
+    ``record_split`` (for ``--junction-side-rule split``): also return a ``LocusSplit`` row per locus with host anchors, in the
+    evidence list (``finalize_mate_rescue`` takes them out); the sides are those of ``side_rule``.
+    """
+
+    if side_rule not in MATE_SIDE_RULES:
+        raise ValueError(f"side_rule must be one of {MATE_SIDE_RULES}, got {side_rule!r}")
     counts: Counter[str] = Counter()
     evidence: list[MateEvidence] = []
     for index, locus in enumerate(loci, 1):
@@ -403,6 +489,11 @@ def mate_rescue_evidence(
         kmers = family_kmers.get(locus.family, set())
         if not kmers:
             counts["NO_CANDIDATE_FAMILY_KMER_SET"] += 1
+            continue
+        if side_rule == "strand" or record_split:
+            _strand_locus(locus, scope, scope_start, kmers, reads, te_index, counts, evidence, side_rule == "strand")
+            if progress is not None:
+                progress(index, len(loci))
             continue
         for pair_id in locus.pair_ids:
             if pair_id not in reads:
@@ -433,6 +524,52 @@ def mate_rescue_evidence(
     return evidence, dict(counts)
 
 
+def _strand_locus(locus, scope, scope_start, kmers, reads, te_index, counts, evidence, use_split: bool) -> None:
+    """One locus under an opt-in side rule: all host anchors first, then the split points, then the side of each anchor (against
+    the split point under ``strand``, against ``locus.midpoint`` when only the points are wanted)."""
+
+    anchors: list[tuple[int, int, int, str, str, HostAnchor]] = []     # (pair_id, te_mate, host_mate, te_read, host_read, anchor)
+    for pair_id in locus.pair_ids:
+        if pair_id not in reads:
+            counts["READ_MISSING"] += 1
+            continue
+        mate1, mate2 = reads[pair_id]
+        for te_mate, te_read, host_mate, host_read in ((1, mate1, 2, mate2), (2, mate2, 1, mate1)):
+            host, reason = best_local_host_anchor(host_read, scope, scope_start, locus.start, locus.end)
+            if host is None:
+                counts[reason] += 1
+                continue
+            anchors.append((pair_id, te_mate, host_mate, te_read, host_read, host))
+    if not anchors:
+        return
+    points = [(row[5].view, row[5].midpoint) for row in anchors]
+    split = strand_split_point(points, locus.midpoint)
+    evidence.append(LocusSplit(locus.locus_id, split, junction_split_point(points, locus.midpoint)))
+    kind = "BOTH_STRAND_LOCI" if len({row[5].view for row in anchors}) == 2 else "ONE_STRAND_LOCI"
+    if use_split:
+        counts[f"STRAND_RULE_LOCI_{kind}"] += 1
+    for pair_id, te_mate, host_mate, te_read, _host_read, host in anchors:
+        by_midpoint = classify_side(host.view, host.midpoint, locus.midpoint)
+        side = classify_side(host.view, host.midpoint, split) if use_split else by_midpoint
+        if side is not None and by_midpoint is None:
+            counts[f"STRAND_RULE_ANCHORS_ADDED_{kind}"] += 1
+        elif side is None and by_midpoint is not None:
+            counts[f"STRAND_RULE_ANCHORS_LOST_{kind}"] += 1
+        if side is None:
+            counts["PAIR_GEOMETRY_INCONSISTENT"] += 1
+            continue
+        window, reason = best_te_mate_window(te_read, locus.family, kmers, te_index, scope)
+        if window is None:
+            counts[reason] += 1
+            continue
+        evidence.append(MateEvidence(
+            locus.locus_id, locus.chrom, locus.family, pair_id, side, te_mate, host_mate,
+            host.view, host.start, host.end, host.midpoint, host.edits, host.candidate_distance,
+            window.seed_hits, window.seed_fraction, window.te_edits,
+        ))
+        counts["R4_PAIR_EVIDENCE_CERTIFIED"] += 1
+
+
 def finalize_mate_rescue(
     sample_id: str,
     eligible: Sequence[CandidateLocus],
@@ -440,6 +577,9 @@ def finalize_mate_rescue(
     evidence: Sequence[MateEvidence],
     counts: Mapping[str, int] | None = None,
 ) -> MateRescueResult:
+    splits = {row.locus_id: row for row in evidence if isinstance(row, LocusSplit)}
+    if splits:
+        evidence = [row for row in evidence if not isinstance(row, LocusSplit)]
     by_pair: dict[int, list[MateEvidence]] = defaultdict(list)
     for row in evidence:
         by_pair[row.pair_id].append(row)
@@ -471,6 +611,8 @@ def finalize_mate_rescue(
             locus.chrom, start, end, locus.family, None, None, None, len(left), len(right),
             "two_sided_mate_cluster_rescue", float(len(union)), union,
         ))
+    if splits:
+        return MateRescueSplitResult(tuple(guarded), tuple(ledger), tuple(calls), dict(counts or {}), splits)
     return MateRescueResult(tuple(guarded), tuple(ledger), tuple(calls), dict(counts or {}))
 
 
@@ -663,6 +805,10 @@ class StrictPairResult:
     evidence: tuple[MateEvidence, ...] = ()
 
 
+def _side_point(side_points: Mapping[str, float] | None, locus_id: str, midpoint: float) -> float:
+    return midpoint if side_points is None else side_points.get(locus_id, midpoint)
+
+
 def certify_strict_pairs(
     *,
     routing: RoutingResult,
@@ -674,7 +820,11 @@ def certify_strict_pairs(
     host_index_prefix: str | Path,
     work_directory: Path,
     fragment_q95: float = FRAGMENT_Q95,
+    side_points: Mapping[str, float] | None = None,
 ) -> StrictPairResult:
+    """``side_points`` (``--junction-side-rule split``): locus id to the point the host mates are tested against in place of the
+    middle of the candidate envelope (a locus without one keeps the middle); the scope is always centred on the middle."""
+
     targets = {target.locus_id: target for target in routing.targets}
     counts: Counter[str] = Counter()
     prefiltered: list[tuple[int, str, int, int]] = []
@@ -696,7 +846,7 @@ def certify_strict_pairs(
                 if host is None:
                     counts[reason] += 1
                     continue
-                side = classify_side(host.view, host.midpoint, midpoint)
+                side = classify_side(host.view, host.midpoint, _side_point(side_points, locus_id, midpoint))
                 if side is None:
                     counts["PAIR_GEOMETRY_INCONSISTENT_LOCAL"] += 1
                     continue
@@ -741,7 +891,7 @@ def certify_strict_pairs(
             host_midpoint, target.candidate_start, target.candidate_end) <= CANDIDATE_SLOP):
             counts["REJECT_HOST_GLOBAL_BEST_OFF_NOMINATED_LOCUS"] += 1
             continue
-        side = classify_side(host_view, host_midpoint, midpoint)
+        side = classify_side(host_view, host_midpoint, _side_point(side_points, locus_id, midpoint))
         if side is None:
             counts["REJECT_GLOBAL_HOST_GEOMETRY_INCONSISTENT"] += 1
             continue

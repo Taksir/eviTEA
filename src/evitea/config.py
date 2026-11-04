@@ -183,6 +183,8 @@ class DepthFloorConfig:
     on each side, or split reads on one side, when the sample's single-copy depth is at or under the cut.
     ``host_cluster_support`` / ``candidate_min_pairs`` (default 2, 2): the candidate step's smallest numbers; with
     ``candidate_floor_depth_cut`` they apply only at or under the cut, else 2.
+    ``mate_side_rule`` (``midpoint`` | ``strand``) and ``junction_side_rule`` (``midpoint`` | ``split``): how the mate-anchored
+    search and the missing-side searches give a host mate its side (``incumbent/mate_rescue.py``); not floors, but opt-in like them.
     """
 
     weak_site_pass: bool = False
@@ -190,8 +192,14 @@ class DepthFloorConfig:
     host_cluster_support: int = 2
     candidate_min_pairs: int = 2
     candidate_floor_depth_cut: float | None = None
+    mate_side_rule: str = "midpoint"
+    junction_side_rule: str = "midpoint"
 
     def __post_init__(self) -> None:
+        if self.mate_side_rule not in ("midpoint", "strand"):
+            raise InputContractError("depth_floors.mate_side_rule must be midpoint or strand")
+        if self.junction_side_rule not in ("midpoint", "split"):
+            raise InputContractError("depth_floors.junction_side_rule must be midpoint or split")
         if not isinstance(self.weak_site_pass, bool):
             raise InputContractError("depth_floors.weak_site_pass must be a boolean")
         for name in ("weak_site_depth_cut", "candidate_floor_depth_cut"):
@@ -267,7 +275,7 @@ _SECTION_KEYS = {
     "output": frozenset({"directory", "log_level"}),
     "refinement": frozenset({"breakpoints", "complete_routing", "pin_one_sided", "call_annotations"}),
     "depth_floors": frozenset({"weak_site_pass", "weak_site_depth_cut", "host_cluster_support", "candidate_min_pairs",
-                               "candidate_floor_depth_cut"}),
+                               "candidate_floor_depth_cut", "mate_side_rule", "junction_side_rule"}),
 }
 
 
@@ -382,6 +390,8 @@ def load_config(path: str | Path) -> EviTEAConfig:
             host_cluster_support=depth_floors.get("host_cluster_support", 2),
             candidate_min_pairs=depth_floors.get("candidate_min_pairs", 2),
             candidate_floor_depth_cut=depth_floors.get("candidate_floor_depth_cut"),
+            mate_side_rule=depth_floors.get("mate_side_rule", "midpoint"),
+            junction_side_rule=depth_floors.get("junction_side_rule", "midpoint"),
         ),
     )
 
