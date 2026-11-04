@@ -18,6 +18,7 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import json
+import math
 import os
 import pickle
 import sys
@@ -670,8 +671,7 @@ def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options
     c_started = time.time()
     index = CL.CallIndex.from_native(native_rows)
     rows, assembly = AS.assemble(first, second, index, opts, identity_filter=rule_c, reference=genome, copies=copies, genome_bp=genome_bp,
-                                 single_copy=single_copy, het_guard=het_guard, tsd_skip=tsd_skip,
-                                 confirmed_e=None if weak_site is None else weak_site.confirmed_e)
+                                 single_copy=single_copy, het_guard=het_guard, tsd_skip=tsd_skip)
     c_seconds = round(time.time() - c_started, 1)
     from . import tsd_skip as TS
 
@@ -691,6 +691,8 @@ def _assemble_and_write(output: Path, first_tables, second_tables, opts: Options
     if weak_site is not None:    # opt-in: after the calls and statuses are final, before the combined files are made
         from . import weak_site as WS
 
+        # the e of every added library-free call (the rows of calls.library_free.tsv: both passes) that has a measured e
+        weak_site.added_e = [r.e for r in rows if r.status == "ADDED" and not math.isnan(r.e)]
         shown, weak_dropped, weak_info = WS.apply(weak_site, shown, added, resident_filter, sample_id)
         say("library-free: weak-site pass: allele depth {allele_depth} (D {single_copy_depth} x a {a}, cut {cut}): ".format(**weak_info)
             + (f"{weak_info['rows_added']} calls added" if weak_info["ran"] else "not run"))

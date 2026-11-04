@@ -203,7 +203,7 @@ def main():
     info = summary(on)["weak_site_pass"]
     check("V8 the summary records depth, e, a, Da, cut and the counts",
           info["ran"] and info["cut"] == 1000000.0 and info["single_copy_depth"] > 0 and info["a"] == 1.0 and info["allele_depth"] == info["single_copy_depth"]
-          and info["confirmed_places"] < 10 and (info["sites"], info["uncovered_sites"], info["passing_rule"], info["dropped_by_copy_filter"],
+          and info["e_source"] == "added library-free calls" and info["added_calls_used"] == 2 and (info["sites"], info["uncovered_sites"], info["passing_rule"], info["dropped_by_copy_filter"],
                                                  info["rows_added"], info["cover_rows"]) == (3, 1, 1, 0, 1, 8), info)
     off = t / "w8off"
     r = run(off, src, *shared, "--weak-site-allele-depth-cut", "0.001", "--weak-stage-dir", str(callwork), env_extra=ro, small=False)

@@ -46,9 +46,9 @@ depth `Da = D x a`.
 | `--weak-site-pass` | off | Run the pass of section 2 after the library-free calls and statuses are final, before `calls.combined.tsv` and `calls.combined.vcf` are written. |
 | `--weak-site-allele-depth-cut DA` | required with the pass | The pass runs only when `Da` is at or under DA. |
 
-- D is `genome_depth` of `library_free/single_copy.py` (as in section 1). `a = 1 - median(e)` over the confirmed places of the main view,
-  the places of the local heterozygous guard (`het_guard.confirmed`: first pass, status ADDED or NEAR_EVITEA, both junctions placed,
-  TSD 2 to 20, a measured e), taken at the guard's point (before the single-copy rule); `a = 1` when there are fewer than 10.
+- D is `genome_depth` of `library_free/single_copy.py` (as in section 1). `a = 1 - median(e)` over the added library-free calls of the main view: every row of
+  `calls.library_free.tsv` (first pass and haplotype scan) with a measured e; `a = 1` when fewer than 10 have an e. (A pooled or
+  heterozygous sample shows its allele share in the e of the added calls better than in the confirmed places of the het guard.)
 - Evidence: the library layer's saved stage tables `split_junction`, `mate_rescue`, `junction_groups` from the work directory of the
   `call` run, named in the run folder's `run_manifest.json` (`normalized_config.runtime.work_dir`, else `<run>/.evitea-work`), under
   `engine/work/incumbent/checkpoints/`. A missing table stops the run with a message. `run --no-library` and
@@ -63,7 +63,7 @@ depth `Da = D x a`.
 - Main view only; `merge_view/` is unchanged. The pass reads the scan's results and the stage tables only and is not part of the
   identity of a saved scan piece: a run with the pass reuses the pieces of an earlier run with the same scan options
   (`EVITEA_PIECES_READONLY=1` works).
-- `library_free_summary.json`, `weak_site_pass`: `single_copy_depth`, `confirmed_places`, `median_e`, `a`, `allele_depth`, `cut`, `ran`,
+- `library_free_summary.json`, `weak_site_pass`: `single_copy_depth`, `e_source` ("added library-free calls"), `added_calls_used`, `median_e`, `a`, `allele_depth`, `cut`, `ran`,
   and, when it ran, `sites`, `uncovered_sites`, `passing_rule`, `dropped_by_copy_filter`, `rows_added`, `cover_rows`.
 
 ## 3. Candidate place minimum (`call`, `run`)

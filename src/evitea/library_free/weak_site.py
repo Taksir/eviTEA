@@ -2,9 +2,9 @@
 
 The pass of ``incumbent/weak_sites.py`` (pooled reads on both sides, or two split reads on one side, at a site no call covers) is
 switched here by the depth of the *inserted allele*, not by the depth of the sample: ``Da = D x a`` with ``D`` the single-copy depth
-(``single_copy.measure``, ``genome_depth``) and ``a = 1 - median(e)`` over the confirmed places of the main view (the places of the
-local heterozygous guard, ``het_guard.confirmed``: first pass, status ADDED or NEAR_EVITEA, both junctions placed, TSD 2 to 20, a
-measured e), with ``a = 1`` when there are fewer than ``het_guard.NMIN`` (10) of them. The pass runs only when ``Da`` is at or under the
+(``single_copy.measure``, ``genome_depth``) and ``a = 1 - median(e)`` over the added library-free calls of the main view (every row
+of ``calls.library_free.tsv``, first pass and haplotype scan, with a measured e), with ``a = 1`` when fewer than
+``het_guard.NMIN`` (10) of them have an e. The pass runs only when ``Da`` is at or under the
 cut. A pooled sample or a heterozygous one carries the inserted allele in a share of the reads, which ``D`` alone does not see.
 
 The pass reads the library layer's saved stage tables (``split_junction``, ``mate_rescue``, ``junction_groups``) from the work
@@ -65,14 +65,14 @@ def load_stage_tables(run_dir: Path):
     return tuple(out)
 
 
-def allele_depth(depth: float, confirmed_e: Sequence[float], minimum: int) -> dict:
-    """D, the number of confirmed places, their median e, a = 1 - median e (1 under ``minimum`` places) and Da = D x a."""
+def allele_depth(depth: float, added_e: Sequence[float], minimum: int) -> dict:
+    """D, the number of added calls with an e, their median e, a = 1 - median e (1 under ``minimum`` places) and Da = D x a."""
 
-    n = len(confirmed_e)
-    median = float(statistics.median(confirmed_e)) if n else None
+    n = len(added_e)
+    median = float(statistics.median(added_e)) if n else None
     a = 1.0 if n < minimum else 1.0 - median
-    return {"single_copy_depth": float(depth), "confirmed_places": n, "median_e": median, "a": a,
-            "allele_depth": float(depth) * a, "a_rule": f"1 - median e; 1 under {minimum} confirmed places"}
+    return {"single_copy_depth": float(depth), "e_source": "added library-free calls", "added_calls_used": n, "median_e": median, "a": a,
+            "allele_depth": float(depth) * a, "a_rule": f"1 - median e; 1 under {minimum} calls with an e"}
 
 
 @dataclass
@@ -82,7 +82,7 @@ class WeakSite:
     cut: float
     depth: float
     tables: tuple
-    confirmed_e: list = field(default_factory=list)      # filled by ``assemble`` (the guard's confirmed places of the view)
+    added_e: list = field(default_factory=list)      # e of the added library-free calls of the view; set by the caller
 
 
 def apply(weak: WeakSite, shown: bytes, added: bytes, resident_filter, sample_id: str):
@@ -95,7 +95,7 @@ def apply(weak: WeakSite, shown: bytes, added: bytes, resident_filter, sample_id
     from ..shadow_layers import ShadowCallset
     from . import het_guard as HG
 
-    info = allele_depth(weak.depth, weak.confirmed_e, HG.NMIN)
+    info = allele_depth(weak.depth, weak.added_e, HG.NMIN)
     info["cut"] = weak.cut
     ran = info["allele_depth"] <= weak.cut
     info["ran"] = ran

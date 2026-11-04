@@ -460,7 +460,7 @@ def build_parser() -> argparse.ArgumentParser:
                     help="after the library-free calls are final, call each site that the library layer's saved evidence marks "
                     "(pooled reads on both sides, or two split reads on one side) and that has no row of the combined table "
                     "within 500 bp, when the allele depth Da = D x (1 - median e) is at or under --weak-site-allele-depth-cut "
-                    "(D: single-copy depth; e: the confirmed places of the het guard; a = 1 under 10 of them). The rows pass the "
+                    "(D: single-copy depth; e: the added library-free calls, both passes; a = 1 under 10 of them). The rows pass the "
                     "own-family copy filter, are tier 4 and are not refined. Needs the work directory of the call run. Off by default")
     lf.add_argument("--weak-site-allele-depth-cut", type=float, metavar="DA",
                     help="the allele depth at or under which --weak-site-pass runs (required with it)")

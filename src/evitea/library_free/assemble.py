@@ -251,12 +251,11 @@ def _trusted_identity_filter(second: _Pass, trusted: list[int], priority: bool, 
 
 
 def assemble(first, second, index: CL.CallIndex, opts: Options, *, identity_filter: bool, reference=None, copies=None, genome_bp: int = 0,
-             aligner: Callable | None = None, single_copy=None, het_guard=None, tsd_skip=None, confirmed_e: list | None = None):
+             aligner: Callable | None = None, single_copy=None, het_guard=None, tsd_skip=None):
     """(rows, summary). ``first`` / ``second`` = (places rows, segments dict) of each pass (``second`` None without a haplotype
     scan); ``reference`` = dict contig -> sequence (needed for the check); ``copies`` = ``resident.CopyIndex`` (None: no
     resident-copy test); ``genome_bp`` = bases of the reference (the TE share's denominator); ``single_copy`` =
-    ``single_copy.Decision`` (None: no single-copy rule); ``het_guard`` = ``het_guard.Guard`` (None: no local heterozygous guard); ``tsd_skip`` = ``tsd_skip.Skip`` (None: the filter alone). ``confirmed_e``: a list that receives the e of the confirmed
-    places (the guard's set, taken at the same point); None: not collected."""
+    ``single_copy.Decision`` (None: no single-copy rule); ``het_guard`` = ``het_guard.Guard`` (None: no local heterozygous guard); ``tsd_skip`` = ``tsd_skip.Skip`` (None: the filter alone)."""
     scope = opts.check_scope
     if second is not None and scope == "none":
         raise InputContractError("the haplotype scan joins calls through the one-site check; use --check-scope path-dropped or "
@@ -383,10 +382,6 @@ def assemble(first, second, index: CL.CallIndex, opts: Options, *, identity_filt
 
         guard_items = [(F.places[i]["chrom"], int(F.places[i]["bL"]), F.e[i] > HG.HOM_MAX) for i in F.calls
                        if HG.confirmed(F.scan, status[i], F.places[i], F.e[i])]
-    if confirmed_e is not None:
-        from . import het_guard as HG
-
-        confirmed_e.extend(F.e[i] for i in F.calls if HG.confirmed(F.scan, status[i], F.places[i], F.e[i]))
     # single-copy contigs, on the calls that would be added
     if single_copy is not None:
         from . import single_copy as SC

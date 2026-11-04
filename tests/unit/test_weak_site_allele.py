@@ -40,18 +40,36 @@ def _weak(cut, depth, e, pairs):
 def test_allele_depth_median_e_and_the_fewer_than_ten_rule():
     ten = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.5, 0.5, 0.5, 0.6]       # median 0.45
     got = WS.allele_depth(20.0, ten, HG.NMIN)
-    assert (got["confirmed_places"], got["median_e"]) == (10, 0.45) and got["a"] == pytest.approx(0.55)
+    assert (got["added_calls_used"], got["median_e"]) == (10, 0.45) and got["a"] == pytest.approx(0.55)
     assert got["allele_depth"] == pytest.approx(11.0) and got["single_copy_depth"] == 20.0
     nine = WS.allele_depth(20.0, ten[:9], HG.NMIN)
-    assert nine["a"] == 1.0 and nine["allele_depth"] == 20.0 and nine["confirmed_places"] == 9       # fewer than 10: a = 1
+    assert nine["a"] == 1.0 and nine["allele_depth"] == 20.0 and nine["added_calls_used"] == 9       # fewer than 10: a = 1
     none = WS.allele_depth(20.0, [], HG.NMIN)
     assert none["median_e"] is None and none["a"] == 1.0
     assert HG.NMIN == 10
+    assert got["e_source"] == "added library-free calls"
+
+
+def test_the_e_values_are_those_of_the_added_library_free_calls():
+    """runtime collects e from the ADDED rows of both passes that have a measured e, and from no other row."""
+
+    import math
+
+    from evitea.library_free import runtime as R
+
+    rows = [SimpleNamespace(status="ADDED", e=0.4, scan="first"), SimpleNamespace(status="ADDED", e=0.2, scan="second"),
+            SimpleNamespace(status="ADDED", e=math.nan, scan="first"), SimpleNamespace(status="NEAR_EVITEA", e=0.9, scan="first"),
+            SimpleNamespace(status="DROPPED_HOM_REGION", e=0.5, scan="first")]
+    weak = _weak(100.0, 10.0, [], [])
+    src = open(R.__file__).read()
+    assert 'weak_site.added_e = [r.e for r in rows if r.status == "ADDED" and not math.isnan(r.e)]' in src
+    weak.added_e = [r.e for r in rows if r.status == "ADDED" and not math.isnan(r.e)]       # the same expression
+    assert weak.added_e == [0.4, 0.2]
 
 
 def test_skipped_above_the_cut_and_run_at_or_under_it():
     site = _pair("chr1", "roo", 5000, 5010, left=[1], right=[2])
-    e = [0.5] * 10                                                    # a = 0.5
+    e = [0.5] * 10                                                    # a = 0.5 (ten added calls with e = 0.5)
     shown, dropped, info = WS.apply(_weak(10.0, 20.0, e, [site]), NATIVE, ADDED, None, "s")      # Da = 10: at the cut
     assert info["ran"] and info["rows_added"] == 1 and b"WEAK_000001" in shown and shown.startswith(NATIVE)
     row = shown.decode().splitlines()[-1].split("\t")       # a native table with the evidence columns keeps them for the new row
