@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use EviTEA in your work, please cite it as below."
-title: "EviTEA: Evidence-integrated Transposable Element Analysis"
+title: "EviTEA: calling transposable element insertions from short reads when the TE library is incomplete"
 type: software
 version: 0.1.0.dev0
 license: GPL-3.0-or-later
