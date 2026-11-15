@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="310" viewBox="0 0 1200 310" role="img" aria-labelledby="t d">
+  <title id="t">EviTEA</title>
+  <desc id="d">EviTEA calls transposable element insertions from short reads, also when the TE library is incomplete.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1b3a"/>
+      <stop offset="0.55" stop-color="#12295a"/>
+      <stop offset="1" stop-color="#0f3d5e"/>
+    </linearGradient>
+    <linearGradient id="ins" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffb347"/>
+      <stop offset="1" stop-color="#ff7e5f"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="310" rx="18" fill="url(#bg)"/>
+  <!-- dotted texture -->
+  <g fill="#ffffff" opacity="0.05">
+    <circle cx="60" cy="40" r="2"/><circle cx="120" cy="40" r="2"/><circle cx="180" cy="40" r="2"/>
+    <circle cx="1020" cy="40" r="2"/><circle cx="1080" cy="40" r="2"/><circle cx="1140" cy="40" r="2"/>
+  </g>
+  <text x="70" y="128" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="84" font-weight="700" fill="#ffffff" letter-spacing="1">Evi<tspan fill="#ffb347">TEA</tspan></text>
+  <text x="74" y="170" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="25" fill="#bcd3f5">evidence-integrated transposable element analysis</text>
+  <text x="74" y="206" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="20" fill="#8fb0e3">TE insertions from short reads, also when the TE library is incomplete</text>
+  <!-- genome bar with an inserted element -->
+  <g transform="translate(70,254)">
+    <rect x="0" y="0" width="470" height="16" rx="8" fill="#5b87c9"/>
+    <rect x="590" y="0" width="470" height="16" rx="8" fill="#5b87c9"/>
+    <rect x="470" y="-8" width="120" height="32" rx="6" fill="url(#ins)"/>
+    <path d="M530 -14 L530 -30 M522 -22 L530 -30 L538 -22" stroke="#ffb347" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="545" y="-24" font-family="'Segoe UI', Arial, sans-serif" font-size="15" fill="#ffd9a8">inserted TE</text>
+    <text x="0" y="40" font-family="'Segoe UI', Arial, sans-serif" font-size="14" fill="#8fb0e3">reference genome</text>
+  </g>
+  <!-- read pairs motif on the right -->
+  <g transform="translate(850,60)" stroke-linecap="round">
+    <g stroke="#6ee7b7" stroke-width="6"><path d="M0 10 h70"/><path d="M110 10 h70"/></g>
+    <path d="M70 10 C90 -4 90 24 110 10" stroke="#6ee7b7" stroke-width="2" fill="none" stroke-dasharray="3 5"/>
+    <g stroke="#6ee7b7" stroke-width="6"><path d="M40 40 h70"/><path d="M150 40 h70"/></g>
+    <path d="M110 40 C130 26 130 54 150 40" stroke="#6ee7b7" stroke-width="2" fill="none" stroke-dasharray="3 5"/>
+    <g stroke="#ffb347" stroke-width="6"><path d="M20 70 h70"/><path d="M130 70 h70"/></g>
+    <path d="M90 70 C110 56 110 84 130 70" stroke="#ffb347" stroke-width="2" fill="none" stroke-dasharray="3 5"/>
+    <g stroke="#6ee7b7" stroke-width="6"><path d="M60 100 h70"/><path d="M170 100 h70"/></g>
+    <path d="M130 100 C150 86 150 114 170 100" stroke="#6ee7b7" stroke-width="2" fill="none" stroke-dasharray="3 5"/>
+    <text x="0" y="140" font-family="'Segoe UI', Arial, sans-serif" font-size="14" fill="#8fb0e3">paired-end reads</text>
+  </g>
+</svg>

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="440" viewBox="0 0 1100 440" role="img" aria-labelledby="t d">
+  <title id="t">How EviTEA works</title>
+  <desc id="d">Paired-end reads go into one msBWT index. The library layer and the library-free layer both search it. Their calls join in one combined call table.</desc>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#9db4d9"/>
+    </marker>
+  </defs>
+  <rect width="1100" height="440" rx="16" fill="#0f1c3a"/>
+  <g font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+    <!-- reads -->
+    <rect x="20" y="170" width="180" height="100" rx="14" fill="#1b2d57" stroke="#6ee7b7" stroke-width="2"/>
+    <text x="110" y="212" text-anchor="middle" font-size="20" font-weight="700" fill="#ffffff">Paired-end reads</text>
+    <text x="110" y="240" text-anchor="middle" font-size="15" fill="#a9c0e6">one sample, FASTQ</text>
+    <!-- index -->
+    <rect x="260" y="170" width="210" height="100" rx="14" fill="#1b2d57" stroke="#a78bfa" stroke-width="2"/>
+    <text x="365" y="212" text-anchor="middle" font-size="20" font-weight="700" fill="#ffffff">msBWT index</text>
+    <text x="365" y="240" text-anchor="middle" font-size="15" fill="#a9c0e6">counts k-mers in the reads</text>
+    <!-- library layer -->
+    <rect x="540" y="50" width="310" height="130" rx="14" fill="#16335f" stroke="#60a5fa" stroke-width="2"/>
+    <text x="695" y="86" text-anchor="middle" font-size="20" font-weight="700" fill="#93c5fd">Library layer</text>
+    <text x="695" y="114" text-anchor="middle" font-size="15" fill="#d6e4fa">searches the reads for k-mers</text>
+    <text x="695" y="136" text-anchor="middle" font-size="15" fill="#d6e4fa">of your TE library</text>
+    <text x="695" y="162" text-anchor="middle" font-size="14" fill="#93c5fd">names the family of each call</text>
+    <!-- library-free layer -->
+    <rect x="540" y="260" width="310" height="130" rx="14" fill="#4a2f14" stroke="#ffb347" stroke-width="2"/>
+    <text x="695" y="296" text-anchor="middle" font-size="20" font-weight="700" fill="#ffc980">Library-free layer</text>
+    <text x="695" y="324" text-anchor="middle" font-size="15" fill="#fde7c9">finds where reads leave the reference</text>
+    <text x="695" y="346" text-anchor="middle" font-size="15" fill="#fde7c9">and builds the inserted sequence</text>
+    <text x="695" y="372" text-anchor="middle" font-size="14" fill="#ffc980">groups it into LF_cluster families</text>
+    <!-- output -->
+    <rect x="920" y="170" width="160" height="100" rx="14" fill="#123a33" stroke="#34d399" stroke-width="2"/>
+    <text x="1000" y="208" text-anchor="middle" font-size="20" font-weight="700" fill="#ffffff">Calls</text>
+    <text x="1000" y="234" text-anchor="middle" font-size="14" fill="#b6f0dc">calls.combined.tsv</text>
+    <text x="1000" y="254" text-anchor="middle" font-size="14" fill="#b6f0dc">+ .vcf</text>
+    <!-- arrows -->
+    <g stroke="#9db4d9" stroke-width="2.5" fill="none" marker-end="url(#a)">
+      <path d="M202 220 H256"/>
+      <path d="M472 205 C505 205 505 130 536 130"/>
+      <path d="M472 235 C505 235 505 325 536 325"/>
+      <path d="M852 130 C885 130 885 205 916 205"/>
+      <path d="M852 325 C885 325 885 235 916 235"/>
+    </g>
+  </g>
+</svg>
