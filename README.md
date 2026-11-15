@@ -1,212 +1,187 @@
 # EviTEA
 
-EviTEA (Evidence-integrated Transposable Element Analysis) detects non-reference transposable-element (TE) insertions
-in a genome from short-read, paired-end sequencing of that genome: places where the sample carries a TE copy that the
-reference genome does not have. For each insertion it reports the position and the TE family.
+EviTEA (evidence-integrated transposable element analysis) calls non-reference transposable element (TE) insertions from the paired-end short reads of one genome. For each insertion it reports the position and the TE family. It finds insertions of the families in your TE library, and it also finds insertions of families that the library does not contain.
 
-EviTEA reads the sample through a multi-string BWT (msBWT) of all reads, so it can look up any sequence in every read. It
-maps only the reads that matter, with Bowtie2. A call requires physically independent paired-end evidence, and each
-junction supports one call only. Unresolved evidence goes to `unresolved.tsv`, not into a call.
+The method is described in *EviTEA: calling transposable element insertions from short reads when the TE library is incomplete* (Majumder, manuscript in preparation). The code used for the paper is release [`paper-2026-11-15`](https://github.com/Taksir/eviTEA/releases/tag/paper-2026-11-15) (commit `d79d205`).
 
-Author: Md Taksir Hasan Majumder. License: GPL-3.0-or-later (see [LICENSE](LICENSE)).
+## Why EviTEA
 
-## Two kinds of calls
+A TE library holds only the families that were known when someone built it. Library-based callers cannot name an insertion of any other family. In some genomes they are a large share of all insertions. The reads still hold the evidence for them. EviTEA uses that evidence, so one run gives one call set for both kinds of family.
 
-- **Library calls** (`evitea call`). With a TE library (consensus sequences of the species' TE families), EviTEA calls
-  insertions of those families. A repeat-aware caller runs first: split-junction reads, mate-anchored search, and a
-  repeat-aware step that keeps a junction group that fails only because it has too many edits against its TE record, when those
-  edits recur in at least two other read groups at the same locus, family and TE record. Four extension layers
-  follow: bilateral and asymmetric paired-end anchors, full-memory anchors, and internal TE k-mers. Output: `calls.native.tsv`,
-  `calls.tsv`, `calls.bed`, `calls.vcf`.
-- **Library-free calls** (`evitea library-free`, Linux or WSL). EviTEA assembles the inserted sequence at each junction in
-  the reads, without using the library, and groups the insertions into families by their sequence (families named
-  `LF_cluster_<n>`). Calls within 500 bp of a library call are left out. The others are added to the library calls in
-  `calls.combined.tsv` and `calls.combined.vcf`.
+## How it works
 
-A species without a curated TE library can still be run: the library-free families become TE records, and the library
-layer runs again on them (`evitea run --no-library`; see [docs/REPEAT_ANNOTATION.md](docs/REPEAT_ANNOTATION.md)).
+EviTEA puts all reads of the sample into one index, a multi-string Burrows-Wheeler transform (msBWT; Holt and McMillan 2014). The index gives the exact count of any k-mer in the reads and the reads that contain it. EviTEA aligns with Bowtie2 only the reads it needs.
 
-## Status
+The library layer (`evitea call`) searches the index for k-mers of your TE library. It uses split reads and read pairs with one mate in unique genome sequence and the other mate in a TE. When the evidence shows a TE joined to the genome, the layer makes a call and names the family.
 
-Version `0.1.0.dev0`. See [validation/EVITEA_V1_VALIDATION_STATUS.md](validation/EVITEA_V1_VALIDATION_STATUS.md) for the
-validation record. It is not an accuracy benchmark.
+The library-free layer (`evitea library-free`) does not use the library. It finds sites where the reads stop following the reference, and it builds the inserted sequence from the reads on both sides. It then groups similar inserted sequences into families named `LF_cluster_<n>`. Such a family counts as a TE family when at least two independent insertions have junctions on both sides and a target-site duplication of 2 to 20 bp. Inserted sequence that the local reference, the mitochondrial genome, a segmental duplication or a tandem repeat explains is discarded. Library-free calls within 500 bp of a library call are left out, and the rest go into `calls.combined.tsv` with the library calls.
 
-EviTEA takes these values from each sample and reference: the read length, the fragment-size 95th and 99th percentiles, the
-primary contigs and the mitochondrial contig. TE records may have any names (see
-[docs/CLI_AND_DATA.md](docs/CLI_AND_DATA.md)). EviTEA runs on other read lengths, fragment sizes, genomes and TE libraries,
-and the synthetic tests cover them. **Its accuracy on species other than *D. melanogaster* has not been measured.**
+Every call needs support from independent read pairs, and each junction supports one call only. Evidence that EviTEA cannot resolve goes to `unresolved.tsv`.
 
-## Requirements
+## Install
 
-- **CPython 3.14** (`>=3.14,<3.15`); other Python versions are not supported.
-- Linux or Windows (x86-64) for the library layer (`prepare-*`, `call`). The library-free layer, the family-record
-  commands and `--refine-breakpoints` require `mappy` and run on **Linux or WSL only**.
-- [Bowtie2](https://github.com/BenLangmead/bowtie2) 2.5.x on `PATH` (an external program, not installed by pip).
-- [BLAST+](https://blast.ncbi.nlm.nih.gov) (`makeblastdb`, `blastn`) on `PATH`, only for `build-repeat-map` (runs without a
-  TE library).
-
-## Installation
+You need CPython 3.14 (`>=3.14,<3.15`). EviTEA is not on PyPI, so install it from a clone:
 
 ```bash
-python -m pip install evitea                        # from a release; or, from a clone: python -m pip install .
-python -m pip install "evitea[anchorpe]"            # + edlib: the fragment decoder of the paired-end channel
-python -m pip install "evitea[library-free]"        # + mappy and parasail: library-free layer, family records (Linux/WSL)
-python -m pip install "evitea[anchorpe,library-free]"
+git clone https://github.com/Taksir/eviTEA.git
+cd eviTEA
+git checkout paper-2026-11-15          # the paper's code (skip this line for the newest code)
+python -m pip install ".[anchorpe,library-free]"
 evitea check-install
 ```
 
-`pip install evitea` installs its two required Python packages: [pymsbwt](https://pypi.org/project/pymsbwt/) (version 0.5 or
-later; it builds the multi-string BWT of the reads) and NumPy. The extras add optional packages:
+`pip` installs pymsbwt (0.5 or later, which builds the msBWT) and NumPy. The two extras are optional:
 
-| extra | packages | needed for |
+| Extra | Adds | Needed for |
 |---|---|---|
-| `anchorpe` | edlib | the whole-read fragment decoder of `call` (or point `--edlib-python` at an interpreter that has edlib; edlib has no CPython 3.14 Windows wheel) |
-| `library-free` | mappy, parasail | `library-free`, `build-family-records`, `--refine-breakpoints` (Linux or WSL) |
+| `anchorpe` | edlib | the paired-end step of `call`. On Windows, edlib has no CPython 3.14 wheel, so point `--edlib-python` at another interpreter that has it. |
+| `library-free` | mappy, parasail | `library-free`, `build-family-records` and `--refine-breakpoints` (Linux or WSL only) |
 
-`evitea check-install` lists every program and module EviTEA uses (Python, pymsbwt, NumPy, Bowtie2, edlib, mappy, parasail,
-BLAST+) with its version, or reports it as missing. It exits with code 8 when a required one is missing.
+Two programs must be on your `PATH`. pip does not install them:
 
-Bowtie2, BLAST+, mappy and parasail are easiest to get from conda. `environment.yml` (repository root) creates an
-environment with CPython 3.14, Bowtie2, BLAST+ and EviTEA with both extras:
+- [Bowtie2](https://github.com/BenLangmead/bowtie2) 2.5.x, for every run.
+- [BLAST+](https://blast.ncbi.nlm.nih.gov) (`makeblastdb`, `blastn`), only for runs without a TE library.
+
+`evitea check-install` prints the version of every program and module that EviTEA uses. It exits with code 8 when a required one is missing.
+
+With conda, `environment.yml` installs Python 3.14, Bowtie2 and BLAST+, and then installs EviTEA with both extras through pip:
 
 ```bash
-conda env create -f environment.yml     # or: micromamba create -f environment.yml
-conda activate evitea && evitea check-install
+conda env create -f environment.yml
+conda activate evitea
+evitea check-install
 ```
 
-`containers/Containerfile` builds a container image from the same file (`docker build -f containers/Containerfile -t evitea .`;
-for Apptainer, `apptainer build evitea.sif docker-daemon://evitea:latest`).
-
-To run the tests: `python -m pip install pytest`, then `python -m pytest`.
-
-## Input files
-
-| input | what it is |
-|---|---|
-| reference FASTA | the reference genome |
-| repeat annotation | BED6 of the TE copies in the reference (contig, start, end, TE record, score, strand); [how to make it with RepeatMasker](docs/REPEAT_ANNOTATION.md) |
-| TE library | FASTA of TE consensus sequences, one record per TE (the first word of the header is the record name) |
-| family map | the family of every TE record: two columns `record<TAB>family` (any names), or a FlyBase table with `FBte_ID` and `FlyBase_Family` columns |
-| reads | paired-end FASTQ, read 1 and read 2 in two files (plain or `.gz`), all reads of one length |
-
-You choose every location; no command assumes a folder. Details of each input and of every option are in
-[docs/CLI_AND_DATA.md](docs/CLI_AND_DATA.md).
-
-## A worked example
-
-[`examples/synthetic/run_example.sh`](examples/synthetic/run_example.sh) makes a small genome (contigs `chr1`..`chr5`, `MT`),
-a 120-record TE library with ordinary names and 30x paired reads of a sample with 30 non-reference TE insertions, runs
-`evitea run` on them and checks the calls against the expected `calls.native.tsv` (about 10 minutes on 4 CPUs). See
-[examples/README.md](examples/README.md).
+`containers/Containerfile` builds an image from the same file: `docker build -f containers/Containerfile -t evitea .` For Apptainer, run `apptainer build evitea.sif docker-daemon://evitea:latest` after that.
 
 ## Quick start
 
-One command, from FASTQ to calls (each step writes to its own folder under `--output`; run it again to continue
-after an interruption):
-
 ```bash
-evitea run --reference data/genome.fa --repeat-annotation data/repeat_annotation.bed \
-  --te-library data/te_library.fa --family-map data/family_map.tsv \
-  --read1 data/s_R1.fastq.gz --read2 data/s_R2.fastq.gz --sample-id s --output runs/s --threads 8
-# add --library-free for the library-free calls (Linux/WSL); use --no-library instead of the library options without one
+evitea run \
+  --reference genome.fa --repeat-annotation repeat_annotation.bed \
+  --te-library te_library.fa --family-map family_map.tsv \
+  --read1 s_R1.fastq.gz --read2 s_R2.fastq.gz \
+  --sample-id s --output runs/s --threads 8
 ```
 
-The same as separate commands (the prepared reference and TE library can be reused for every sample):
+Add `--library-free` to run the library-free layer too (Linux or WSL). If you have no TE library, give `--no-library` in place of `--te-library` and `--family-map` (see [Runs without a TE library](#runs-without-a-te-library)).
+
+Each step writes to its own folder under `--output`. If a run stops, run the same command again and it continues from the last finished step. The final calls are in `runs/s/call/`, or in `runs/s/library_free/calls.combined.tsv` with `--library-free`.
+
+To try EviTEA first on a small data set, run `bash examples/synthetic/run_example.sh`. It makes a small genome, a library of 120 TE records and about 30x of 125 bp read pairs with 30 planted insertions. Then it runs `evitea run` and compares the calls with the expected ones. It takes about 10 minutes on 4 CPUs. The reads have no sequencing errors, so this checks that the programs work together, not how accurate they are. See [examples/README.md](examples/README.md).
+
+## Inputs
+
+| Input | What it is |
+|---|---|
+| Reference | FASTA of the reference genome |
+| Repeat annotation | BED6 of the TE copies in the reference (contig, start, end, TE record, score, strand). See [docs/REPEAT_ANNOTATION.md](docs/REPEAT_ANNOTATION.md) for how to make it with RepeatMasker. |
+| TE library | FASTA of TE consensus sequences. The first word of each header is the record name, and any names work. |
+| Family map | the family of each TE record: two columns, `record<TAB>family`, or a FlyBase table with `FBte_ID` and `FlyBase_Family` columns |
+| Reads | paired-end FASTQ in two files, plain or `.gz`. All reads must have the same length, so trim them first if they do not. |
+
+EviTEA measures the read length and the 95th and 99th percentiles of the fragment size from the sample. It also finds the primary contigs and the mitochondrial contig of the reference. You can set each of these yourself with `--read-length`, `--fragment-q95`, `--fragment-q99` and `--primary-contigs`. [docs/CLI_AND_DATA.md](docs/CLI_AND_DATA.md) describes every input and option.
+
+## Step by step
+
+`evitea run` calls these commands in order. Run them yourself when you want to reuse the prepared reference and TE library for many samples:
 
 ```bash
-evitea prepare-reference --reference data/genome.fa --repeat-annotation data/repeat_annotation.bed --output prepared/reference
-#   (or adopt an existing Bowtie2 index of the same FASTA: --bowtie2-index path/to/index/genome)
-evitea prepare-te --te-library data/te_library.fa --family-map data/family_map.tsv --build-languages \
+evitea prepare-reference --reference genome.fa --repeat-annotation repeat_annotation.bed --output prepared/reference
+evitea prepare-te --te-library te_library.fa --family-map family_map.tsv --build-languages \
   --reference-assets prepared/reference --output prepared/te
-evitea prepare-sample --read1 data/s_R1.fastq.gz --read2 data/s_R2.fastq.gz --sample-id s --output prepared/s
-evitea call --sample-assets prepared/s --reference-assets prepared/reference --te-assets prepared/te --output runs/s/call
+evitea prepare-sample --read1 s_R1.fastq.gz --read2 s_R2.fastq.gz --sample-id s --output prepared/s
+evitea call --sample-assets prepared/s --reference-assets prepared/reference --te-assets prepared/te \
+  --output runs/s/call
 evitea library-free --run-dir runs/s/call --sample-assets prepared/s --reference-assets prepared/reference \
-  --output runs/s/library_free                                         # optional; Linux or WSL
+  --te-assets prepared/te --output runs/s/library_free
 ```
 
-`prepare-sample` writes a JSON map with one entry per read. The map is impractically large for full-size libraries (tens
-of millions of reads). For those, build an msBWT yourself and call directly from it:
+`prepare-reference` can adopt an existing Bowtie2 index of the same FASTA with `--bowtie2-index path/to/index/genome`.
+
+`prepare-sample` keeps a map with one entry per read, and that map gets too large for full-size samples of tens of millions of reads. For those, build an msBWT of the reads yourself and give it to `call` and `library-free` with `--msbwt-index`. The mates of pair *i* must be records 2*i* and 2*i*+1 of the index.
 
 ```bash
 evitea call --msbwt-index path/to/msbwt_index --sample-id s \
   --reference-assets prepared/reference --te-assets prepared/te --output runs/s/call
 ```
 
-Useful options for `call`: `--threads`, `--workers`, `--work-dir`, `--resume`, `--bowtie2`, `--edlib-python`, and the values
-EviTEA otherwise takes from the sample and the reference: `--read-length`, `--fragment-q95`, `--fragment-q99`,
-`--primary-contigs`. Run `evitea call --help` for the full list. To reproduce a development run exactly, pass
-`--read-length 125 --fragment-q95 494 --fragment-q99 805 --primary-contigs chr2L,chr2R,chr3L,chr3R,chrX`.
-
-## Runs without a TE library
-
-`evitea run --no-library` builds a repeat map of the reference with BLAST+ (`build-repeat-map`), runs the library-free layer
-with it, turns the library-free families into TE records (`build-family-records`), runs the library layer on those records
-and adds its calls (`add-record-calls`). The result is `record_pass/added/calls.combined.tsv`. It needs only the
-reference and the reads: without `--repeat-annotation`, the repeat map is also the reference's annotation. The same chain is in `tools/no_library.sh` (plain shell) and
-`tools/slurm/no_library.sh` (Slurm). See
-[docs/REPEAT_ANNOTATION.md](docs/REPEAT_ANNOTATION.md).
+Run `evitea <command> --help` for all options.
 
 ## Outputs
 
 | File | Content |
 |---|---|
-| `calls.native.tsv` | the full library call set in the native 15-column schema, before the own-family copy filter (below); what `library-free` and `call-tiers` read |
-| `calls.tsv` | one row per call, genomic order, with `call_origin` and supporting pair IDs; without the calls the own-family copy filter dropped |
-| `calls.bed` | BED view of the calls of `calls.tsv` |
-| `calls.vcf` | VCF 4.2 view of the calls of `calls.tsv` (symbolic `<INS:ME:family>` alleles, sites only) |
-| `resident_copy_dropped.tsv` | the calls the own-family copy filter dropped, each with the reference copy that decided it |
-| `unresolved.tsv` | events not reported as calls |
-| `run_summary.json` | counts per origin and hashes after every layer |
-| `run.log`, `run_manifest.json` | provenance: the manifest hashes every other output and records the values taken from the sample (`values.run_parameters`) |
+| `calls.tsv` | one line per call in genomic order, with the supporting read pair IDs |
+| `calls.bed`, `calls.vcf` | the same calls as BED and as VCF 4.2 (symbolic `<INS:ME:family>` alleles, sites only) |
+| `calls.native.tsv` | all library calls in a 15-column table, before the own-family copy filter. `library-free` and `call-tiers` read it. |
+| `resident_copy_dropped.tsv` | the calls that the own-family copy filter removed, each with the reference copy that caused it |
+| `unresolved.tsv` | evidence that EviTEA does not report as a call |
+| `run_summary.json` | call counts per step |
+| `run.log`, `run_manifest.json` | the log, and hashes of every output with the values measured from the sample |
 
-`library-free` adds `calls.library_free.tsv`, `calls.combined.tsv` and `calls.combined.vcf` (and its own
-`resident_copy_dropped.tsv`). Completed output directories are never overwritten.
+`library-free` adds `calls.library_free.tsv`, `calls.combined.tsv` and `calls.combined.vcf`. EviTEA never overwrites a finished output folder.
 
-**Own-family copy filter.** A call made with a TE library is dropped from the final call tables (`calls.tsv`, `calls.bed`,
-`calls.vcf`, and `library-free`'s `calls.combined.tsv` and `calls.combined.vcf`) when its `[start, end]` touches or overlaps a
-reference copy of the call's own family (the reference's BED6 repeat annotation, named through the TE family map; see
-[docs/REPEAT_ANNOTATION.md](docs/REPEAT_ANNOTATION.md)). Library-free calls are never judged. The filter is applied at the final output only:
-`calls.native.tsv` stays complete, and the library-free layer reads it, so its added calls do not depend on the filter. The dropped
-calls are in `resident_copy_dropped.tsv`; the counts are in `run_summary.json` (`resident_copy_filter`; `library_free_summary.json` for
-`library-free`). `--keep-resident-copies` (`call`, `library-free`, `refine-breakpoints`, `run`) turns the filter off and gives the
-outputs of a run without it. `library-free` on a run with library calls needs `--te-assets` (the family map) or `--keep-resident-copies`.
-`run --no-library` never applies the filter.
+The own-family copy filter removes a library call that touches or overlaps a reference copy of its own family. The reference already has that family at that spot. The copies come from your repeat annotation. The filter changes the final tables only. `calls.native.tsv` stays complete, and library-free calls are never filtered. Give `--keep-resident-copies` to turn the filter off. When you run `library-free` on a run with library calls, give either `--te-assets` or `--keep-resident-copies`.
 
-## Profiles
+## Runs without a TE library
 
-`--profile production` is the default. `AKA017` and `ISO1` reproduce the research call sets of the development samples
-and accept only their own sample IDs.
+`evitea run --no-library` needs only the reference and the reads:
 
-## Reproducing the validation
+1. `build-repeat-map` maps repeats in the reference with BLAST+.
+2. The library-free layer calls insertions and groups them into families.
+3. `build-family-records` turns those families into TE records.
+4. The library layer runs again on those records, and `add-record-calls` adds its calls.
 
-The scripts under `validation/` and `tools/windows/` compare the pipeline with the research pipeline it was ported from. They require the author's private development datasets and the output of the
-research pipeline, which are **not distributed**. The scripts contain **no hard-coded paths: you must
-provide every path yourself**, through arguments or environment variables
-(`EVITEA_DATA`, `EVITEA_ROUTE_B_V2`, `EVITEA_ROUTE_B_V3`, `EVITEA_REPO`). See
-[validation/README.md](validation/README.md).
+The final calls are in `record_pass/added/calls.combined.tsv`. The same chain is in `tools/no_library.sh` (plain shell) and `tools/slurm/no_library.sh` (Slurm). See [docs/REPEAT_ANNOTATION.md](docs/REPEAT_ANNOTATION.md).
 
-## What is validated, and limitations
+The no-library results in the paper come from the library-free layer alone, not from this full chain. The command is under [Settings used in the paper](#settings-used-in-the-paper).
 
-- Checks you can run: `python -m pytest`; the synthetic end-to-end test (`tests/integration/test_synthetic_call.py`, 125 bp,
-  FlyBase and plain TE names, fly and non-fly contig names), which identifies every planted insertion with its family; and
-  `tools/synthetic/compare_call.sh`, which compares the library layer of this version with a previous one on a synthetic
-  sample, byte for byte.
-- Not validated: accuracy (recall and precision against a truth set) on any species, including on other *D. melanogaster*
-  strains.
-- Reads must be paired-end and of one length; trim them to one length first.
-- CPython 3.14 only. The library-free layer and the family-record commands run on Linux or WSL only.
-- `prepare-sample`'s read-identity map does not scale to full-size libraries; use `--msbwt-index` for those.
+## Settings used in the paper
+
+The results of the paper come from commit `d79d205` (release `paper-2026-11-15`). The run times at 10x to 30x and the recall by allele fraction (Table S7C) come from the earlier commit `296e725` of the same history. The read index of each sample was built with the msBWT software (msbwt-modern3 0.3.0, [github.com/Taksir/msbwt](https://github.com/Taksir/msbwt) commit `19eea78`).
+
+The runs set some options that are off or different by default:
+
+```bash
+# library mode: three steps per sample
+evitea call --msbwt-index <index> --sample-id <sample> --reference-assets <ref> --te-assets <te> \
+    --threads <n> --mate-side-rule strand
+evitea refine-breakpoints --run-dir <run> --msbwt-index <index> --reference-assets <ref> --te-assets <te> \
+    --pin-one-sided --call-annotations
+evitea library-free --run-dir <run> --msbwt-index <index> --reference-assets <ref> --te-assets <te> \
+    --contigs <contigs> --workers <n> --weak-site-pass --weak-site-allele-depth-cut 10 --extension-stop-min 2
+
+# no-library mode: the library-free layer alone, with no TE library and no annotation
+evitea library-free --run-dir <empty run> --msbwt-index <index> --reference-assets <ref> \
+    --contigs <contigs> --workers <n> --extension-stop-min 2 --resident-guard off
+```
+
+`<empty run>` is a folder with an empty library call set, like the `nolib_stub/` folder that `evitea run --no-library` writes. Some library-mode runs raised the work limit of the wide-anchor step with `--max-rescue-interval-mass` (default 1,500,000): 2,000,000 for JUT-011 and ISO1, and 100,000,000 for the mouse. Table S1 of the paper lists the full commands, contigs, thread counts and software versions of every run.
+
+## Limits
+
+- Reads must be paired-end and all of one length.
+- Only CPython 3.14 is supported. The library-free layer and the family-record commands run on Linux or WSL only.
+- `prepare-sample` does not scale to full-size samples. Use `--msbwt-index` for those.
+- The paper measured accuracy on the species and strains above. Accuracy on other species, and on read lengths other than those tested, is not known.
+
+## Tests
+
+Install pytest and run `python -m pytest`. The suite includes an end-to-end test on synthetic data (`tests/integration/test_synthetic_call.py`). It must find every planted insertion with its family, with both FlyBase and plain TE names and with fly and non-fly contig names. `tools/synthetic/compare_call.sh` compares the library layer of two versions on a synthetic sample, byte for byte.
+
+The scripts under `validation/` compare this code with the research code it came from. They need data that is not distributed. See [validation/README.md](validation/README.md). The profiles `AKA017` and `ISO1` of `--profile` exist only for those checks. The default, `production`, is the one to use.
 
 ## Citation
 
-See [CITATION.cff](CITATION.cff). If you use EviTEA, please cite it and retain the
-copyright and license notices in any copy or derivative, as the GPL requires.
+If you use EviTEA, please cite the paper:
+
+> Majumder MTH. EviTEA: calling transposable element insertions from short reads when the TE library is incomplete. Manuscript in preparation.
+
+For the software itself, see [CITATION.cff](CITATION.cff).
 
 ## License
 
-EviTEA builds on msBWT (James Holt and Leonard McMillan), Bowtie2, BLAST+, mappy (minimap2), parasail, edlib and NumPy.
-Their licences are listed in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
+Copyright (C) 2026 Md Taksir Hasan Majumder. EviTEA is free software under the GNU General Public License, version 3 or later ([LICENSE](LICENSE)). If you distribute a modified version, it must also be under the GPL, with its source and the original copyright notice.
 
-Copyright (C) 2026 Md Taksir Hasan Majumder. Licensed under the GNU General Public
-License v3.0 or later. Any distributed derivative work must also be released under the
-GPL with its source and must retain the original copyright and attribution.
+EviTEA uses msBWT (James Holt and Leonard McMillan), Bowtie2, BLAST+, mappy (minimap2), parasail, edlib and NumPy. [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) lists their licenses.
