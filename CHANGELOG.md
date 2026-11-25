@@ -1,6 +1,6 @@
 # Changelog
 
-## [version] ([date])
+## Unreleased
 
 - `evitea call` runs the full pipeline on one sample: the repeat-aware caller followed by four evidence-extension layers
   (bilateral, asymmetric and full-memory anchors, internal 21-mer).

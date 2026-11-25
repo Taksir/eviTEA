@@ -13,9 +13,12 @@
   <a href="#why-evitea">Why</a> &middot;
   <a href="#how-it-works">How it works</a> &middot;
   <a href="#install">Install</a> &middot;
+  <a href="#requirements">Requirements</a> &middot;
   <a href="#quick-start">Quick start</a> &middot;
+  <a href="#tutorial">Tutorial</a> &middot;
   <a href="#outputs">Outputs</a> &middot;
   <a href="#settings-used-in-the-paper">Paper settings</a> &middot;
+  <a href="#reproducing-the-paper">Reproduce the paper</a> &middot;
   <a href="#citation">Citation</a>
 </p>
 
@@ -91,6 +94,47 @@ evitea check-install
 
 </details>
 
+<a id="requirements"></a>
+
+## 🖥️ System requirements
+
+Use Linux (x86-64) or WSL to run everything. On native Windows only the library layer runs. The library-free layer needs Linux or WSL, and the paired-end step needs a second Python with edlib (see the table above).
+
+On Linux, CPython 3.14 has no wheel yet for edlib and mappy, so `pip` builds them from source. You need a C compiler and `make`. The conda file installs both.
+
+**What the paper's fly runs needed.** The fly samples are four test strains (GIM-024, MUN-009, SLA-001 and JUT-011) at 54x to 59x, with 125 bp or 151 bp read pairs. The numbers come from the supplement (Tables S2H and S9). Each run used 8 CPUs on AMD EPYC 9654 nodes. The paper did not record memory for each layer on its own. It recorded the peak memory of the whole run, so the table says "not recorded" where that is the case.
+
+| Part of the run | Time | Peak memory | Source |
+|---|---|---|---|
+| Read index (once per sample; reused by every later step) | 28 to 35 min (43 min for JUT-011, on another cluster) | 34.1 GiB (MUN-009), 40.7 GiB (SLA-001), 39 GB (JUT-011). Not recorded for GIM-024 | Table S9B |
+| Library layer, `call` step | 64 to 87 min | not recorded on its own | Table S9B |
+| Library layer, `refine-breakpoints` | 2 to 3 min | not recorded on its own | Table S9B |
+| Library-free layer, 8 workers | 29 to 37 min | not recorded on its own | Table S9B |
+| Both layers, one after the other (the whole run) | 95 to 119 min, without the read index | 42.0 to 47.2 GiB | Table S9B |
+| Both layers, three Kuruka fly lines | 1 h 42 min to 1 h 46 min | 44.8 to 52.4 GiB | Table S2H |
+
+The memory figures of the full-depth runs come from the Slurm accounting record (MaxRSS). They include file pages that the job cached, so the memory that EviTEA itself holds may be lower. If you plan a fly run, ask for 8 CPUs and 64 GiB. This is our advice, not a measurement. The highest peak recorded was 52.4 GiB.
+
+Smaller fly runs need less. Whole runs on subsampled reads of 10x to 30x took 65 to 87 min and peaked at 22.3 to 36.5 GiB (Table S9A, EviTEA only, without the read index). Preparing those samples (drawing the reads and building the index, 4 CPUs) took 9 to 19 min and peaked at 7.6 to 25.0 GiB.
+
+**A small run with every layer measured.** The [tutorial](#tutorial) below runs each layer on its own, so it gives a memory figure per layer. We measured it on a Linux machine with 4 CPUs and 16 GB of RAM, using 1,000,000 yeast read pairs (about 25x). The peak is the largest memory of the step and its child processes, sampled while it ran.
+
+| Step of the tutorial | Time | Peak memory |
+|---|---|---|
+| Read index | 41 s | 0.9 GiB |
+| Reference and library preparation | about 20 s | 0.2 GiB |
+| Library layer (`call` and `refine-breakpoints`) | about 3 min | 0.7 GiB |
+| Library-free layer (after the library layer) | about 10 min | 2.4 GiB |
+| Both layers, one after the other | about 14 min | 2.4 GiB (the largest step) |
+
+Memory depends on the genome size and the depth (see the subsampled fly runs above), so these figures do not carry over to flies. In this run the library-free layer needed the most memory.
+
+The library-free layer alone was recorded for the mouse. Each of the 20 jobs (one per chromosome, 8 CPUs) took 1 h 29 min to 4 h 40 min and peaked at 24.7 to 48.0 GiB, with a limit of 48 GiB per job (Table S2H).
+
+**Disk.** The paper did not record disk use. The read index holds about one byte per sequenced base. In the yeast tutorial below, 1,000,000 read pairs (302 million bases) gave an index of 314 MB. At that ratio, a 55x fly sample (about 8 billion bases) would need an index of roughly 8 to 9 GB. This is an estimate from the tutorial, not a measurement of a fly sample.
+
+**Versions of the paper.** The paper's runs used Python 3.14.4, Bowtie2 2.5.5, mappy 2.31, edlib 1.3.9.post1, parasail 1.3.4 and msbwt-modern3 0.3.0 ([github.com/Taksir/msbwt](https://github.com/Taksir/msbwt) commit `19eea78`), inside a container image that is not part of this repository. `pip install` takes the newest compatible release of each Python package instead, and `environment.yml` takes any Bowtie2 2.5.x. The synthetic example gives the expected output with Bowtie2 2.5.2 and pymsbwt 0.5.0.
+
 <a id="quick-start"></a>
 
 ## 🚀 Quick start
@@ -108,7 +152,170 @@ Add `--library-free` to run the library-free layer too (Linux or WSL). If you ha
 Each step writes to its own folder under `--output`. If a run stops, run the same command again and it continues from the last finished step. The final calls are in `runs/s/call/`, or in `runs/s/library_free/calls.combined.tsv` with `--library-free`.
 
 > [!TIP]
-> To try EviTEA first on a small data set, run `bash examples/synthetic/run_example.sh`. It makes a small genome, a library of 120 TE records and about 30x of 125 bp read pairs with 30 planted insertions. Then it runs `evitea run` and compares the calls with the expected ones. It takes about 10 minutes on 4 CPUs. The reads have no sequencing errors, so this checks that the programs work together, not how accurate they are. See [examples/README.md](examples/README.md).
+> To try EviTEA first on a small data set, run `bash examples/synthetic/run_example.sh`. It makes a small genome, a library of 120 TE records and about 30x of 125 bp read pairs with 30 planted insertions. Then it runs `evitea run` and compares the calls with the expected ones. It takes 6 to 10 minutes on 4 CPUs. The last line it prints is `calls.native.tsv: as expected`, and the run has 30 calls. The reads have no sequencing errors, so this checks that the programs work together, not how accurate they are. See [examples/README.md](examples/README.md).
+
+<a id="tutorial"></a>
+
+## 🧭 Tutorial: from a download to calls
+
+This tutorial runs EviTEA on a small real data set: the first 1,000,000 read pairs of the yeast strain SK1 (run SRR4074258, 151 bp, about 25x). It takes the same route as the paper's runs. You build the read index yourself, and you call each layer with the options of the paper.
+
+You need Linux or WSL, EviTEA with both extras ([Install](#install)), BLAST+ and `curl`. The run takes about 19 minutes on 4 CPUs (about 29 minutes with the optional no-library step), about 1.4 GB of disk, and the largest step needs about 2.4 GiB of memory. We measured this on a Linux machine with 4 CPUs and 16 GB of RAM. Everything happens in one new folder.
+
+<details>
+<summary><b>1. Download the reference, the TE library and the reads</b></summary>
+
+```bash
+mkdir evitea_tutorial && cd evitea_tutorial
+
+# reference genome of S. cerevisiae (R64, called sacCer3 by UCSC)
+curl -sSL -o sacCer3.fa.gz https://hgdownload.soe.ucsc.edu/goldenPath/sacCer3/bigZips/sacCer3.fa.gz
+gzip -d sacCer3.fa.gz
+
+# TE library: the six Ty sequences of the McClintock yeast set
+curl -sSL -o ty_library.fa https://raw.githubusercontent.com/bergmanlab/mcclintock/master/test/sac_cer_TE_seqs.fasta
+
+# reads: the first 1,000,000 pairs of SRR4074258 (4 lines per read, so 4,000,000 lines per file)
+B=https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR407/008/SRR4074258
+for i in 1 2; do
+  curl -sS $B/SRR4074258_$i.fastq.gz 2>/dev/null | gzip -dc 2>/dev/null | head -n 4000000 > SK1_$i.fastq || true
+done
+wc -l SK1_1.fastq SK1_2.fastq        # 4000000 lines each
+```
+
+`curl` stops with an error message when `head` has enough lines. That is expected, and the `|| true` hides it. This step took about 4.5 minutes on our connection. If a file has fewer than 4,000,000 lines, the download broke off early. Run the loop again.
+
+</details>
+
+<details>
+<summary><b>2. Make the repeat annotation and the family map</b></summary>
+
+EviTEA needs the TE copies of the reference as BED6 and the family of each library record ([Inputs](#inputs)). Here BLAST+ finds the copies (80% identity or more, 100 bp or longer). The paper used RepeatMasker for yeast, so this annotation is close to the paper's but not the same.
+
+```bash
+makeblastdb -in sacCer3.fa -dbtype nucl -out sacCer3 > /dev/null
+blastn -query ty_library.fa -db sacCer3 -perc_identity 80 -evalue 1e-5 -dust no -soft_masking false \
+  -outfmt "6 sseqid sstart send qseqid bitscore length" \
+  | awk 'BEGIN{OFS="\t"} $6>=100 {s=$2; e=$3; st="+"; if (s>e) {t=s; s=e; e=t; st="-"} print $1, s-1, e, $4, int($5), st}' \
+  | sort -k1,1 -k2,2n > repeat_annotation.bed
+
+# TY3_1p is the long terminal repeat of Ty3, so it belongs to the family TY3
+printf 'TY1\tTY1\nTY2\tTY2\nTY3\tTY3\nTY3_1p\tTY3\nTY4\tTY4\nTY5\tTY5\n' > family_map.tsv
+wc -l repeat_annotation.bed          # 662 lines with BLAST+ 2.12.0
+```
+
+</details>
+
+<details>
+<summary><b>3. Build the read index</b></summary>
+
+Every paper run reads one msBWT index of the sample. The index holds both FASTQ files. The mates of pair *i* become records 2*i* and 2*i*+1, which is the order that `--msbwt-index` requires. Save this script as `build_index.py`:
+
+```python
+"""Build the msBWT of a paired sample for `evitea call --msbwt-index`.
+usage: python build_index.py R1.fastq R2.fastq OUTPUT_FOLDER THREADS"""
+import logging
+import sys
+from MUSCython import MultiStringBWTCython
+
+def main(read1, read2, out_dir, threads):
+    MultiStringBWTCython.createMSBWTFromFastq(
+        [read1, read2], out_dir, int(threads), True, logging.getLogger("msbwt"))
+    MultiStringBWTCython.loadBWT(out_dir)   # also writes the count and FM-index files that EviTEA reads
+
+if __name__ == "__main__":      # needed: the build starts worker processes
+    main(*sys.argv[1:5])
+```
+
+Then run it:
+
+```bash
+mkdir index
+python build_index.py SK1_1.fastq SK1_2.fastq index 4
+ls index                             # about.npy  fmIndex.npy  msbwt.npy  totalCounts.npy
+```
+
+Run it from a script file, not with `python -` or `python -c`, and make the output folder first. Both mistakes stop the build. The step took 41 seconds and 0.9 GiB of memory, and the index is 314 MB. Full-size samples take longer and need more memory (see [System requirements](#requirements)). Reads must all have the same length (151 bp here), and the pairs must be in the same order in both files.
+
+</details>
+
+<details>
+<summary><b>4. Prepare the reference and the library</b></summary>
+
+```bash
+evitea prepare-reference --reference sacCer3.fa --repeat-annotation repeat_annotation.bed \
+  --output prepared/reference --threads 4
+evitea prepare-te --te-library ty_library.fa --family-map family_map.tsv --build-languages \
+  --reference-assets prepared/reference --output prepared/te
+```
+
+These two steps depend on the reference and the library only. For more samples of the same species, run them once and reuse the folders. They took about 20 seconds.
+
+</details>
+
+<details>
+<summary><b>5. Call with the library layer, then refine the breakpoints</b></summary>
+
+```bash
+evitea call --msbwt-index index --sample-id SK1 \
+  --reference-assets prepared/reference --te-assets prepared/te \
+  --output run/call --threads 4 --mate-side-rule strand
+evitea refine-breakpoints --run-dir run/call --msbwt-index index \
+  --reference-assets prepared/reference --te-assets prepared/te \
+  --pin-one-sided --call-annotations --output run/refine
+```
+
+`call` took about 3 minutes and `refine-breakpoints` took about 5 seconds. `call` made 50 calls (`run/call/calls.native.tsv`) and kept 48 in `run/call/calls.tsv` after the own-family copy filter.
+
+</details>
+
+<details>
+<summary><b>6. Add the library-free layer</b></summary>
+
+```bash
+evitea library-free --run-dir run/call --msbwt-index index \
+  --reference-assets prepared/reference --te-assets prepared/te \
+  --contigs chrI,chrII,chrIII,chrIV,chrV,chrVI,chrVII,chrVIII,chrIX,chrX,chrXI,chrXII,chrXIII,chrXIV,chrXV,chrXVI \
+  --workers 4 --weak-site-pass --weak-site-allele-depth-cut 10 --extension-stop-min 2 \
+  --output run/library_free
+```
+
+This took about 10 minutes and peaked at 2.4 GiB. The contig list leaves out the mitochondrial genome (`chrM`), as in the paper. The final table is `run/library_free/calls.combined.tsv`: the library calls and the library-free calls together. It has 85 calls here, 37 of them from the library-free layer.
+
+</details>
+
+<details>
+<summary><b>7. Optional: the library-free layer alone (no-library mode)</b></summary>
+
+This is how the paper made its no-library results. The reference is prepared without any annotation, and there is no TE library. `library-free` needs a run folder that holds an empty set of library calls. The second command makes one:
+
+```bash
+evitea prepare-reference --reference sacCer3.fa --output prepared/reference_noannot --threads 4
+python -c 'import sys; from pathlib import Path; from evitea.run_command import write_stub_run; write_stub_run(Path(sys.argv[1]), sys.argv[2])' \
+  run_nolib/empty_run SK1
+evitea library-free --run-dir run_nolib/empty_run --msbwt-index index \
+  --reference-assets prepared/reference_noannot \
+  --contigs chrI,chrII,chrIII,chrIV,chrV,chrVI,chrVII,chrVIII,chrIX,chrX,chrXI,chrXII,chrXIII,chrXIV,chrXV,chrXVI \
+  --workers 4 --extension-stop-min 2 --resident-guard off --output run_nolib/library_free
+```
+
+The last step took about 10 minutes and peaked at 2.4 GiB. It made 67 calls in `run_nolib/library_free/calls.combined.tsv`.
+
+</details>
+
+<details>
+<summary><b>8. Look at the result</b></summary>
+
+```bash
+head -3 run/library_free/calls.combined.tsv        # event_id, chr, start, end, family, source
+tail -n +2 run/library_free/calls.combined.tsv | cut -f5 | sort | uniq -c | sort -k1,1nr | head
+```
+
+A call is one line with its contig, position and family. Library calls carry the family of your library (`TY1` to `TY5`). Library-free families are named `LF_cluster_<n>`. `calls.vcf` and `calls.bed` hold the library calls in standard formats ([Outputs](#outputs)). With the same inputs you should get the same counts as above. Small differences are possible if your BLAST+ version gives a different annotation.
+
+This data set shows that the install and the commands work on real reads. It has no ground truth, so it does not measure accuracy. The ground-truth sets and the scoring scripts of the paper are described under [Reproducing the paper](#reproducing-the-paper).
+
+</details>
 
 <a id="inputs"></a>
 
@@ -146,7 +353,7 @@ evitea library-free --run-dir runs/s/call --sample-assets prepared/s --reference
 
 `prepare-reference` can adopt an existing Bowtie2 index of the same FASTA with `--bowtie2-index path/to/index/genome`.
 
-`prepare-sample` keeps a map with one entry per read, and that map gets too large for full-size samples of tens of millions of reads. For those, build an msBWT of the reads yourself and give it to `call` and `library-free` with `--msbwt-index`. The mates of pair *i* must be records 2*i* and 2*i*+1 of the index.
+`prepare-sample` keeps a map with one entry per read, and that map gets too large for full-size samples of tens of millions of reads. For those, build an msBWT of the reads yourself (step 3 of the [tutorial](#tutorial) gives a short script) and give it to `call`, `refine-breakpoints` and `library-free` with `--msbwt-index`. The mates of pair *i* must be records 2*i* and 2*i*+1 of the index.
 
 ```bash
 evitea call --msbwt-index path/to/msbwt_index --sample-id s \
@@ -195,25 +402,89 @@ The final calls are in `record_pass/added/calls.combined.tsv`. The same chain is
 
 ## 📄 Settings used in the paper
 
-The results of the paper come from commit `d79d205` (release `paper-2026-11-15`). The run times at 10x to 30x and the recall by allele fraction (Table S7C) come from the earlier commit `296e725` of the same history. The read index of each sample was built with the msBWT software (msbwt-modern3 0.3.0, [github.com/Taksir/msbwt](https://github.com/Taksir/msbwt) commit `19eea78`).
+All results of the paper come from commit `d79d205` (release `paper-2026-11-15`). Only the false-positive comparison of the long-read steps (Table S3E(B) of the supplement) also gives results of the earlier commit `296e725`. The supplement names its tables as follows (the numbers follow the submitted version and may change before publication):
+
+| Supplement table | What it holds |
+|---|---|
+| Table S1 | every parameter of EviTEA, with its value and what it was set on |
+| Table S2 | software versions (S2B), the commands (S2C), and the threads, contigs and work limit of each run (S2D) |
+| Table S8, part C | recall by allele frequency |
+| Table S9 | run time and peak memory |
 
 The runs set some options that are off or different by default:
+
+| Option | Default | In the paper |
+|---|---|---|
+| `--mate-side-rule` (`call`) | `midpoint` | `strand`, in all library-mode runs |
+| `--pin-one-sided --call-annotations` (`refine-breakpoints`) | off | on, in all library-mode runs |
+| `--weak-site-pass --weak-site-allele-depth-cut` (`library-free`) | off | on, with the value 10, in all library-mode runs |
+| `--extension-stop-min` (`library-free`) | 3 | 2, in all library-mode and no-library runs |
+| `--resident-guard` (`library-free`) | on | off in no-library mode |
+| `--max-rescue-interval-mass` (`call`) | 1,500,000 | 2,000,000 for JUT-011 and ISO1, and 100,000,000 for the mouse (see the table below) |
+
+The commands, with the values of the paper for the fly. `<index>` is the msBWT index of the sample ([how to build it](#tutorial)). `<ref>` and `<te>` are the folders of `prepare-reference` and `prepare-te`. `<run>` is the output folder of `call`. The paper's command lines are shortened in Table S2C, and `refine-breakpoints` also needs `--output`.
 
 ```bash
 # library mode: three steps per sample
 evitea call --msbwt-index <index> --sample-id <sample> --reference-assets <ref> --te-assets <te> \
-    --threads <n> --mate-side-rule strand
+    --output <run> --threads 8 --mate-side-rule strand            # add --max-rescue-interval-mass 2000000 for JUT-011 and ISO1
 evitea refine-breakpoints --run-dir <run> --msbwt-index <index> --reference-assets <ref> --te-assets <te> \
-    --pin-one-sided --call-annotations
+    --pin-one-sided --call-annotations --output <refine>
 evitea library-free --run-dir <run> --msbwt-index <index> --reference-assets <ref> --te-assets <te> \
-    --contigs <contigs> --workers <n> --weak-site-pass --weak-site-allele-depth-cut 10 --extension-stop-min 2
+    --contigs chr2L,chr2R,chr3L,chr3R,chrX --workers 8 \
+    --weak-site-pass --weak-site-allele-depth-cut 10 --extension-stop-min 2 --output <library-free>
 
 # no-library mode: the library-free layer alone, with no TE library and no annotation
-evitea library-free --run-dir <empty run> --msbwt-index <index> --reference-assets <ref> \
-    --contigs <contigs> --workers <n> --extension-stop-min 2 --resident-guard off
+evitea library-free --run-dir <empty run> --msbwt-index <index> --reference-assets <ref-without-annotation> \
+    --contigs chr2L,chr2R,chr3L,chr3R,chrX --workers 4 --extension-stop-min 2 --resident-guard off \
+    --output <library-free>
 ```
 
-`<empty run>` is a folder with an empty library call set, like the `nolib_stub/` folder that `evitea run --no-library` writes. Some library-mode runs raised the work limit of the wide-anchor step with `--max-rescue-interval-mass` (default 1,500,000): 2,000,000 for JUT-011 and ISO1, and 100,000,000 for the mouse. Table S1 of the paper lists the full commands, contigs, thread counts and software versions of every run.
+`<empty run>` is a folder with an empty library call set, like the `nolib_stub/` folder that `evitea run --no-library` writes. Step 7 of the [tutorial](#tutorial) shows how to make one. `<ref-without-annotation>` comes from `prepare-reference` without `--repeat-annotation`.
+
+The other values of each run (Table S2D):
+
+| Runs | `call` threads | `library-free` workers | Contigs of `library-free` | `--max-rescue-interval-mass` |
+|---|---|---|---|---|
+| Fly, four test strains at full depth and the subsampled samples | 8 | 8 | chr2L, chr2R, chr3L, chr3R, chrX | 2,000,000 for JUT-011, default for GIM-024, MUN-009 and SLA-001 |
+| Fly, ISO1 and the synthetic heterozygous samples; families removed, JUT-011 | 8 | 8 | as above | 2,000,000 |
+| Fly, families removed, AKA-017 | 8 | 8 | as above | default |
+| Fly, no-library runs | none | 4 | as above | not used |
+| Yeast, five strains | 8 | 8 | chrI to chrXVI | default |
+| Yeast, no-library runs | none | 8 | chrI to chrXVI | not used |
+| *Z. tritici*, three isolates | 4 | 2 | chromosomes 1 to 21 | default |
+| *A. thaliana* Cvi-0 | 8 | 2 | Chr1 to Chr5 | default |
+| Mouse CC055, library mode | 12 (11 workers) | 8, one job per chromosome | chr1 to chr19 and chrX (20 jobs) | 100,000,000 |
+| Mouse CC055, no-library mode | none | 8, one job per chromosome | chr1 to chr19 and chrX (20 jobs) | not used |
+
+At the default work limit of 1,500,000, the call step stopped on the JUT-011 reads (work 1,522,148). That run was repeated at 2,000,000. The ISO1 run and the synthetic heterozygous samples used 2,000,000 from the start, so that all runs with ISO1 reads share one value. The default also stopped the mouse call step, and the mouse run used 100,000,000. Breakpoint refinement stopped with an error on the synthetic heterozygous samples of JUT-011 and ISO1 at 50% and 40x and at 50% and 54x. For these two runs, `library-free` started from the calls of the `call` step. The evaluation of the paper uses the breakpoints of the call step in all runs.
+
+The no-library results of the paper come from the library-free layer alone, with the command above. They do not come from `evitea run --no-library`, which adds a repeat map and a record pass and keeps the resident-copy test on.
+
+<a id="reproducing-the-paper"></a>
+
+## 🔁 Reproducing the paper
+
+This repository holds the code and the commands. The data, the ground-truth sets and the scoring scripts of the paper are kept elsewhere. Run the code of the paper first (`git checkout paper-2026-11-15`), then follow the table below for the inputs.
+
+> [!NOTE]
+> The paper's deposit on Figshare holds the files that are not public elsewhere. **Figshare DOI: to be added at publication.** An archived copy of release `paper-2026-11-15` will be on Zenodo. **Zenodo DOI: to be added at publication.**
+
+**Inputs.** All sequencing reads are public. The accessions are in the supplement (Table S2J).
+
+| Species | Reads (accessions of the samples) | Reference | TE library | Repeat annotation of the reference |
+|---|---|---|---|---|
+| *D. melanogaster* | AKA-017 SRR9951105 (training strain), GIM-024 SRR9951106, SLA-001 SRR9951097, MUN-009 SRR12187566, JUT-011 SRR9951100, ISO1 SRR11906527; Kuruka test lines mel33 SRR23103981, mel67 SRR23103904, mel21 SRR23103920 | dm6 | the 180 transposon sequences of FlyBase | RepeatMasker annotation of dm6, BED6 |
+| *S. cerevisiae* | SK1 SRR4074258, Y12 SRR4074358, DBVPG6765 SRR4074257, UWOPS03-461.4 SRR4074384, DBVPG6044 SRR4074256 | R64 (sacCer3) | six Ty sequences of the McClintock yeast set | RepeatMasker 4.1.7-p1 hits of the six Ty sequences and Tsu4 (553 intervals) |
+| *Z. tritici* | ISY92 SRR4907750, OregS90 SRR3740331, Aus01 SRR3740257 | IPO323 | 42 consensus sequences of Oggenfuss et al. 2021 | blastn of the 42 sequences on IPO323 (80% identity, 100 bp or longer; 2,372 intervals) |
+| *A. thaliana* | Cvi-0 ERR3624578 | TAIR10 | 348 sequences derived from the library distributed with EDTA | TAIR10 TE annotation (28,576 intervals) |
+| Mouse | CC055 ERR1942452 (ENA project PRJEB14673) | mm10 | 20 sequences that cover the 11 ground-truth families | UCSC RepeatMasker track of mm10, matched by repeat name to the 20 sequences |
+
+The reference genomes are the public assemblies named in the table. The checksum of each file that the paper used is in Table S2A. The paper's TE libraries of *A. thaliana* and the mouse were made for the study and are in the deposit. The other libraries are public (FlyBase; Nelson et al. 2017; Oggenfuss et al. 2021). The tutorial above shows how to get the yeast files.
+
+**Ground truth and scoring.** The ground-truth sets come from long-read assemblies: Table S2I and S2J give the assembly of each strain, and Supplementary Methods (ground-truth sets) describes how each set was made. The scripts that score calls are not in this repository. They are in the deposit: the one-to-one matching at 500 bp, the paired block bootstrap, the pair-preserving subsampling (seed 20261103), the synthetic heterozygous mixing and the ISO1 exclusion mask. The folder `validation/quarantined_scoring/` of this repository is empty.
+
+**Data that is not public.** The `validation/` folder compares this code with the research code it came from, on data that is not distributed. It is not needed to reproduce the paper.
 
 <a id="limits"></a>
 
